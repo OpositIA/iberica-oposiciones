@@ -24,6 +24,12 @@ const Navbar = () => {
       </div>
       <div className="flex items-center gap-4">
         <Link
+          to="/dashboard"
+          className="text-xs font-medium tracking-widest uppercase text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+        >
+          Mi cuenta
+        </Link>
+        <Link
           to="/login"
           className="text-xs font-medium tracking-widest uppercase text-primary-foreground/70 hover:text-primary-foreground transition-colors"
         >
