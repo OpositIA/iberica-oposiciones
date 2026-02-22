@@ -1,54 +1,61 @@
 # AGENTS.md
 
 ## Objetivo
-Este archivo define instrucciones generales para Codex en este proyecto.
+Este archivo define instrucciones generales para Codex en este proyecto.  
 Prioriza velocidad de ejecucion, claridad tecnica y cambios seguros.
 
 ## Contexto del proyecto
 - Stack principal: React + TypeScript + Vite.
+- Gestor de paquetes: **pnpm**.
 - Estilos: Tailwind CSS (con variables de tema ya definidas).
 - UI base disponible en `src/components/ui`.
 - Router: `react-router-dom`.
 
 ## Idioma y comunicacion
-- Responder siempre en espanol, salvo que el usuario pida otro idioma.
+- Responder siempre en español, salvo que el usuario pida otro idioma.
 - Mensajes breves y accionables.
-- Explicar que se cambio, en que archivos y por que.
+- Explicar que se cambió, en qué archivos y por qué.
 
 ## Forma de trabajo
-- Implementar directamente cuando la peticion sea clara.
-- Si hay ambiguedad fuerte, hacer 1 pregunta concreta antes de editar.
+- Implementar directamente cuando la petición sea clara.
+- Si hay ambigüedad fuerte, hacer **1 pregunta concreta** antes de editar.
 - No inventar APIs ni endpoints: usar mocks o stubs claros cuando falte backend.
 - Reutilizar componentes existentes antes de crear nuevos.
 - Mantener consistencia visual con el sistema actual.
+- **Nunca tocar archivos o lógica fuera del alcance exacto de la tarea.**
+- **Si se crea algo nuevo, debe ser necesario para la tarea y no redundante.**
 
-## Calidad de codigo
+## Calidad de código
 - Mantener TypeScript limpio y legible.
 - Evitar complejidad innecesaria.
 - No introducir dependencias nuevas sin justificarlo.
 - Mantener nombres de variables/componentes claros.
-- Evitar comentarios redundantes; comentar solo logica no obvia.
+- Evitar comentarios redundantes; comentar solo lógica no obvia.
 
-## Validacion
-- Despues de cambios relevantes, intentar:
-  - `npm run build`
-  - `npm run test` (si aplica)
-- Si no se puede ejecutar validacion en el entorno, informarlo explicitamente.
+## Validación
+Después de cambios relevantes, intentar:
+- `pnpm build`
+- `pnpm test` (si aplica)
+
+Si no se puede ejecutar validación en el entorno, informarlo explícitamente.
 
 ## Seguridad de cambios
-- No ejecutar comandos destructivos sin peticion explicita.
-- No revertir cambios del usuario sin autorizacion.
-- Limitar cambios al alcance pedido.
+- No ejecutar comandos destructivos sin petición explícita.
+- No revertir cambios del usuario sin autorización.
+- Limitar cambios estrictamente al alcance pedido.
+- No refactorizar ni “aprovechar para mejorar” código no relacionado.
 
 ## Criterios UI/UX
-- Interfaz limpia, minimalista y atractiva.
+- Interfaz **bonita, moderna, minimalista y atractiva**.
+- Alta calidad visual comparable a productos SaaS actuales.
 - Responsive primero (mobile + desktop).
-- Buena jerarquia tipografica y espaciado consistente.
-- Estados vacios, carga y error cuando aplique.
+- Buena jerarquía tipográfica y espaciado consistente.
+- Uso correcto de color, contraste y estados interactivos.
+- Estados vacíos, carga y error cuando aplique.
 
 ## Entrega esperada
-- Lista corta con:
-  - archivos modificados
-  - resumen funcional
-  - estado de validacion (build/test)
-  - siguiente paso recomendado (solo si aporta valor)
+Lista corta con:
+- archivos modificados
+- resumen funcional
+- estado de validación (build/test)
+- siguiente paso recomendado (solo si aporta valor)

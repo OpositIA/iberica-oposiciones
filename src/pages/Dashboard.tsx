@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Bell,
@@ -19,6 +19,8 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 type TestStatus = "Excelente" | "Aprobado" | "Reforzar";
 
@@ -96,9 +98,12 @@ const formatHora = () =>
   });
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [metaSemanal, setMetaSemanal] = useState(18);
   const [focusArea, setFocusArea] = useState("Constitucion y procedimiento");
   const [inputChat, setInputChat] = useState("");
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [mensajes, setMensajes] = useState<ChatMessage[]>([
     {
       id: 1,
@@ -162,6 +167,24 @@ const Dashboard = () => {
     Reforzar: "bg-amber-500/15 text-amber-700",
   };
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "No se pudo cerrar sesion",
+        description: error.message,
+      });
+      setIsSigningOut(false);
+      return;
+    }
+
+    navigate("/login", { replace: true });
+    setIsSigningOut(false);
+  };
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
@@ -183,13 +206,15 @@ const Dashboard = () => {
             <button className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center">
               <Settings className="h-4 w-4 text-muted-foreground" />
             </button>
-            <Link
-              to="/"
-              className="h-10 px-4 border border-border hover:bg-secondary transition-colors text-xs font-semibold tracking-widest uppercase inline-flex items-center gap-2"
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              className="h-10 px-4 border border-border hover:bg-secondary transition-colors text-xs font-semibold tracking-widest uppercase inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <LogOut className="h-3.5 w-3.5" />
-              Salir
-            </Link>
+              {isSigningOut ? "Saliendo..." : "Salir"}
+            </button>
           </div>
         </div>
       </header>
