@@ -16,6 +16,7 @@ import ProfileTemario from "./pages/ProfileTemario";
 import ProfileCalendario from "./pages/ProfileCalendario";
 import ProfileEstadisticas from "./pages/ProfileEstadisticas";
 import AuthenticatedSidebarLayout from "./components/AuthenticatedSidebarLayout";
+import ScrollToTop from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />

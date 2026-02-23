@@ -61,8 +61,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Plus Jakarta Sans", "sans-serif"],
-        serif: ["Playfair Display", "serif"],
+        sans: ["Muli", "Mulish", "sans-serif"],
+        serif: ["Muli", "Mulish", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
