@@ -55,10 +55,10 @@ const Plans = () => {
           <p className="text-xs font-semibold tracking-[0.3em] uppercase text-primary mb-4">
             {t("header.badge")}
           </p>
-          <h1 className="text-4xl md:text-6xl font-serif italic text-accent-foreground mb-4">
+          <h1 className="text-4xl md:text-6xl font-serif italic text-primary-foreground mb-4">
             {t("header.title")}
           </h1>
-          <p className="text-sm text-accent-foreground/50 max-w-md mx-auto">
+          <p className="text-sm text-primary-foreground/70 max-w-md mx-auto">
             {t("header.description")}
           </p>
         </div>
@@ -71,7 +71,7 @@ const Plans = () => {
               key={plan.id}
               className={`border p-8 flex flex-col ${
                 plan.featured
-                  ? "border-primary bg-charcoal text-accent-foreground relative"
+                  ? "border-primary bg-charcoal text-primary-foreground relative"
                   : "border-border bg-background text-foreground"
               }`}
             >
@@ -90,7 +90,7 @@ const Plans = () => {
                 <span className="text-sm opacity-50">{plan.period}</span>
               </div>
               <p
-                className={`text-sm leading-relaxed mb-8 ${plan.featured ? "text-accent-foreground/60" : "text-muted-foreground"}`}
+                className={`text-sm leading-relaxed mb-8 ${plan.featured ? "text-primary-foreground/70" : "text-muted-foreground"}`}
               >
                 {plan.description}
               </p>
@@ -101,7 +101,7 @@ const Plans = () => {
                     <span
                       className={
                         plan.featured
-                          ? "text-accent-foreground/80"
+                          ? "text-primary-foreground/85"
                           : "text-muted-foreground"
                       }
                     >

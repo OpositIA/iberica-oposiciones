@@ -1,5 +1,7 @@
 import { useAuth } from "@/auth/AuthProvider";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import CustomInput from "@/components/ui/custom-input";
+import CustomSelect from "@/components/ui/custom-select";
 import {
   obtenerNombresOposiciones,
   resolverNombreOposicion
@@ -40,6 +42,7 @@ const initialProfile: ProfileForm = {
 
 const AVATAR_BUCKET = "profile-avatars";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const PROFILE_LOAD_TIMEOUT_MS = 12000;
 const ALLOWED_AVATAR_TYPES = new Set([
   "image/png",
   "image/jpeg",
@@ -90,7 +93,7 @@ const parseOptionalInteger = (value: string) => {
 const MiPerfil = () => {
   const { t } = useTranslation(["profile", "common", "oppositions"]);
   const { toast } = useToast();
-  const { user, isAuthReady, locale, setLocale } = useAuth();
+  const { user, isAuthReady, locale, setLocale, refreshProfile } = useAuth();
   const [profile, setProfile] = useState<ProfileForm>(initialProfile);
   const [persistedAvatarUrl, setPersistedAvatarUrl] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -118,11 +121,14 @@ const MiPerfil = () => {
 
   useEffect(() => {
     if (!isAuthReady) return;
+    const userId = user?.id;
 
-    if (!user) {
+    if (!userId) {
+      setProfile(initialProfile);
       setPendingAvatarFile(null);
       clearAvatarBlobPreview();
       setPersistedAvatarUrl("");
+      setActiveOpposition("");
       setIsLoadingProfile(false);
       return;
     }
@@ -130,57 +136,98 @@ const MiPerfil = () => {
     let isMounted = true;
 
     const loadProfile = async () => {
-      const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
-
-      const { data } = await supabase
-        .from("profiles")
-        .select(
-          "email, first_name, last_name, age, preferred_opposition, years_preparing, weekly_target_hours, tests_per_week, main_challenge, avatar_url"
-        )
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!isMounted) return;
-
-      const resolvedOpposition = resolverNombreOposicion(
-        String(
-          data?.preferred_opposition ?? metadata.preferred_opposition ?? ""
-        )
+      setIsLoadingProfile(true);
+      const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
+      const abortController = new AbortController();
+      const timeoutId = window.setTimeout(
+        () => abortController.abort("profile_load_timeout"),
+        PROFILE_LOAD_TIMEOUT_MS
       );
 
-      const resolvedAvatar = sanitizeAvatarForMetadata(
-        String(data?.avatar_url ?? metadata.avatar_url ?? "")
-      );
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(
+            "email, first_name, last_name, age, preferred_opposition, years_preparing, weekly_target_hours, tests_per_week, main_challenge, avatar_url"
+          )
+          .eq("user_id", userId)
+          .abortSignal(abortController.signal)
+          .maybeSingle();
 
-      setProfile({
-        firstName: String(data?.first_name ?? metadata.first_name ?? ""),
-        lastName: String(data?.last_name ?? metadata.last_name ?? ""),
-        email: String(data?.email ?? user.email ?? ""),
-        age: data?.age != null ? String(data.age) : String(metadata.age ?? ""),
-        preferredOpposition: resolvedOpposition,
-        yearsPreparing:
-          data?.years_preparing != null
-            ? String(data.years_preparing)
-            : String(metadata.years_preparing ?? ""),
-        weeklyTargetHours:
-          data?.weekly_target_hours != null
-            ? String(data.weekly_target_hours)
-            : String(metadata.weekly_target_hours ?? "16"),
-        testsPerWeek:
-          data?.tests_per_week != null
-            ? String(data.tests_per_week)
-            : String(metadata.tests_per_week ?? ""),
-        mainChallenge: String(
-          data?.main_challenge ?? metadata.main_challenge ?? ""
-        ),
-        avatarUrl: resolvedAvatar
-      });
+        console.log("Loaded profile data:", { data, error, metadata });
 
-      setPersistedAvatarUrl(resolvedAvatar);
-      setPendingAvatarFile(null);
-      clearAvatarBlobPreview();
-      setActiveOpposition(resolvedOpposition);
-      setIsLoadingProfile(false);
+        if (error) throw error;
+        if (!isMounted) return;
+
+        const resolvedOpposition = resolverNombreOposicion(
+          String(
+            data?.preferred_opposition ?? metadata.preferred_opposition ?? ""
+          )
+        );
+
+        const resolvedAvatar = sanitizeAvatarForMetadata(
+          String(data?.avatar_url ?? metadata.avatar_url ?? "")
+        );
+
+        setProfile({
+          firstName: String(data?.first_name ?? metadata.first_name ?? ""),
+          lastName: String(data?.last_name ?? metadata.last_name ?? ""),
+          email: String(data?.email ?? user.email ?? ""),
+          age:
+            data?.age != null ? String(data.age) : String(metadata.age ?? ""),
+          preferredOpposition: resolvedOpposition,
+          yearsPreparing:
+            data?.years_preparing != null
+              ? String(data.years_preparing)
+              : String(metadata.years_preparing ?? ""),
+          weeklyTargetHours:
+            data?.weekly_target_hours != null
+              ? String(data.weekly_target_hours)
+              : String(metadata.weekly_target_hours ?? "16"),
+          testsPerWeek:
+            data?.tests_per_week != null
+              ? String(data.tests_per_week)
+              : String(metadata.tests_per_week ?? ""),
+          mainChallenge: String(
+            data?.main_challenge ?? metadata.main_challenge ?? ""
+          ),
+          avatarUrl: resolvedAvatar
+        });
+
+        setPersistedAvatarUrl(resolvedAvatar);
+        setPendingAvatarFile(null);
+        clearAvatarBlobPreview();
+        setActiveOpposition(resolvedOpposition);
+      } catch {
+        if (!isMounted) return;
+
+        const fallbackOpposition = resolverNombreOposicion(
+          String(metadata.preferred_opposition ?? "")
+        );
+        const fallbackAvatar = sanitizeAvatarForMetadata(
+          String(metadata.avatar_url ?? "")
+        );
+
+        setProfile({
+          firstName: String(metadata.first_name ?? ""),
+          lastName: String(metadata.last_name ?? ""),
+          email: String(user.email ?? ""),
+          age: String(metadata.age ?? ""),
+          preferredOpposition: fallbackOpposition,
+          yearsPreparing: String(metadata.years_preparing ?? ""),
+          weeklyTargetHours: String(metadata.weekly_target_hours ?? "16"),
+          testsPerWeek: String(metadata.tests_per_week ?? ""),
+          mainChallenge: String(metadata.main_challenge ?? ""),
+          avatarUrl: fallbackAvatar
+        });
+        setPersistedAvatarUrl(fallbackAvatar);
+        setPendingAvatarFile(null);
+        clearAvatarBlobPreview();
+        setActiveOpposition(fallbackOpposition);
+      } finally {
+        window.clearTimeout(timeoutId);
+        if (isMounted) setIsLoadingProfile(false);
+      }
     };
 
     void loadProfile();
@@ -327,6 +374,7 @@ const MiPerfil = () => {
       title: t("profile:myProfile.toasts.updatedTitle"),
       description: t("profile:myProfile.toasts.updatedDescription")
     });
+    await refreshProfile();
     setIsSavingProfile(false);
   };
 
@@ -492,44 +540,44 @@ const MiPerfil = () => {
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.name")}
             </label>
-            <input
+            <CustomInput
               type="text"
               value={profile.firstName}
               onChange={(e) =>
                 setProfile((prev) => ({ ...prev, firstName: e.target.value }))
               }
-              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+              className="w-full"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.lastName")}
             </label>
-            <input
+            <CustomInput
               type="text"
               value={profile.lastName}
               onChange={(e) =>
                 setProfile((prev) => ({ ...prev, lastName: e.target.value }))
               }
-              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+              className="w-full"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.email")}
             </label>
-            <input
+            <CustomInput
               type="email"
               value={profile.email}
               disabled
-              className="w-full border border-border bg-secondary/40 px-3 py-2 text-sm text-muted-foreground cursor-not-allowed"
+              className="w-full bg-secondary/40 text-muted-foreground"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.locale")}
             </label>
-            <select
+            <CustomSelect
               value={locale}
               onChange={handleLocaleChange}
               disabled={isChangingLocale}
@@ -537,13 +585,13 @@ const MiPerfil = () => {
             >
               <option value="es">{t("common:locale.es")}</option>
               <option value="en">{t("common:locale.en")}</option>
-            </select>
+            </CustomSelect>
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.age")}
             </label>
-            <input
+            <CustomInput
               type="number"
               min={16}
               max={75}
@@ -551,14 +599,14 @@ const MiPerfil = () => {
               onChange={(e) =>
                 setProfile((prev) => ({ ...prev, age: e.target.value }))
               }
-              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+              className="w-full"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.yearsPreparing")}
             </label>
-            <input
+            <CustomInput
               type="number"
               min={0}
               max={40}
@@ -569,14 +617,14 @@ const MiPerfil = () => {
                   yearsPreparing: e.target.value
                 }))
               }
-              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+              className="w-full"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.weeklyTargetHours")}
             </label>
-            <input
+            <CustomInput
               type="number"
               min={1}
               max={80}
@@ -587,14 +635,14 @@ const MiPerfil = () => {
                   weeklyTargetHours: e.target.value
                 }))
               }
-              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+              className="w-full"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.testsPerWeek")}
             </label>
-            <input
+            <CustomInput
               type="number"
               min={1}
               max={14}
@@ -605,7 +653,7 @@ const MiPerfil = () => {
                   testsPerWeek: e.target.value
                 }))
               }
-              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+              className="w-full"
             />
           </div>
         </div>
@@ -620,7 +668,7 @@ const MiPerfil = () => {
             onChange={(e) =>
               setProfile((prev) => ({ ...prev, mainChallenge: e.target.value }))
             }
-            className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+            className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground min-h-min"
             placeholder={t("profile:myProfile.fields.mainChallengePlaceholder")}
           />
         </div>
@@ -648,7 +696,7 @@ const MiPerfil = () => {
           <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
             {t("profile:myProfile.oppositionSection.newOpposition")}
           </label>
-          <select
+          <CustomSelect
             value={profile.preferredOpposition}
             onChange={(e) =>
               setProfile((prev) => ({
@@ -666,7 +714,7 @@ const MiPerfil = () => {
                 {option}
               </option>
             ))}
-          </select>
+          </CustomSelect>
 
           <p className="mt-3 text-xs text-muted-foreground">
             {t("profile:myProfile.oppositionSection.description")}

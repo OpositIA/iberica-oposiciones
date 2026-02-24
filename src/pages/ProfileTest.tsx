@@ -2,6 +2,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { resolverOposicionPorNombre } from "@/data/oposiciones";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { runSingleFlight } from "@/lib/singleFlight";
 import { ArrowRight, FileText, ListChecks } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,8 +19,9 @@ const ProfileTest = () => {
 
   useEffect(() => {
     if (!isAuthReady) return;
+    const userId = user?.id;
 
-    if (!user) {
+    if (!userId) {
       setIsLoadingOpposition(false);
       return;
     }
@@ -27,11 +29,16 @@ const ProfileTest = () => {
     let isMounted = true;
 
     const loadPreferredOpposition = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("preferred_opposition")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const { data } = await runSingleFlight(
+        `profile-test:preferred-opposition:${userId}`,
+        () =>
+          supabase
+            .from("profiles")
+            .select("preferred_opposition")
+            .eq("user_id", userId)
+            .maybeSingle(),
+        { reuseResultForMs: 1500 }
+      );
 
       if (!isMounted) return;
 
@@ -46,7 +53,7 @@ const ProfileTest = () => {
     return () => {
       isMounted = false;
     };
-  }, [isAuthReady, t, user]);
+  }, [isAuthReady, user?.id]);
 
   const iniciarSimulacro = () => {
     toast({

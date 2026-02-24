@@ -1,6 +1,7 @@
 import { useAuth } from "@/auth/AuthProvider";
 import { resolverOposicionPorNombre } from "@/data/oposiciones";
 import { supabase } from "@/integrations/supabase/client";
+import { runSingleFlight } from "@/lib/singleFlight";
 import { BookOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,8 +16,9 @@ const ProfileTemario = () => {
 
   useEffect(() => {
     if (!isAuthReady) return;
+    const userId = user?.id;
 
-    if (!user) {
+    if (!userId) {
       setIsLoadingOpposition(false);
       return;
     }
@@ -24,11 +26,16 @@ const ProfileTemario = () => {
     let isMounted = true;
 
     const loadPreferredOpposition = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("preferred_opposition")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const { data } = await runSingleFlight(
+        `profile-temario:preferred-opposition:${userId}`,
+        () =>
+          supabase
+            .from("profiles")
+            .select("preferred_opposition")
+            .eq("user_id", userId)
+            .maybeSingle(),
+        { reuseResultForMs: 1500 }
+      );
 
       if (!isMounted) return;
 
@@ -42,7 +49,7 @@ const ProfileTemario = () => {
     return () => {
       isMounted = false;
     };
-  }, [isAuthReady, t, user]);
+  }, [isAuthReady, user?.id]);
 
   if (isLoadingOpposition) {
     return (

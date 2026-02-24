@@ -1,59 +1,70 @@
+import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import { useAuth } from "@/auth/AuthProvider";
-import { supabase } from "@/integrations/supabase/client";
-import { applyTheme, getStoredTheme, type AppTheme } from "@/lib/theme";
+import UserActionsDropdown from "@/components/UserActionsDropdown";
 import {
-  Bell,
   Brain,
   CalendarDays,
   ChevronRight,
   CircleUserRound,
   FileText,
   Home,
-  LogOut,
+  LayoutDashboard,
   Menu,
-  Moon,
   NotebookText,
   Sparkles,
-  Sun,
   X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
-const sanitizeAvatarForRender = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const lower = trimmed.toLowerCase();
-  if (lower.startsWith("data:") || lower.startsWith("blob:")) return "";
-  return trimmed;
-};
-
 const AuthenticatedSidebarLayout = () => {
   const location = useLocation();
-  const { t } = useTranslation(["profile"]);
-  const { user, forceLogout } = useAuth();
+  const { t } = useTranslation(["profile", "common"]);
+  const { profile } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [accountName, setAccountName] = useState(
-    t("profile:layout.defaults.account")
-  );
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
+  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
+  const avatarUrl = profile?.avatarUrl ?? "";
+  const accountName = useMemo(() => {
+    const fullName = `${profile?.firstName ?? ""} ${
+      profile?.lastName ?? ""
+    }`.trim();
+    return fullName || profile?.email || t("profile:layout.defaults.account");
+  }, [profile, t]);
 
   const menuGroups = useMemo(
     () => [
+      {
+        title: t("profile:layout.menuGroups.web"),
+        items: [
+          {
+            label: t("profile:layout.menuItems.mainMenu"),
+            to: "/",
+            icon: Home
+          },
+          {
+            label: t("profile:layout.menuItems.plans"),
+            to: "/planes",
+            icon: Sparkles
+          }
+        ]
+      },
       {
         title: t("profile:layout.menuGroups.general"),
         items: [
           {
             label: t("profile:layout.menuItems.dashboard"),
             to: "/dashboard",
-            icon: Home
+            icon: LayoutDashboard
+          },
+          {
+            label: t("profile:layout.menuItems.profile"),
+            to: "/perfil/mi-perfil",
+            icon: CircleUserRound
           },
           {
             label: t("profile:layout.menuItems.ia"),
-            to: "/perfil/oposia",
+            to: "/perfil/opositAI",
             icon: Brain
           }
         ]
@@ -82,67 +93,31 @@ const AuthenticatedSidebarLayout = () => {
     [t]
   );
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadProfileSnapshot = async () => {
-      if (!user) {
-        if (!isMounted) return;
-        setAccountName(t("profile:layout.defaults.account"));
-        setAvatarUrl("");
-        return;
-      }
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("first_name, last_name, email, avatar_url")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!isMounted) return;
-
-      const firstName = String(data?.first_name ?? "").trim();
-      const lastName = String(data?.last_name ?? "").trim();
-      const fullName = `${firstName} ${lastName}`.trim();
-      const avatar = sanitizeAvatarForRender(String(data?.avatar_url ?? ""));
-
-      setAccountName(
-        fullName ||
-          data?.email ||
-          user.email ||
-          t("profile:layout.defaults.account")
-      );
-      setAvatarUrl(avatar);
-    };
-
-    void loadProfileSnapshot();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [t, user]);
-
   const closeMobileSidebar = () => setIsMobileOpen(false);
 
-  const handleToggleTheme = () => {
-    const nextTheme: AppTheme = theme === "dark" ? "light" : "dark";
-    applyTheme(nextTheme);
-    setTheme(nextTheme);
-  };
+  useEffect(() => {
+    const updateScrollState = () => {
+      setIsHeaderScrolled(window.scrollY > 12);
+    };
 
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    await forceLogout("manual_sign_out");
-    setIsSigningOut(false);
-  };
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollState);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-charcoal/10 blur-3xl" />
 
-      <header className="border-b border-border/70 bg-background/85 backdrop-blur relative z-30">
-        <div className="w-full max-w-[110rem] mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300 lg:pl-72">
+      <header
+        className={`sticky top-0 relative z-30 transition-all duration-300 ${
+          isHeaderScrolled
+            ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
+            : "border-b border-transparent bg-transparent"
+        }`}
+      >
+        <div className="w-full max-w-[110rem] mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300 lg:pl-[19rem] xl:pl-[19.5rem]">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -154,47 +129,43 @@ const AuthenticatedSidebarLayout = () => {
             </button>
 
             <Link
-              to="/dashboard"
-              className="inline-flex items-center gap-2 lg:hidden"
+              to="/"
+              className="inline-flex items-center gap-2"
               onClick={closeMobileSidebar}
             >
-              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-              <span className="font-semibold text-lg text-foreground">
-                {t("profile:layout.panel")}
-              </span>
+              <img
+                src={opositaiHorizontalLogo}
+                alt="OpositAI"
+                className="h-20 w-auto"
+              />
             </Link>
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-            </button>
-            <Link
-              to="/perfil/mi-perfil"
-              className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center rounded-full overflow-hidden"
-              aria-label={t("profile:layout.openProfile")}
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={t("profile:myProfile.avatarAlt")}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <CircleUserRound className="h-4 w-4 text-muted-foreground" />
-              )}
-            </Link>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-              className="h-10 px-4 border border-border hover:bg-secondary transition-colors text-xs font-semibold tracking-widest uppercase inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              {isSigningOut
-                ? t("profile:layout.signingOut")
-                : t("profile:layout.signOut")}
-            </button>
+            <div className="hidden md:flex items-center gap-2">
+              <Link
+                to="/"
+                className={`h-10 px-3 border border-border transition-colors text-xs font-semibold tracking-widest uppercase inline-flex items-center ${
+                  location.pathname === "/"
+                    ? "bg-secondary text-foreground"
+                    : "hover:bg-secondary text-muted-foreground"
+                }`}
+              >
+                {t("profile:layout.mainMenu")}
+              </Link>
+              <Link
+                to="/planes"
+                className={`h-10 px-3 border border-border transition-colors text-xs font-semibold tracking-widest uppercase inline-flex items-center ${
+                  location.pathname === "/planes"
+                    ? "bg-secondary text-foreground"
+                    : "hover:bg-secondary text-muted-foreground"
+                }`}
+              >
+                {t("profile:layout.plans")}
+              </Link>
+            </div>
+
+            <UserActionsDropdown />
           </div>
         </div>
       </header>
@@ -220,48 +191,25 @@ const AuthenticatedSidebarLayout = () => {
 
           <header className="relative p-5 flex justify-between items-center gap-2 border-b border-border/60">
             <Link
-              to="/dashboard"
+              to="/"
               onClick={closeMobileSidebar}
               className="inline-flex items-center gap-2"
             >
-              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-              <span className="font-semibold text-lg text-foreground">
-                {t("profile:layout.panel")}
-              </span>
+              <img
+                src={opositaiHorizontalLogo}
+                alt="OpositAI"
+                className="h-14 w-auto"
+              />
             </Link>
 
-            <div className="inline-flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleToggleTheme}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-secondary transition-colors"
-                aria-label={
-                  theme === "dark"
-                    ? t("profile:layout.theme.activateLight")
-                    : t("profile:layout.theme.activateDark")
-                }
-                title={
-                  theme === "dark"
-                    ? t("profile:layout.theme.lightTitle")
-                    : t("profile:layout.theme.darkTitle")
-                }
-              >
-                {theme === "dark" ? (
-                  <Moon className="h-4 w-4" />
-                ) : (
-                  <Sun className="h-4 w-4" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={closeMobileSidebar}
-                className="lg:hidden inline-flex h-8 w-8 items-center justify-center border border-border text-muted-foreground hover:bg-secondary transition-colors rounded-full"
-                aria-label={t("profile:layout.closeSidebar")}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={closeMobileSidebar}
+              className="lg:hidden inline-flex h-8 w-8 items-center justify-center border border-border text-muted-foreground hover:bg-secondary transition-colors rounded-full"
+              aria-label={t("profile:layout.closeSidebar")}
+            >
+              <X className="h-4 w-4" />
+            </button>
           </header>
 
           <nav className="relative h-full overflow-y-auto p-3 space-y-5">
@@ -333,24 +281,12 @@ const AuthenticatedSidebarLayout = () => {
                 <Sparkles className="h-3 w-3" />
                 {t("profile:layout.activePlan")}
               </div>
-
-              <button
-                type="button"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                className="w-full inline-flex items-center justify-center gap-2 border border-border px-3 py-2 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors disabled:opacity-60"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                {isSigningOut
-                  ? t("profile:layout.signingOut")
-                  : t("profile:layout.closeSession")}
-              </button>
             </div>
           </footer>
         </div>
       </aside>
 
-      <main className="w-full max-w-[110rem] mx-auto px-4 md:px-6 py-8 lg:py-10 relative z-10 transition-all duration-300 lg:pl-72">
+      <main className="w-full max-w-[110rem] mx-auto px-4 md:px-6 py-8 lg:py-10 relative z-10 transition-all duration-300 lg:pl-[19rem] xl:pl-[19.5rem]">
         <Outlet />
       </main>
     </div>

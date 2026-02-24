@@ -3,13 +3,24 @@
     "defaults": {
       "account": "My account"
     },
+    "mainMenu": "Main menu",
+    "plans": "Plans",
     "mobileMenuOpen": "Open menu",
     "openProfile": "Open my profile",
+    "profileMenuLabel": "Open account menu",
     "signOut": "Sign out",
     "signingOut": "Signing out...",
     "mobileMenuClose": "Close menu",
     "sidebarAriaLabel": "Sidebar",
     "panel": "Panel",
+    "accountMenu": {
+      "navigation": "Navigation",
+      "sections": {
+        "web": "Website",
+        "workspace": "Workspace",
+        "preferences": "Preferences"
+      }
+    },
     "theme": {
       "activateLight": "Enable light mode",
       "activateDark": "Enable dark mode",
@@ -18,11 +29,15 @@
     },
     "closeSidebar": "Close sidebar",
     "menuGroups": {
+      "web": "Website",
       "general": "General",
       "preparation": "Preparation"
     },
     "menuItems": {
+      "mainMenu": "Main menu",
+      "plans": "Plans",
       "dashboard": "Dashboard",
+      "profile": "My profile",
       "ia": "AI",
       "test": "Tests",
       "syllabus": "Syllabus",
@@ -155,13 +170,13 @@
       }
     }
   },
-  "oposia": {
+  "opositAI": {
     "badge": "AI",
-    "title": "OposIA section",
+    "title": "opositAI section",
     "description": "Your assistant for solving questions, generating study plans, and preparing real-time reviews.",
     "assistant": "Smart assistant",
-    "directAccess": "Direct OposIA access",
+    "directAccess": "Direct opositAI access",
     "directAccessDescription": "Open the full experience to work with prompts, study context, and recommendations.",
-    "open": "Open OposIA"
+    "open": "Open opositAI"
   }
 }

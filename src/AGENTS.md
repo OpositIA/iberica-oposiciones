@@ -28,6 +28,7 @@ Prioriza velocidad de ejecucion, claridad tecnica y cambios seguros.
 - Mantener consistencia visual con el sistema actual.
 - **Nunca tocar archivos o lógica fuera del alcance exacto de la tarea.**
 - **Si se crea algo nuevo, debe ser necesario para la tarea y no redundante.**
+- **No cerrar una tarea si queda cualquier warning de lint/types/hooks.**
 
 ## Calidad de código
 
@@ -49,7 +50,12 @@ Después de cambios relevantes, intentar:
 
 - `pnpm build`
 - `pnpm test` (si aplica)
-- Al finalizar una tarea, ejecutar siempre `pnpm typecheck` y `pnpm format:all` para asegurar que no haya errores ni warnings en todo el proyecto.
+- Al finalizar una tarea, ejecutar siempre `pnpm typecheck` y `pnpm format:all`.
+- Criterio de cierre obligatorio:
+  - Ambos comandos deben terminar en exit code 0.
+  - No puede quedar ningún warning (incluye `eslint`, `react-hooks/exhaustive-deps`, TypeScript, etc.).
+  - Si aparece cualquier warning, se debe corregir y volver a ejecutar validación completa antes de responder al usuario.
+- En la respuesta final, reportar explícitamente el estado de `typecheck` y `format:all`.
 
 Si no se puede ejecutar validación en el entorno, informarlo explícitamente.
 
