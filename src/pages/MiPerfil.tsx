@@ -1,11 +1,16 @@
-﻿import { ChangeEvent, useEffect, useState } from "react";
-import { Camera, Save, User } from "lucide-react";
-import { useRef } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import ConfirmActionDialog from "@/components/ConfirmActionDialog";
-import { obtenerNombresOposiciones, resolverNombreOposicion } from "@/data/oposiciones";
 import { useAuth } from "@/auth/AuthProvider";
+import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import {
+  obtenerNombresOposiciones,
+  resolverNombreOposicion
+} from "@/data/oposiciones";
+import { useToast } from "@/hooks/use-toast";
+import type { AppLocale } from "@/i18n/locales";
+import { normalizeLocale } from "@/i18n/locales";
+import { supabase } from "@/integrations/supabase/client";
+import { Camera, Save, User } from "lucide-react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 type ProfileForm = {
   firstName: string;
@@ -30,13 +35,18 @@ const initialProfile: ProfileForm = {
   weeklyTargetHours: "16",
   testsPerWeek: "",
   mainChallenge: "",
-  avatarUrl: "",
+  avatarUrl: ""
 };
 
-const oppositionOptions = obtenerNombresOposiciones();
 const AVATAR_BUCKET = "profile-avatars";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const ALLOWED_AVATAR_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
+const ALLOWED_AVATAR_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif"
+]);
 
 const sanitizeAvatarForMetadata = (value: string) => {
   const trimmed = value.trim();
@@ -59,24 +69,40 @@ const extractAvatarStoragePath = (value: string) => {
 
 const buildAvatarStoragePath = (userId: string, file: File) => {
   const cleanName = file.name.trim().toLowerCase();
-  const extensionFromName = cleanName.includes(".") ? cleanName.split(".").pop() : "";
-  const extensionFromType = file.type.startsWith("image/") ? file.type.replace("image/", "") : "";
+  const extensionFromName = cleanName.includes(".")
+    ? cleanName.split(".").pop()
+    : "";
+  const extensionFromType = file.type.startsWith("image/")
+    ? file.type.replace("image/", "")
+    : "";
   const extension = extensionFromName || extensionFromType || "jpg";
   const uniqueId = Math.random().toString(36).slice(2, 10);
   return `${userId}/${Date.now()}-${uniqueId}.${extension}`;
 };
 
+const parseOptionalInteger = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const MiPerfil = () => {
+  const { t } = useTranslation(["profile", "common", "oppositions"]);
   const { toast } = useToast();
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, locale, setLocale } = useAuth();
   const [profile, setProfile] = useState<ProfileForm>(initialProfile);
+  const [persistedAvatarUrl, setPersistedAvatarUrl] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingOpposition, setIsChangingOpposition] = useState(false);
+  const [isChangingLocale, setIsChangingLocale] = useState(false);
   const [activeOpposition, setActiveOpposition] = useState("");
   const [isOppositionDialogOpen, setIsOppositionDialogOpen] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const avatarBlobPreviewRef = useRef<string | null>(null);
+
+  const oppositionOptions = obtenerNombresOposiciones();
 
   const clearAvatarBlobPreview = () => {
     if (!avatarBlobPreviewRef.current) return;
@@ -96,29 +122,72 @@ const MiPerfil = () => {
     if (!user) {
       setPendingAvatarFile(null);
       clearAvatarBlobPreview();
+      setPersistedAvatarUrl("");
       setIsLoadingProfile(false);
       return;
     }
 
-    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
-    const resolvedOpposition = resolverNombreOposicion(String(metadata.preferred_opposition ?? ""));
+    let isMounted = true;
 
-    setProfile({
-      firstName: String(metadata.first_name ?? ""),
-      lastName: String(metadata.last_name ?? ""),
-      email: user.email ?? "",
-      age: metadata.age != null ? String(metadata.age) : "",
-      preferredOpposition: resolvedOpposition,
-      yearsPreparing: metadata.years_preparing != null ? String(metadata.years_preparing) : "",
-      weeklyTargetHours: metadata.weekly_target_hours != null ? String(metadata.weekly_target_hours) : "16",
-      testsPerWeek: metadata.tests_per_week != null ? String(metadata.tests_per_week) : "",
-      mainChallenge: String(metadata.main_challenge ?? ""),
-      avatarUrl: sanitizeAvatarForMetadata(String(metadata.avatar_url ?? "")),
-    });
-    setPendingAvatarFile(null);
-    clearAvatarBlobPreview();
-    setActiveOpposition(resolvedOpposition);
-    setIsLoadingProfile(false);
+    const loadProfile = async () => {
+      const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select(
+          "email, first_name, last_name, age, preferred_opposition, years_preparing, weekly_target_hours, tests_per_week, main_challenge, avatar_url"
+        )
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      const resolvedOpposition = resolverNombreOposicion(
+        String(
+          data?.preferred_opposition ?? metadata.preferred_opposition ?? ""
+        )
+      );
+
+      const resolvedAvatar = sanitizeAvatarForMetadata(
+        String(data?.avatar_url ?? metadata.avatar_url ?? "")
+      );
+
+      setProfile({
+        firstName: String(data?.first_name ?? metadata.first_name ?? ""),
+        lastName: String(data?.last_name ?? metadata.last_name ?? ""),
+        email: String(data?.email ?? user.email ?? ""),
+        age: data?.age != null ? String(data.age) : String(metadata.age ?? ""),
+        preferredOpposition: resolvedOpposition,
+        yearsPreparing:
+          data?.years_preparing != null
+            ? String(data.years_preparing)
+            : String(metadata.years_preparing ?? ""),
+        weeklyTargetHours:
+          data?.weekly_target_hours != null
+            ? String(data.weekly_target_hours)
+            : String(metadata.weekly_target_hours ?? "16"),
+        testsPerWeek:
+          data?.tests_per_week != null
+            ? String(data.tests_per_week)
+            : String(metadata.tests_per_week ?? ""),
+        mainChallenge: String(
+          data?.main_challenge ?? metadata.main_challenge ?? ""
+        ),
+        avatarUrl: resolvedAvatar
+      });
+
+      setPersistedAvatarUrl(resolvedAvatar);
+      setPendingAvatarFile(null);
+      clearAvatarBlobPreview();
+      setActiveOpposition(resolvedOpposition);
+      setIsLoadingProfile(false);
+    };
+
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthReady, user]);
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -128,8 +197,8 @@ const MiPerfil = () => {
     if (file.size > MAX_AVATAR_BYTES) {
       toast({
         variant: "destructive",
-        title: "Imagen demasiado pesada",
-        description: "La imagen debe pesar menos de 2MB.",
+        title: t("profile:myProfile.toasts.imageTooLargeTitle"),
+        description: t("profile:myProfile.toasts.imageTooLargeDescription")
       });
       return;
     }
@@ -137,8 +206,8 @@ const MiPerfil = () => {
     if (file.type && !ALLOWED_AVATAR_TYPES.has(file.type.toLowerCase())) {
       toast({
         variant: "destructive",
-        title: "Formato no valido",
-        description: "Usa PNG, JPG, WEBP o GIF.",
+        title: t("profile:myProfile.toasts.invalidFormatTitle"),
+        description: t("profile:myProfile.toasts.invalidFormatDescription")
       });
       return;
     }
@@ -154,8 +223,8 @@ const MiPerfil = () => {
     if (!user) {
       toast({
         variant: "destructive",
-        title: "Sesion no valida",
-        description: "Inicia sesion de nuevo para guardar el perfil.",
+        title: t("profile:myProfile.toasts.invalidSessionTitle"),
+        description: t("profile:myProfile.toasts.invalidSessionDescription")
       });
       return;
     }
@@ -163,87 +232,100 @@ const MiPerfil = () => {
     if (!profile.firstName.trim() || !profile.lastName.trim()) {
       toast({
         variant: "destructive",
-        title: "Faltan datos",
-        description: "Completa nombre y apellidos para guardar el perfil.",
+        title: t("profile:myProfile.toasts.missingDataTitle"),
+        description: t("profile:myProfile.toasts.missingDataDescription")
       });
       return;
     }
 
     setIsSavingProfile(true);
 
-    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
-    const currentAvatarInMetadata = sanitizeAvatarForMetadata(String(metadata.avatar_url ?? ""));
-    let avatarUrlForMetadata = sanitizeAvatarForMetadata(profile.avatarUrl) || currentAvatarInMetadata;
+    const currentAvatarInProfile = persistedAvatarUrl;
+    let avatarUrlForProfile =
+      sanitizeAvatarForMetadata(profile.avatarUrl) || currentAvatarInProfile;
     let uploadedAvatarPath: string | null = null;
 
     if (pendingAvatarFile) {
       uploadedAvatarPath = buildAvatarStoragePath(user.id, pendingAvatarFile);
-      const { error: uploadError } = await supabase.storage.from(AVATAR_BUCKET).upload(uploadedAvatarPath, pendingAvatarFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: pendingAvatarFile.type || undefined,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(uploadedAvatarPath, pendingAvatarFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: pendingAvatarFile.type || undefined
+        });
 
       if (uploadError) {
         toast({
           variant: "destructive",
-          title: "No se pudo subir la imagen",
-          description: uploadError.message,
+          title: t("profile:myProfile.toasts.uploadFailedTitle"),
+          description: uploadError.message
         });
         setIsSavingProfile(false);
         return;
       }
 
-      const { data: publicUrlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(uploadedAvatarPath);
-      avatarUrlForMetadata = sanitizeAvatarForMetadata(publicUrlData.publicUrl);
+      const { data: publicUrlData } = supabase.storage
+        .from(AVATAR_BUCKET)
+        .getPublicUrl(uploadedAvatarPath);
+      avatarUrlForProfile = sanitizeAvatarForMetadata(publicUrlData.publicUrl);
     }
 
-    const updateData: Record<string, unknown> = {
+    const nextWeeklyTargetHours = parseOptionalInteger(
+      profile.weeklyTargetHours
+    );
+    const profilePayload = {
+      user_id: user.id,
+      email: profile.email.trim() || user.email || null,
       first_name: profile.firstName.trim(),
       last_name: profile.lastName.trim(),
-      full_name: `${profile.firstName.trim()} ${profile.lastName.trim()}`.trim(),
-      age: Number(profile.age) || null,
-      years_preparing: Number(profile.yearsPreparing) || null,
-      weekly_target_hours: Number(profile.weeklyTargetHours) || 16,
-      tests_per_week: Number(profile.testsPerWeek) || null,
-      main_challenge: profile.mainChallenge.trim(),
+      full_name:
+        `${profile.firstName.trim()} ${profile.lastName.trim()}`.trim(),
+      age: parseOptionalInteger(profile.age),
+      years_preparing: parseOptionalInteger(profile.yearsPreparing),
+      weekly_target_hours:
+        nextWeeklyTargetHours && nextWeeklyTargetHours > 0
+          ? nextWeeklyTargetHours
+          : 16,
+      tests_per_week: parseOptionalInteger(profile.testsPerWeek),
+      main_challenge: profile.mainChallenge.trim() || null,
+      avatar_url: avatarUrlForProfile || null,
+      locale
     };
 
-    if (avatarUrlForMetadata) {
-      updateData.avatar_url = avatarUrlForMetadata;
-    }
-
-    const { error } = await supabase.auth.updateUser({
-      data: updateData,
-    });
+    const { error } = await supabase
+      .from("profiles")
+      .upsert(profilePayload, { onConflict: "user_id" });
 
     if (error) {
-      if (uploadedAvatarPath) {
+      if (uploadedAvatarPath)
         await supabase.storage.from(AVATAR_BUCKET).remove([uploadedAvatarPath]);
-      }
+
       toast({
         variant: "destructive",
-        title: "No se pudo guardar el perfil",
-        description: error.message,
+        title: t("profile:myProfile.toasts.saveFailedTitle"),
+        description: error.message
       });
       setIsSavingProfile(false);
       return;
     }
 
     if (pendingAvatarFile) {
-      const previousAvatarPath = extractAvatarStoragePath(currentAvatarInMetadata);
-      if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath) {
+      const previousAvatarPath = extractAvatarStoragePath(
+        currentAvatarInProfile
+      );
+      if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath)
         await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
-      }
 
       clearAvatarBlobPreview();
       setPendingAvatarFile(null);
-      setProfile((prev) => ({ ...prev, avatarUrl: avatarUrlForMetadata }));
+      setPersistedAvatarUrl(avatarUrlForProfile);
+      setProfile((prev) => ({ ...prev, avatarUrl: avatarUrlForProfile }));
     }
 
     toast({
-      title: "Perfil actualizado",
-      description: "Tus datos de perfil se han guardado correctamente.",
+      title: t("profile:myProfile.toasts.updatedTitle"),
+      description: t("profile:myProfile.toasts.updatedDescription")
     });
     setIsSavingProfile(false);
   };
@@ -254,16 +336,16 @@ const MiPerfil = () => {
     if (!nextOpposition) {
       toast({
         variant: "destructive",
-        title: "Selecciona una oposicion",
-        description: "Debes elegir una oposicion valida antes de cambiar.",
+        title: t("profile:myProfile.toasts.selectOppositionTitle"),
+        description: t("profile:myProfile.toasts.selectOppositionDescription")
       });
       return;
     }
 
     if (nextOpposition === activeOpposition) {
       toast({
-        title: "Sin cambios",
-        description: "Ya tienes seleccionada esta oposicion.",
+        title: t("profile:myProfile.toasts.noChangesTitle"),
+        description: t("profile:myProfile.toasts.noChangesDescription")
       });
       return;
     }
@@ -272,20 +354,25 @@ const MiPerfil = () => {
   };
 
   const handleChangeOpposition = async () => {
+    if (!user) return;
+
     const nextOpposition = resolverNombreOposicion(profile.preferredOpposition);
     setIsChangingOpposition(true);
 
-    const { error } = await supabase.auth.updateUser({
-      data: {
+    const { error } = await supabase.from("profiles").upsert(
+      {
+        user_id: user.id,
         preferred_opposition: nextOpposition,
+        locale
       },
-    });
+      { onConflict: "user_id" }
+    );
 
     if (error) {
       toast({
         variant: "destructive",
-        title: "No se pudo cambiar la oposicion",
-        description: error.message,
+        title: t("profile:myProfile.toasts.changeOppositionFailedTitle"),
+        description: error.message
       });
       setIsChangingOpposition(false);
       return;
@@ -295,16 +382,41 @@ const MiPerfil = () => {
     setProfile((prev) => ({ ...prev, preferredOpposition: nextOpposition }));
     setIsOppositionDialogOpen(false);
     toast({
-      title: "Oposicion actualizada",
-      description: "A partir de ahora, Test y Temario usaran esta oposicion.",
+      title: t("profile:myProfile.toasts.oppositionUpdatedTitle"),
+      description: t("profile:myProfile.toasts.oppositionUpdatedDescription")
     });
     setIsChangingOpposition(false);
+  };
+
+  const handleLocaleChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextLocale = normalizeLocale(event.target.value) as AppLocale;
+    if (nextLocale === locale) return;
+
+    setIsChangingLocale(true);
+    const success = await setLocale(nextLocale);
+    setIsChangingLocale(false);
+
+    if (!success) {
+      toast({
+        variant: "destructive",
+        title: t("profile:myProfile.toasts.localeUpdateFailedTitle"),
+        description: t("profile:myProfile.toasts.localeUpdateFailedDescription")
+      });
+      return;
+    }
+
+    toast({
+      title: t("profile:myProfile.toasts.localeUpdatedTitle"),
+      description: t("profile:myProfile.toasts.localeUpdatedDescription")
+    });
   };
 
   if (isLoadingProfile) {
     return (
       <div className="border border-border bg-background p-6">
-        <p className="text-sm text-muted-foreground">Cargando perfil...</p>
+        <p className="text-sm text-muted-foreground">
+          {t("profile:myProfile.loading")}
+        </p>
       </div>
     );
   }
@@ -316,7 +428,11 @@ const MiPerfil = () => {
           <div className="flex items-start gap-4">
             <div className="relative h-20 w-20 shrink-0 rounded-full border border-border bg-secondary overflow-hidden">
               {profile.avatarUrl ? (
-                <img src={profile.avatarUrl} alt="Perfil" className="h-full w-full object-cover" />
+                <img
+                  src={profile.avatarUrl}
+                  alt={t("profile:myProfile.avatarAlt")}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="h-full w-full inline-flex items-center justify-center">
                   <User className="h-8 w-8 text-muted-foreground" />
@@ -325,18 +441,24 @@ const MiPerfil = () => {
             </div>
             <div>
               <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-                Mi perfil
+                {t("profile:myProfile.sectionBadge")}
               </p>
               <h1 className="text-2xl md:text-3xl font-serif text-foreground">
-                {profile.firstName || "Usuario"} {profile.lastName}
+                {profile.firstName || t("profile:myProfile.defaultUser")}{" "}
+                {profile.lastName}
               </h1>
               <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-                Gestiona tu informacion personal y de preparacion para adaptar toda la experiencia.
+                {t("profile:myProfile.description")}
               </p>
               <label className="mt-3 inline-flex items-center gap-2 border border-border px-3 py-2 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors cursor-pointer">
                 <Camera className="h-3.5 w-3.5" />
-                Cambiar imagen
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                {t("profile:myProfile.changeImage")}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
               </label>
             </div>
           </div>
@@ -348,7 +470,9 @@ const MiPerfil = () => {
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Save className="h-4 w-4" />
-            {isSavingProfile ? "Guardando..." : "Guardar perfil"}
+            {isSavingProfile
+              ? t("profile:myProfile.saving")
+              : t("profile:myProfile.save")}
           </button>
         </div>
       </section>
@@ -356,37 +480,43 @@ const MiPerfil = () => {
       <section className="border border-border bg-background p-6 md:p-8">
         <div className="mb-5">
           <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-            Datos de registro
+            {t("profile:myProfile.dataSection.badge")}
           </p>
-          <h2 className="text-xl font-serif text-foreground">Informacion del perfil</h2>
+          <h2 className="text-xl font-serif text-foreground">
+            {t("profile:myProfile.dataSection.title")}
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              Nombre
+              {t("profile:myProfile.fields.name")}
             </label>
             <input
               type="text"
               value={profile.firstName}
-              onChange={(e) => setProfile((prev) => ({ ...prev, firstName: e.target.value }))}
+              onChange={(e) =>
+                setProfile((prev) => ({ ...prev, firstName: e.target.value }))
+              }
               className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              Apellidos
+              {t("profile:myProfile.fields.lastName")}
             </label>
             <input
               type="text"
               value={profile.lastName}
-              onChange={(e) => setProfile((prev) => ({ ...prev, lastName: e.target.value }))}
+              onChange={(e) =>
+                setProfile((prev) => ({ ...prev, lastName: e.target.value }))
+              }
               className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              Email
+              {t("profile:myProfile.fields.email")}
             </label>
             <input
               type="email"
@@ -397,53 +527,84 @@ const MiPerfil = () => {
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              Edad
+              {t("profile:myProfile.fields.locale")}
+            </label>
+            <select
+              value={locale}
+              onChange={handleLocaleChange}
+              disabled={isChangingLocale}
+              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground disabled:opacity-70"
+            >
+              <option value="es">{t("common:locale.es")}</option>
+              <option value="en">{t("common:locale.en")}</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+              {t("profile:myProfile.fields.age")}
             </label>
             <input
               type="number"
               min={16}
               max={75}
               value={profile.age}
-              onChange={(e) => setProfile((prev) => ({ ...prev, age: e.target.value }))}
+              onChange={(e) =>
+                setProfile((prev) => ({ ...prev, age: e.target.value }))
+              }
               className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              Anos opositando
+              {t("profile:myProfile.fields.yearsPreparing")}
             </label>
             <input
               type="number"
               min={0}
               max={40}
               value={profile.yearsPreparing}
-              onChange={(e) => setProfile((prev) => ({ ...prev, yearsPreparing: e.target.value }))}
+              onChange={(e) =>
+                setProfile((prev) => ({
+                  ...prev,
+                  yearsPreparing: e.target.value
+                }))
+              }
               className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              Horas objetivo / semana
+              {t("profile:myProfile.fields.weeklyTargetHours")}
             </label>
             <input
               type="number"
               min={1}
               max={80}
               value={profile.weeklyTargetHours}
-              onChange={(e) => setProfile((prev) => ({ ...prev, weeklyTargetHours: e.target.value }))}
+              onChange={(e) =>
+                setProfile((prev) => ({
+                  ...prev,
+                  weeklyTargetHours: e.target.value
+                }))
+              }
               className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
             />
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              Tests por semana
+              {t("profile:myProfile.fields.testsPerWeek")}
             </label>
             <input
               type="number"
               min={1}
               max={14}
               value={profile.testsPerWeek}
-              onChange={(e) => setProfile((prev) => ({ ...prev, testsPerWeek: e.target.value }))}
+              onChange={(e) =>
+                setProfile((prev) => ({
+                  ...prev,
+                  testsPerWeek: e.target.value
+                }))
+              }
               className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
             />
           </div>
@@ -451,14 +612,16 @@ const MiPerfil = () => {
 
         <div className="mt-4">
           <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-            Principal reto de estudio
+            {t("profile:myProfile.fields.mainChallenge")}
           </label>
           <textarea
             rows={4}
             value={profile.mainChallenge}
-            onChange={(e) => setProfile((prev) => ({ ...prev, mainChallenge: e.target.value }))}
+            onChange={(e) =>
+              setProfile((prev) => ({ ...prev, mainChallenge: e.target.value }))
+            }
             className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
-            placeholder="Describe tu principal reto actual..."
+            placeholder={t("profile:myProfile.fields.mainChallengePlaceholder")}
           />
         </div>
       </section>
@@ -466,31 +629,38 @@ const MiPerfil = () => {
       <section className="border border-border bg-background p-6 md:p-8">
         <div className="mb-5">
           <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-            Oposicion activa
+            {t("profile:myProfile.oppositionSection.badge")}
           </p>
-          <h2 className="text-xl font-serif text-foreground">Gestion de oposicion</h2>
+          <h2 className="text-xl font-serif text-foreground">
+            {t("profile:myProfile.oppositionSection.title")}
+          </h2>
         </div>
 
         <div className="rounded-xl border border-border bg-secondary/30 p-4">
           <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-            Estudiando ahora
+            {t("profile:myProfile.oppositionSection.studyingNow")}
           </p>
-          <p className="text-sm font-medium text-foreground mb-3">{activeOpposition || "No definida"}</p>
+          <p className="text-sm font-medium text-foreground mb-3">
+            {activeOpposition ||
+              t("profile:myProfile.oppositionSection.undefined")}
+          </p>
 
           <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-            Nueva oposicion
+            {t("profile:myProfile.oppositionSection.newOpposition")}
           </label>
           <select
             value={profile.preferredOpposition}
             onChange={(e) =>
               setProfile((prev) => ({
                 ...prev,
-                preferredOpposition: e.target.value,
+                preferredOpposition: e.target.value
               }))
             }
             className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
           >
-            <option value="">Selecciona una opcion</option>
+            <option value="">
+              {t("profile:myProfile.oppositionSection.selectOption")}
+            </option>
             {oppositionOptions.map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -499,7 +669,7 @@ const MiPerfil = () => {
           </select>
 
           <p className="mt-3 text-xs text-muted-foreground">
-            Si cambias de oposicion, los apartados de Test y Temario se ajustaran a la nueva seleccion.
+            {t("profile:myProfile.oppositionSection.description")}
           </p>
 
           <button
@@ -508,7 +678,9 @@ const MiPerfil = () => {
             disabled={isChangingOpposition}
             className="mt-4 inline-flex items-center gap-2 bg-destructive text-destructive-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            {isChangingOpposition ? "Cambiando..." : "Cambiar"}
+            {isChangingOpposition
+              ? t("profile:myProfile.oppositionSection.changing")
+              : t("profile:myProfile.oppositionSection.change")}
           </button>
         </div>
       </section>
@@ -516,10 +688,16 @@ const MiPerfil = () => {
       <ConfirmActionDialog
         open={isOppositionDialogOpen}
         onOpenChange={setIsOppositionDialogOpen}
-        title="Confirmar cambio de oposicion"
-        description={`Vas a cambiar tu oposicion activa a "${resolverNombreOposicion(profile.preferredOpposition)}". ¿Quieres continuar?`}
-        confirmLabel={isChangingOpposition ? "Cambiando..." : "Confirmar cambio"}
-        cancelLabel="Cancelar"
+        title={t("profile:myProfile.dialog.title")}
+        description={t("profile:myProfile.dialog.description", {
+          opposition: resolverNombreOposicion(profile.preferredOpposition)
+        })}
+        confirmLabel={
+          isChangingOpposition
+            ? t("profile:myProfile.dialog.changing")
+            : t("profile:myProfile.dialog.confirm")
+        }
+        cancelLabel={t("profile:myProfile.dialog.cancel")}
         confirmStyle="destructive"
         isLoading={isChangingOpposition}
         onConfirm={handleChangeOpposition}
@@ -529,4 +707,3 @@ const MiPerfil = () => {
 };
 
 export default MiPerfil;
-

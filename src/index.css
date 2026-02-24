@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Mulish:wght@200;300;400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Mulish:wght@200;300;400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -98,7 +98,9 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     @apply font-sans;
   }
 }
@@ -119,7 +121,7 @@
   }
 
   .accent-underline::after {
-    content: '';
+    content: "";
     position: absolute;
     bottom: -4px;
     left: 0;

@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
-import { ArrowRight, FileText, ListChecks } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { oposicionesDisponibles, resolverOposicionPorNombre } from "@/data/oposiciones";
 import { useAuth } from "@/auth/AuthProvider";
+import { resolverOposicionPorNombre } from "@/data/oposiciones";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowRight, FileText, ListChecks } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const ProfileTest = () => {
+  const { t } = useTranslation(["profile", "oppositions"]);
   const { toast } = useToast();
   const { user, isAuthReady } = useAuth();
-  const [oposicionActiva, setOposicionActiva] = useState(oposicionesDisponibles[0]);
+  const [oposicionActiva, setOposicionActiva] = useState(() =>
+    resolverOposicionPorNombre(null)
+  );
   const [temaSeleccionado, setTemaSeleccionado] = useState("");
   const [isLoadingOpposition, setIsLoadingOpposition] = useState(true);
 
@@ -19,18 +24,36 @@ const ProfileTest = () => {
       return;
     }
 
-    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
-    const preferredOpposition = String(metadata.preferred_opposition ?? "");
-    const resolved = resolverOposicionPorNombre(preferredOpposition);
-    setOposicionActiva(resolved);
-    setTemaSeleccionado(resolved.temas[0] ?? "");
-    setIsLoadingOpposition(false);
-  }, [isAuthReady, user]);
+    let isMounted = true;
+
+    const loadPreferredOpposition = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("preferred_opposition")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      const resolved = resolverOposicionPorNombre(data?.preferred_opposition);
+      setOposicionActiva(resolved);
+      setTemaSeleccionado(resolved.temas[0] ?? "");
+      setIsLoadingOpposition(false);
+    };
+
+    void loadPreferredOpposition();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthReady, t, user]);
 
   const iniciarSimulacro = () => {
     toast({
-      title: "Simulacro preparado",
-      description: `Vas a iniciar un simulacro general de ${oposicionActiva.nombre}.`,
+      title: t("test.toasts.mockReadyTitle"),
+      description: t("test.toasts.mockReadyDescription", {
+        opposition: oposicionActiva.nombre
+      })
     });
   };
 
@@ -38,22 +61,24 @@ const ProfileTest = () => {
     if (!temaSeleccionado) {
       toast({
         variant: "destructive",
-        title: "Selecciona un tema",
-        description: "Elige un tema antes de lanzar el test rapido.",
+        title: t("test.toasts.selectTopicTitle"),
+        description: t("test.toasts.selectTopicDescription")
       });
       return;
     }
 
     toast({
-      title: "Test rapido preparado",
-      description: `Tema seleccionado: ${temaSeleccionado}.`,
+      title: t("test.toasts.quickTestReadyTitle"),
+      description: t("test.toasts.quickTestReadyDescription", {
+        topic: temaSeleccionado
+      })
     });
   };
 
   if (isLoadingOpposition) {
     return (
       <div className="border border-border bg-background p-6">
-        <p className="text-sm text-muted-foreground">Cargando oposicion...</p>
+        <p className="text-sm text-muted-foreground">{t("test.loading")}</p>
       </div>
     );
   }
@@ -62,43 +87,51 @@ const ProfileTest = () => {
     <div className="space-y-4">
       <section className="border border-border bg-background/95 p-6 md:p-8">
         <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-          Test
+          {t("test.badge")}
         </p>
-        <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">Tests de tu oposicion</h2>
-        <p className="text-sm text-muted-foreground">
-          Solo veras y practicaras con la oposicion activa en tu perfil.
-        </p>
+        <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">
+          {t("test.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground">{t("test.description")}</p>
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border border-border bg-background p-5 space-y-4">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold text-foreground">Modo Simulacro</p>
+            <p className="text-sm font-semibold text-foreground">
+              {t("test.mockMode")}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">Oposicion activa: {oposicionActiva.nombre}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("test.activeOpposition", { opposition: oposicionActiva.nombre })}
+          </p>
           <button
             type="button"
             onClick={iniciarSimulacro}
             className="w-full border border-border px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors"
           >
-            Hacer simulacro de test
+            {t("test.startMock")}
           </button>
         </div>
 
         <div className="border border-border bg-background p-5 space-y-4">
           <div className="flex items-center gap-2">
             <ListChecks className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold text-foreground">Modo Rapido por tema</p>
+            <p className="text-sm font-semibold text-foreground">
+              {t("test.quickMode")}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">Selecciona tema de {oposicionActiva.nombre}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("test.selectTopicOf", { opposition: oposicionActiva.nombre })}
+          </p>
           <button
             type="button"
             onClick={iniciarTestRapido}
             className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={!temaSeleccionado}
           >
-            Lanzar test rapido
+            {t("test.launchQuickTest")}
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -107,9 +140,11 @@ const ProfileTest = () => {
       <section className="border border-border bg-background p-5">
         <div className="mb-3">
           <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-            Temas para test rapido
+            {t("test.quickTopics")}
           </p>
-          <p className="text-sm text-foreground">Selecciona un tema de {oposicionActiva.nombre}</p>
+          <p className="text-sm text-foreground">
+            {t("test.selectTopic", { opposition: oposicionActiva.nombre })}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {oposicionActiva.temas.map((tema) => (

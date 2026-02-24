@@ -1,0 +1,70 @@
+{
+  "defaults": {
+    "user": "User"
+  },
+  "header": {
+    "badge": "Dashboard",
+    "greeting": "Hi, {{name}}",
+    "description": "Here is your full performance view: progress, key metrics, and latest tests."
+  },
+  "actions": {
+    "profile": "My profile",
+    "goToTest": "Go to tests",
+    "openIA": "Open AI"
+  },
+  "cards": {
+    "completedTests": "Completed tests",
+    "globalAverage": "Global average",
+    "averageAccuracy": "Average accuracy",
+    "hoursThisWeek": "Hours this week",
+    "progress": "Progress"
+  },
+  "insights": {
+    "trend": "Trend",
+    "trendValue": "Positive over the last 2 weeks",
+    "focus": "Focus",
+    "focusValue": "Reinforce administrative procedure",
+    "averageTime": "Average time",
+    "averageTimeValue": "32 min per test"
+  },
+  "history": {
+    "badge": "Test history",
+    "title": "Latest results",
+    "performance": "Performance",
+    "columns": {
+      "test": "Test",
+      "date": "Date",
+      "score": "Score",
+      "accuracy": "Accuracy",
+      "duration": "Duration",
+      "status": "Status"
+    },
+    "status": {
+      "excellent": "Excellent",
+      "approved": "Passed",
+      "reinforce": "Reinforce"
+    },
+    "items": {
+      "mock42": {
+        "name": "General Mock #42",
+        "date": "Feb 18, 2026",
+        "duration": "38 min"
+      },
+      "constitutional": {
+        "name": "Constitutional Block",
+        "date": "Feb 16, 2026",
+        "duration": "29 min"
+      },
+      "administrativeProcedure": {
+        "name": "Administrative Procedure",
+        "date": "Feb 14, 2026",
+        "duration": "35 min"
+      },
+      "organicLaw": {
+        "name": "Organic Law and Appeals",
+        "date": "Feb 12, 2026",
+        "duration": "31 min"
+      }
+    }
+  }
+}

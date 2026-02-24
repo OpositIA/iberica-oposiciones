@@ -1,0 +1,123 @@
+{
+  "navbar": {
+    "navLinks": {
+      "oppositions": "Civil Service Exams",
+      "outlines": "Outlines",
+      "courses": "Courses",
+      "freeTests": "Free Tests"
+    },
+    "account": "My account",
+    "login": "Sign in",
+    "freeMonth": "Free month"
+  },
+  "hero": {
+    "badge": "Academic Excellence",
+    "titleMain": "Forge your future",
+    "titleAccent": "in the public sector.",
+    "description": "The ultimate platform for ambitious professionals. Access high-precision simulators and official tests updated in real time.",
+    "ctaStart": "Start now",
+    "ctaPlans": "Explore plans",
+    "successTitle": "Success Stories",
+    "successDescription": "50,000+ professionals have transformed their careers with our methodology."
+  },
+  "stats": {
+    "solvedQuestions": "Solved Questions",
+    "obtainedPositions": "Positions Obtained",
+    "calls": "Exam Calls",
+    "satisfaction": "Satisfaction"
+  },
+  "specializations": {
+    "title": "High-Level Specialization",
+    "description": "We select and structure the most rigorous content for the most demanding areas of public administration.",
+    "viewAll": "View full catalog →",
+    "sector": "Sector {{num}}",
+    "items": {
+      "justice": {
+        "name": "Justice",
+        "description": "Comprehensive preparation for Judicial Assistance, Processing, and Court Management.",
+        "resources": "8,420 Resources"
+      },
+      "treasury": {
+        "name": "Treasury",
+        "description": "Specialized training for Tax Agency officers and technicians.",
+        "resources": "5,150 Resources"
+      },
+      "health": {
+        "name": "Healthcare",
+        "description": "Technical tests for nursing and statutory staff.",
+        "resources": "12,300 Resources"
+      },
+      "education": {
+        "name": "Education",
+        "description": "Primary and secondary education across all specialties.",
+        "resources": "9,800 Resources"
+      }
+    }
+  },
+  "methodology": {
+    "badge": "Winning Methodology",
+    "titleLine1": "Designed for",
+    "titleLine2": "maximum efficiency.",
+    "description": "We understand your time is your most valuable asset. Our study architecture minimizes friction and maximizes retention of key concepts.",
+    "rigorTitle": "Legislative Rigor",
+    "rigorDescription": "Instant updates based on BOE changes and European directives.",
+    "analyticsTitle": "Predictive Analytics",
+    "analyticsDescription": "We identify your error patterns before they become obstacles.",
+    "quote": "\"The gold standard in official exam preparation.\"",
+    "quoteAuthor": "— Academic Review",
+    "imageAlt": "Methodology"
+  },
+  "testimonials": {
+    "title": "Voices of those who reached their goal",
+    "items": {
+      "lucia": {
+        "text": "The sober interface helps me focus on what matters. No distractions, just pure knowledge and real practice.",
+        "name": "Lucía Méndez",
+        "role": "Justice Corps"
+      },
+      "carlos": {
+        "text": "As an active professional, mobile access and test structure have been key to balancing work and study.",
+        "name": "Carlos Ruiz",
+        "role": "Treasury Technician"
+      },
+      "marta": {
+        "text": "The quality of legal explanations is unmatched. It is like having a personal coach available 24/7.",
+        "name": "Marta Sánchez",
+        "role": "Healthcare Management"
+      }
+    }
+  },
+  "cta": {
+    "title": "Secure your position today.",
+    "description": "Join the elite group of candidates who have already taken the decisive step toward professional stability.",
+    "register": "Sign up free",
+    "pricing": "View pricing"
+  },
+  "footer": {
+    "description": "European benchmark in technology applied to exam preparation. Rigor, elegance, and results since 2012.",
+    "company": "Company",
+    "companyLinks": {
+      "about": "About us",
+      "methodology": "Methodology",
+      "careers": "Careers",
+      "press": "Press"
+    },
+    "resources": "Resources",
+    "resourceLinks": {
+      "blog": "Academic Blog",
+      "guides": "PDF Guides",
+      "calendar": "Calendar",
+      "laws": "Legislation"
+    },
+    "newsletter": "Newsletter",
+    "newsletterDescription": "Get academic intelligence",
+    "newsletterPlaceholder": "Your work email",
+    "copyright": "© 2026 OpositIA. All rights reserved.",
+    "legalLinks": {
+      "privacy": "Privacy",
+      "terms": "Terms",
+      "cookies": "Cookies"
+    }
+  },
+  "heroImageAlt": "Hero"
+}

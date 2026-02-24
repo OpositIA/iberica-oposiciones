@@ -1,0 +1,58 @@
+{
+  "typingStates": [
+    "Searching relevant information...",
+    "Organizing content by sections...",
+    "Drafting a clear response...",
+    "Checking final details..."
+  ],
+  "newChat": "New chat",
+  "toasts": {
+    "loadHistoryFailedTitle": "Unable to load history",
+    "createChatFailedTitle": "Unable to create chat",
+    "createChatFailedDescription": "Unexpected error while creating a conversation.",
+    "validateDailyLimitFailedTitle": "Unable to validate daily limit",
+    "validateDailyLimitFailedDescription": "Unable to check AI quota.",
+    "loadConversationFailedTitle": "Unable to load conversation",
+    "dailyLimitReachedTitle": "Daily limit reached",
+    "dailyLimitReachedDescription": "You already used {{used}}/{{limit}} requests today."
+  },
+  "errors": {
+    "saveUserMessageFailed": "Unable to save your message: {{message}}",
+    "saveAssistantMessageFailed": "Unable to save AI response: {{message}}",
+    "dailyLimitReached": "You reached your daily AI request limit. Come back tomorrow.",
+    "assistantResponseFailed": "Unable to get assistant response.",
+    "invalidSession": "Expired or invalid session. Please sign in again.",
+    "connection": "Connection error with endpoint http://localhost:3001/api/gemini-chat",
+    "responseFormat": "I could not parse the server response. Check endpoint format.",
+    "prefix": "Error: {{message}}"
+  },
+  "sidebar": {
+    "history": "History",
+    "conversations": "Your conversations",
+    "loadingChats": "Loading chats...",
+    "emptyChats": "No conversations yet.",
+    "newChat": "New chat"
+  },
+  "header": {
+    "badge": "AI Chat",
+    "title": "Study assistant",
+    "dailyLimit": "Daily AI limit",
+    "checkingUsage": "Checking today's requests...",
+    "limitReached": "You reached the daily limit. Come back tomorrow.",
+    "remaining": "You have {{count}} requests left today."
+  },
+  "chat": {
+    "loadingConversation": "Loading conversation...",
+    "emptyTitle": "How can we help you today?",
+    "emptyDescription": "Ask for a study plan, a quick review, or help with a specific topic.",
+    "assistantLabel": "AI",
+    "userLabel": "You",
+    "writing": "Typing"
+  },
+  "input": {
+    "placeholderLimitReached": "Daily limit reached. Come back tomorrow.",
+    "placeholder": "Type your AI question...",
+    "send": "Send",
+    "waiting": "Waiting..."
+  }
+}

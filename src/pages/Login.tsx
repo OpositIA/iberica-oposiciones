@@ -1,11 +1,13 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { isSessionExpired } from "@/lib/session";
+import { FormEvent, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Link, useNavigate } from "react-router-dom";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation(["auth", "common"]);
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,23 +19,21 @@ const Login = () => {
     const validateAndRedirectIfSessionActive = async () => {
       const { data, error } = await supabase.auth.getSession();
       const session = data.session;
-      if (error || !session || isSessionExpired(session)) {
-        return;
-      }
+      if (error || !session || isSessionExpired(session)) return;
 
-      if (isMounted) {
-        navigate("/dashboard", { replace: true });
-      }
+      if (isMounted) navigate("/dashboard", { replace: true });
     };
 
     void validateAndRedirectIfSessionActive();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") return;
-      if (!session || isSessionExpired(session)) return;
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_OUT") return;
+        if (!session || isSessionExpired(session)) return;
 
-      void validateAndRedirectIfSessionActive();
-    });
+        void validateAndRedirectIfSessionActive();
+      }
+    );
 
     return () => {
       isMounted = false;
@@ -47,8 +47,8 @@ const Login = () => {
     if (!email.trim() || !password) {
       toast({
         variant: "destructive",
-        title: "Credenciales incompletas",
-        description: "Introduce email y contrasena para continuar.",
+        title: t("auth:login.errors.incompleteCredentialsTitle"),
+        description: t("auth:login.errors.incompleteCredentialsDescription")
       });
       return;
     }
@@ -57,14 +57,14 @@ const Login = () => {
 
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
-      password,
+      password
     });
 
     if (error) {
       toast({
         variant: "destructive",
-        title: "No se pudo iniciar sesion",
-        description: error.message,
+        title: t("auth:login.errors.signInFailedTitle"),
+        description: error.message
       });
       setIsLoading(false);
       return;
@@ -81,16 +81,16 @@ const Login = () => {
           <Link to="/" className="flex items-center gap-2 mb-16">
             <div className="w-3 h-3 rounded-full bg-primary" />
             <span className="text-sm font-bold tracking-widest uppercase text-slate-100">
-              OposiTest
+              {t("common:appName")}
             </span>
           </Link>
           <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
-            Bienvenido
+            {t("auth:login.heroTitleLine1")}
             <br />
-            de vuelta.
+            {t("auth:login.heroTitleLine2")}
           </h1>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Accede a tu panel de preparacion y continua donde lo dejaste. Tu plaza te espera.
+            {t("auth:login.heroDescription")}
           </p>
         </div>
       </div>
@@ -101,47 +101,52 @@ const Login = () => {
             <Link to="/" className="flex items-center gap-2 mb-8">
               <div className="w-3 h-3 rounded-full bg-primary" />
               <span className="text-sm font-bold tracking-widest uppercase text-foreground">
-                OposiTest
+                {t("common:appName")}
               </span>
             </Link>
           </div>
 
-          <h2 className="text-2xl font-serif text-foreground mb-2">Iniciar sesion</h2>
+          <h2 className="text-2xl font-serif text-foreground mb-2">
+            {t("auth:login.title")}
+          </h2>
           <p className="text-sm text-muted-foreground mb-10">
-            Introduce tus credenciales para acceder
+            {t("auth:login.subtitle")}
           </p>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-                Email
+                {t("auth:login.email")}
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                placeholder={t("auth:login.emailPlaceholder")}
                 autoComplete="email"
                 className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
               />
             </div>
             <div>
               <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-                Contrasena
+                {t("auth:login.password")}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="********"
+                placeholder={t("auth:login.passwordPlaceholder")}
                 autoComplete="current-password"
                 className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
               />
             </div>
 
             <div className="flex justify-end">
-              <Link to="/" className="text-xs text-primary hover:text-primary/80 transition-colors">
-                Olvidaste tu contrasena?
+              <Link
+                to="/"
+                className="text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                {t("auth:login.forgotPassword")}
               </Link>
             </div>
 
@@ -150,15 +155,18 @@ const Login = () => {
               disabled={isLoading}
               className="w-full bg-primary text-primary-foreground py-3.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isLoading ? "Accediendo..." : "Acceder"}
+              {isLoading ? t("auth:login.submitting") : t("auth:login.submit")}
             </button>
           </form>
 
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground">
-              No tienes cuenta?{" "}
-              <Link to="/registro" className="text-primary font-semibold hover:text-primary/80 transition-colors">
-                Registrate gratis
+              {t("auth:login.noAccount")}{" "}
+              <Link
+                to="/registro"
+                className="text-primary font-semibold hover:text-primary/80 transition-colors"
+              >
+                {t("auth:login.registerFree")}
               </Link>
             </p>
           </div>

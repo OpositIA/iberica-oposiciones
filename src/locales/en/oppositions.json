@@ -1,0 +1,54 @@
+{
+  "auxilio-judicial": {
+    "name": "Judicial Assistance",
+    "body": "Justice Administration",
+    "topics": {
+      "constitutional": "Spanish Constitution",
+      "judicial-organization": "Judicial Organization",
+      "civil-procedure": "Civil Procedure",
+      "criminal-procedure": "Criminal Procedure",
+      "communication-acts": "Communication Acts",
+      "civil-registry": "Civil Registry",
+      "occupational-risk": "Occupational Risk Prevention"
+    }
+  },
+  "tramitacion-procesal": {
+    "name": "Procedural Processing",
+    "body": "Justice Administration",
+    "topics": {
+      "constitutional-rights": "Constitution and Fundamental Rights",
+      "judicial-office": "Judicial Office",
+      "administrative-litigation": "Administrative Litigation Procedure",
+      "labor-procedure": "Labor Procedure",
+      "judicial-documentation": "Judicial Documentation",
+      "data-protection": "Data Protection",
+      "procedural-appeals": "Procedural Appeals"
+    }
+  },
+  "agente-hacienda": {
+    "name": "Tax Agency Officer",
+    "body": "Tax Agency",
+    "topics": {
+      "constitutional-law": "Constitutional Law",
+      "general-administrative-law": "General Administrative Law",
+      "treasury-organization": "Public Treasury Organization",
+      "spanish-tax-system": "Spanish Tax System",
+      "irpf-iva": "Personal Income Tax and VAT",
+      "tax-collection": "Tax Collection",
+      "inspection-sanctions": "Inspection and Sanctions"
+    }
+  },
+  "administrativo-estado": {
+    "name": "State Administrative Officer",
+    "body": "General State Administration",
+    "topics": {
+      "constitution-eu": "Constitution and European Union",
+      "civil-service": "Civil Service",
+      "law-39-40": "Law 39/2015 and 40/2015",
+      "personnel-management": "Personnel Management",
+      "public-procurement": "Public Procurement",
+      "financial-management": "Financial Management",
+      "office-electronic-admin": "Office Tools and e-Administration"
+    }
+  }
+}

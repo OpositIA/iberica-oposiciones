@@ -1,16 +1,21 @@
 import { ArrowRight, Brain } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 const ProfileOposIA = () => {
+  const { t } = useTranslation("profile");
+
   return (
     <section className="border border-border bg-background/95 p-6 md:p-8 space-y-6">
       <div>
         <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-          IA
+          {t("oposia.badge")}
         </p>
-        <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">Apartado OposIA</h2>
+        <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">
+          {t("oposia.title")}
+        </h2>
         <p className="text-sm text-muted-foreground max-w-2xl">
-          Tu asistente para resolver dudas, generar planes de estudio y preparar repasos en tiempo real.
+          {t("oposia.description")}
         </p>
       </div>
 
@@ -18,11 +23,13 @@ const ProfileOposIA = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
           <div>
             <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
-              Asistente inteligente
+              {t("oposia.assistant")}
             </p>
-            <h3 className="text-xl font-serif text-foreground mb-2">OposIA en acceso directo</h3>
+            <h3 className="text-xl font-serif text-foreground mb-2">
+              {t("oposia.directAccess")}
+            </h3>
             <p className="text-sm text-muted-foreground max-w-xl">
-              Abre la experiencia completa para trabajar con prompts, contexto de estudio y recomendaciones.
+              {t("oposia.directAccessDescription")}
             </p>
           </div>
           <Link
@@ -30,7 +37,7 @@ const ProfileOposIA = () => {
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors shadow-sm"
           >
             <Brain className="h-4 w-4" />
-            Abrir OposIA
+            {t("oposia.open")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

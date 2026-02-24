@@ -1,0 +1,167 @@
+{
+  "layout": {
+    "defaults": {
+      "account": "My account"
+    },
+    "mobileMenuOpen": "Open menu",
+    "openProfile": "Open my profile",
+    "signOut": "Sign out",
+    "signingOut": "Signing out...",
+    "mobileMenuClose": "Close menu",
+    "sidebarAriaLabel": "Sidebar",
+    "panel": "Panel",
+    "theme": {
+      "activateLight": "Enable light mode",
+      "activateDark": "Enable dark mode",
+      "lightTitle": "Light mode",
+      "darkTitle": "Dark mode"
+    },
+    "closeSidebar": "Close sidebar",
+    "menuGroups": {
+      "general": "General",
+      "preparation": "Preparation"
+    },
+    "menuItems": {
+      "dashboard": "Dashboard",
+      "ia": "AI",
+      "test": "Tests",
+      "syllabus": "Syllabus",
+      "calendar": "Calendar"
+    },
+    "myProfile": "My profile",
+    "activePlan": "Active plan",
+    "closeSession": "Log out"
+  },
+  "myProfile": {
+    "toasts": {
+      "imageTooLargeTitle": "Image is too large",
+      "imageTooLargeDescription": "Image must be smaller than 2MB.",
+      "invalidFormatTitle": "Invalid format",
+      "invalidFormatDescription": "Use PNG, JPG, WEBP, or GIF.",
+      "invalidSessionTitle": "Invalid session",
+      "invalidSessionDescription": "Sign in again to save your profile.",
+      "missingDataTitle": "Missing data",
+      "missingDataDescription": "Complete first and last name to save your profile.",
+      "uploadFailedTitle": "Unable to upload image",
+      "saveFailedTitle": "Unable to save profile",
+      "updatedTitle": "Profile updated",
+      "updatedDescription": "Your profile data was saved successfully.",
+      "selectOppositionTitle": "Select an exam track",
+      "selectOppositionDescription": "Choose a valid exam track before changing.",
+      "noChangesTitle": "No changes",
+      "noChangesDescription": "This exam track is already selected.",
+      "changeOppositionFailedTitle": "Unable to change exam track",
+      "oppositionUpdatedTitle": "Exam track updated",
+      "oppositionUpdatedDescription": "From now on, Tests and Syllabus will use this exam track.",
+      "localeUpdateFailedTitle": "Unable to change language",
+      "localeUpdateFailedDescription": "Try again in a few seconds.",
+      "localeUpdatedTitle": "Language updated",
+      "localeUpdatedDescription": "Language was applied and saved to your profile."
+    },
+    "loading": "Loading profile...",
+    "avatarAlt": "Profile",
+    "sectionBadge": "My profile",
+    "defaultUser": "User",
+    "description": "Manage your personal and study information to tailor the full experience.",
+    "changeImage": "Change image",
+    "save": "Save profile",
+    "saving": "Saving...",
+    "dataSection": {
+      "badge": "Registration data",
+      "title": "Profile information"
+    },
+    "fields": {
+      "name": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "age": "Age",
+      "yearsPreparing": "Years preparing",
+      "weeklyTargetHours": "Target hours / week",
+      "testsPerWeek": "Tests per week",
+      "mainChallenge": "Main study challenge",
+      "mainChallengePlaceholder": "Describe your main current challenge...",
+      "locale": "Language"
+    },
+    "oppositionSection": {
+      "badge": "Active exam track",
+      "title": "Exam track management",
+      "studyingNow": "Currently studying",
+      "undefined": "Not defined",
+      "newOpposition": "New exam track",
+      "selectOption": "Select an option",
+      "description": "If you change exam track, Tests and Syllabus sections will adjust to the new selection.",
+      "change": "Change",
+      "changing": "Changing..."
+    },
+    "dialog": {
+      "title": "Confirm exam track change",
+      "description": "You are about to change your active exam track to \"{{opposition}}\". Do you want to continue?",
+      "confirm": "Confirm change",
+      "changing": "Changing...",
+      "cancel": "Cancel"
+    }
+  },
+  "test": {
+    "toasts": {
+      "mockReadyTitle": "Mock exam ready",
+      "mockReadyDescription": "You are about to start a general mock exam for {{opposition}}.",
+      "selectTopicTitle": "Select a topic",
+      "selectTopicDescription": "Choose a topic before launching the quick test.",
+      "quickTestReadyTitle": "Quick test ready",
+      "quickTestReadyDescription": "Selected topic: {{topic}}."
+    },
+    "loading": "Loading exam track...",
+    "badge": "Tests",
+    "title": "Tests for your exam track",
+    "description": "You will only see and practice with the active exam track in your profile.",
+    "mockMode": "Mock mode",
+    "activeOpposition": "Active exam track: {{opposition}}",
+    "startMock": "Start mock test",
+    "quickMode": "Quick mode by topic",
+    "selectTopicOf": "Select a topic from {{opposition}}",
+    "launchQuickTest": "Launch quick test",
+    "quickTopics": "Quick test topics",
+    "selectTopic": "Select a topic from {{opposition}}"
+  },
+  "syllabus": {
+    "loading": "Loading syllabus...",
+    "badge": "Syllabus",
+    "title": "Syllabus for your exam track",
+    "description": "Only the active exam track from your profile is shown.",
+    "activeOpposition": "Active exam track",
+    "topicsList": "Topic list",
+    "topicItem": "Topic {{index}}. {{topic}}"
+  },
+  "calendar": {
+    "badge": "Calendar",
+    "title": "Weekly plan",
+    "description": "Organize your study blocks and review upcoming preparation milestones.",
+    "upcomingSessions": "Upcoming sessions",
+    "blocks": {
+      "monday": {
+        "day": "Monday",
+        "activity": "Review Topic 1-2",
+        "time": "19:00 - 20:30"
+      },
+      "wednesday": {
+        "day": "Wednesday",
+        "activity": "Quick test Topic 3",
+        "time": "19:30 - 20:00"
+      },
+      "friday": {
+        "day": "Friday",
+        "activity": "General mock exam",
+        "time": "18:30 - 19:30"
+      }
+    }
+  },
+  "oposia": {
+    "badge": "AI",
+    "title": "OposIA section",
+    "description": "Your assistant for solving questions, generating study plans, and preparing real-time reviews.",
+    "assistant": "Smart assistant",
+    "directAccess": "Direct OposIA access",
+    "directAccessDescription": "Open the full experience to work with prompts, study context, and recommendations.",
+    "open": "Open OposIA"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "header": {
+    "badge": "Pricing",
+    "title": "Invest in your future.",
+    "description": "Plans designed for every level of ambition. No commitment, cancel anytime."
+  },
+  "featured": "Most Popular",
+  "plans": {
+    "basic": {
+      "name": "Basic",
+      "period": "/ month",
+      "description": "Ideal for exploring the platform and starting your preparation.",
+      "features": [
+        "500 multiple-choice questions",
+        "1 specialization area",
+        "Basic statistics",
+        "Web access"
+      ],
+      "cta": "Start free"
+    },
+    "pro": {
+      "name": "Professional",
+      "period": "/ month",
+      "description": "For committed candidates seeking real results.",
+      "features": [
+        "Unlimited questions",
+        "All areas",
+        "Predictive analytics",
+        "Mobile access",
+        "Downloadable outlines",
+        "Official mock exams"
+      ],
+      "cta": "Start now"
+    },
+    "elite": {
+      "name": "Elite",
+      "period": "/ month",
+      "description": "Full access with virtual coach and priority support.",
+      "features": [
+        "Everything in Professional",
+        "Personal AI coach",
+        "24/7 priority support",
+        "Exam correction",
+        "Real-time legislation",
+        "Exclusive group"
+      ],
+      "cta": "Contact sales"
+    }
+  }
+}

@@ -1,3 +1,12 @@
+import i18n from "@/i18n/config";
+import { AppLocale, DEFAULT_LOCALE, normalizeLocale } from "@/i18n/locales";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  clearSupabaseAuthStorage,
+  resetAuthFailureGuard
+} from "@/lib/secureFetch";
+import { isSessionExpired } from "@/lib/session";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import {
   createContext,
   PropsWithChildren,
@@ -6,22 +15,17 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
+  useState
 } from "react";
-import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { isSessionExpired } from "@/lib/session";
-import {
-  clearSupabaseAuthStorage,
-  resetAuthFailureGuard,
-} from "@/lib/secureFetch";
 
 type AuthContextValue = {
   user: User | null;
   session: Session | null;
+  locale: AppLocale;
   isAuthReady: boolean;
   isAuthenticated: boolean;
+  setLocale: (locale: AppLocale) => Promise<boolean>;
   forceLogout: (reason?: string) => Promise<void>;
 };
 
@@ -36,20 +40,71 @@ const authLog = (...args: unknown[]) => {
 
 const isSupabaseAuthStorageKey = (key: string | null) => {
   if (!key) return false;
-  return (key.startsWith("sb-") && key.endsWith("-auth-token")) || key.includes("supabase.auth.token");
+  return (
+    (key.startsWith("sb-") && key.endsWith("-auth-token")) ||
+    key.includes("supabase.auth.token")
+  );
 };
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [locale, setLocaleState] = useState<AppLocale>(DEFAULT_LOCALE);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const logoutPromiseRef = useRef<Promise<void> | null>(null);
+
+  const applyLocale = useCallback(async (nextLocale: AppLocale) => {
+    setLocaleState(nextLocale);
+    if (i18n.resolvedLanguage !== nextLocale)
+      await i18n.changeLanguage(nextLocale);
+  }, []);
+
+  const loadUserLocale = useCallback(
+    async (userId: string): Promise<AppLocale> => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("locale")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        authLog("No se pudo cargar locale desde profiles", {
+          userId,
+          error: error.message
+        });
+        return DEFAULT_LOCALE;
+      }
+
+      const nextLocale = normalizeLocale(data?.locale ?? DEFAULT_LOCALE);
+
+      if (!data) {
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .upsert(
+            { user_id: userId, locale: nextLocale },
+            { onConflict: "user_id" }
+          );
+
+        if (insertError) {
+          authLog("No se pudo crear profile locale por defecto", {
+            userId,
+            error: insertError.message
+          });
+        }
+      }
+
+      return nextLocale;
+    },
+    []
+  );
 
   const setLoggedOutState = useCallback(() => {
     setSession(null);
     setUser(null);
     setIsAuthReady(true);
+    setLocaleState(DEFAULT_LOCALE);
+    void i18n.changeLanguage(DEFAULT_LOCALE);
   }, []);
 
   const forceLogout = useCallback(
@@ -63,16 +118,15 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       logoutPromiseRef.current = (async () => {
         authLog("Forzando logout", {
           reason,
-          pathname: window.location.pathname,
+          pathname: window.location.pathname
         });
 
         setLoggedOutState();
         clearSupabaseAuthStorage();
         resetAuthFailureGuard();
 
-        if (window.location.pathname !== "/login") {
+        if (window.location.pathname !== "/login")
           navigate("/login", { replace: true, state: { reason } });
-        }
       })();
 
       try {
@@ -81,18 +135,52 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         logoutPromiseRef.current = null;
       }
     },
-    [navigate, setLoggedOutState],
+    [navigate, setLoggedOutState]
+  );
+
+  const setLocale = useCallback(
+    async (nextLocale: AppLocale) => {
+      if (!user) {
+        await applyLocale(DEFAULT_LOCALE);
+        return false;
+      }
+
+      const previousLocale = locale;
+      await applyLocale(nextLocale);
+
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(
+          { user_id: user.id, locale: nextLocale },
+          { onConflict: "user_id" }
+        );
+
+      if (error) {
+        await applyLocale(previousLocale);
+        return false;
+      }
+
+      return true;
+    },
+    [applyLocale, locale, user]
   );
 
   useEffect(() => {
     let isMounted = true;
 
-    const onValidSession = (nextSession: Session) => {
+    const onValidSession = async (nextSession: Session) => {
       if (!isMounted) return;
       setSession(nextSession);
       setUser(nextSession.user ?? null);
-      setIsAuthReady(true);
       resetAuthFailureGuard();
+
+      const loadedLocale = await loadUserLocale(nextSession.user.id);
+      if (!isMounted) return;
+
+      await applyLocale(loadedLocale);
+      if (!isMounted) return;
+
+      setIsAuthReady(true);
     };
 
     const onInvalidSession = (reason: string) => {
@@ -104,7 +192,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
     const initAuth = async () => {
       authLog("Inicializando auth");
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
       const currentSession = sessionData.session;
 
       if (sessionError) {
@@ -123,7 +212,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         return;
       }
 
-      onValidSession(currentSession);
+      await onValidSession(currentSession);
       authLog("Sesion inicial valida", { userId: currentSession.user?.id });
     };
 
@@ -134,16 +223,16 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         authLog("onAuthStateChange", {
           event,
           hasSession: Boolean(nextSession),
-          expired: nextSession ? isSessionExpired(nextSession) : true,
+          expired: nextSession ? isSessionExpired(nextSession) : true
         });
 
         if (event === "SIGNED_OUT") {
           if (!isMounted) return;
           setLoggedOutState();
           clearSupabaseAuthStorage();
-          if (window.location.pathname !== "/login") {
+          if (window.location.pathname !== "/login")
             navigate("/login", { replace: true });
-          }
+
           return;
         }
 
@@ -152,8 +241,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           return;
         }
 
-        onValidSession(nextSession);
-      },
+        await onValidSession(nextSession);
+      }
     );
 
     const onStorage = (storageEvent: StorageEvent) => {
@@ -171,17 +260,19 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       authSubscription.subscription.unsubscribe();
       window.removeEventListener("storage", onStorage);
     };
-  }, [forceLogout, navigate, setLoggedOutState]);
+  }, [applyLocale, forceLogout, loadUserLocale, navigate, setLoggedOutState]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       session,
+      locale,
       isAuthReady,
       isAuthenticated: Boolean(user && session && !isSessionExpired(session)),
-      forceLogout,
+      setLocale,
+      forceLogout
     }),
-    [forceLogout, isAuthReady, session, user],
+    [forceLogout, isAuthReady, locale, session, setLocale, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -189,8 +280,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth debe usarse dentro de AuthProvider.");
-  }
+  if (!context) throw new Error("useAuth debe usarse dentro de AuthProvider.");
+
   return context;
 };
