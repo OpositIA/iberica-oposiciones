@@ -17,6 +17,7 @@ import ProfileCalendario from "./pages/ProfileCalendario";
 import AuthenticatedSidebarLayout from "./components/AuthenticatedSidebarLayout";
 import MiPerfil from "./pages/MiPerfil";
 import { AuthProvider } from "@/auth/AuthProvider";
+import ScrollToTop from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -27,7 +28,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
+          <ScrollToTop />
+        <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Register />} />

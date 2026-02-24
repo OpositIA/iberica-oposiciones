@@ -48,7 +48,7 @@ const Footer = () => {
           </div>
         </div>
         <div className="border-t border-accent-foreground/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-accent-foreground/40">© 2024 OposiTest Academy. Todos los derechos reservados.</p>
+          <p className="text-xs text-accent-foreground/40">© 2026 OpositIA. Todos los derechos reservados.</p>
           <div className="flex gap-6">
             {["Privacidad", "Términos", "Cookies"].map((item) => (
               <Link key={item} to="/" className="text-xs text-accent-foreground/40 hover:text-accent-foreground transition-colors">{item}</Link>
