@@ -1,0 +1,50 @@
+{
+  "header": {
+    "badge": "Tarifas",
+    "title": "Invierte en tu futuro.",
+    "description": "Planes diseñados para cada nivel de ambición. Sin compromisos, cancela cuando quieras."
+  },
+  "featured": "Más Popular",
+  "plans": {
+    "basic": {
+      "name": "Básico",
+      "period": "/ mes",
+      "description": "Ideal para explorar la plataforma y comenzar tu preparación.",
+      "features": [
+        "500 preguntas tipo test",
+        "1 área de especialización",
+        "Estadísticas básicas",
+        "Acceso web"
+      ],
+      "cta": "Comenzar gratis"
+    },
+    "pro": {
+      "name": "Profesional",
+      "period": "/ mes",
+      "description": "Para el opositor comprometido que busca resultados reales.",
+      "features": [
+        "Preguntas ilimitadas",
+        "Todas las áreas",
+        "Analítica predictiva",
+        "Acceso móvil",
+        "Esquemas descargables",
+        "Simulacros oficiales"
+      ],
+      "cta": "Empezar ahora"
+    },
+    "elite": {
+      "name": "Élite",
+      "period": "/ mes",
+      "description": "Acceso total con preparador virtual y soporte prioritario.",
+      "features": [
+        "Todo en Profesional",
+        "Preparador IA personal",
+        "Soporte prioritario 24/7",
+        "Corrección de exámenes",
+        "Legislación en tiempo real",
+        "Grupo exclusivo"
+      ],
+      "cta": "Contactar ventas"
+    }
+  }
+}

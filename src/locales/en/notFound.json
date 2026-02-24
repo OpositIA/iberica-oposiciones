@@ -1,0 +1,5 @@
+{
+  "message": "Oops! Page not found",
+  "backHome": "Return to home",
+  "consoleError": "404 Error: user attempted to access non-existent route:"
+}

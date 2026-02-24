@@ -1,0 +1,123 @@
+{
+  "navbar": {
+    "navLinks": {
+      "oppositions": "Oposiciones",
+      "outlines": "Esquemas",
+      "courses": "Cursos",
+      "freeTests": "Test gratis"
+    },
+    "account": "Mi cuenta",
+    "login": "Iniciar sesión",
+    "freeMonth": "Mes gratis"
+  },
+  "hero": {
+    "badge": "Excelencia Académica",
+    "titleMain": "Forja tu futuro",
+    "titleAccent": "en el sector público.",
+    "description": "La plataforma definitiva para el profesional ambicioso. Accede a simuladores de alta precisión y test oficiales actualizados en tiempo real.",
+    "ctaStart": "Comenzar Ahora",
+    "ctaPlans": "Explorar Planes",
+    "successTitle": "Casos de Éxito",
+    "successDescription": "+50.000 profesionales han transformado su carrera con nuestra metodología."
+  },
+  "stats": {
+    "solvedQuestions": "Preguntas Resueltas",
+    "obtainedPositions": "Plazas Obtenidas",
+    "calls": "Convocatorias",
+    "satisfaction": "Satisfacción"
+  },
+  "specializations": {
+    "title": "Especialización de Alto Nivel",
+    "description": "Seleccionamos y estructuramos el contenido más riguroso para las áreas más exigentes de la administración.",
+    "viewAll": "Ver todo el catálogo →",
+    "sector": "Sector {{num}}",
+    "items": {
+      "justice": {
+        "name": "Justicia",
+        "description": "Preparación integral para Auxilio, Tramitación y Gestión Procesal.",
+        "resources": "8.420 Recursos"
+      },
+      "treasury": {
+        "name": "Hacienda",
+        "description": "Especialización para Agentes y Técnicos de la Hacienda Pública.",
+        "resources": "5.150 Recursos"
+      },
+      "health": {
+        "name": "Sanidad",
+        "description": "Tests técnicos para Enfermería y Personal Estatutario.",
+        "resources": "12.300 Recursos"
+      },
+      "education": {
+        "name": "Educación",
+        "description": "Magisterio y Secundaria en todas sus especialidades.",
+        "resources": "9.800 Recursos"
+      }
+    }
+  },
+  "methodology": {
+    "badge": "Metodología de Éxito",
+    "titleLine1": "Diseñado para la",
+    "titleLine2": "eficiencia máxima.",
+    "description": "Entendemos que tu tiempo es el activo más valioso. Nuestra arquitectura de estudio minimiza la fricción y maximiza la retención de conceptos clave.",
+    "rigorTitle": "Rigor Legislativo",
+    "rigorDescription": "Actualización instantánea según las variaciones en el BOE y directivas europeas.",
+    "analyticsTitle": "Analítica Predictiva",
+    "analyticsDescription": "Identificamos tus patrones de error antes de que se conviertan en obstáculos.",
+    "quote": "\"El estándar de oro en preparación oficial.\"",
+    "quoteAuthor": "— Revista Académica",
+    "imageAlt": "Metodología"
+  },
+  "testimonials": {
+    "title": "La voz de los que alcanzaron su meta",
+    "items": {
+      "lucia": {
+        "text": "La sobriedad de la interfaz me permite concentrarme en lo que importa. No hay distracciones, solo conocimiento puro y práctica real.",
+        "name": "Lucía Méndez",
+        "role": "Cuerpo de Justicia"
+      },
+      "carlos": {
+        "text": "Como profesional en activo, el acceso móvil y la estructura de los test han sido clave para compaginar trabajo y estudio.",
+        "name": "Carlos Ruiz",
+        "role": "Técnico de Hacienda"
+      },
+      "marta": {
+        "text": "La calidad de las explicaciones jurídicas es insuperable. Es como tener un preparador personal disponible las 24 horas.",
+        "name": "Marta Sánchez",
+        "role": "Gestión Sanitaria"
+      }
+    }
+  },
+  "cta": {
+    "title": "Asegura tu plaza hoy.",
+    "description": "Únete a la élite de opositores que ya han dado el paso definitivo hacia su estabilidad profesional.",
+    "register": "Registrarme Gratis",
+    "pricing": "Consultar Tarifas"
+  },
+  "footer": {
+    "description": "Referente europeo en tecnología aplicada al estudio opositor. Rigor, elegancia y resultados desde 2012.",
+    "company": "Compañía",
+    "companyLinks": {
+      "about": "Nosotros",
+      "methodology": "Metodología",
+      "careers": "Carreras",
+      "press": "Prensa"
+    },
+    "resources": "Recursos",
+    "resourceLinks": {
+      "blog": "Blog Académico",
+      "guides": "Guías PDF",
+      "calendar": "Calendario",
+      "laws": "Legislación"
+    },
+    "newsletter": "Newsletter",
+    "newsletterDescription": "Recibe inteligencia académica",
+    "newsletterPlaceholder": "Tu email operativo",
+    "copyright": "© 2026 OpositIA. Todos los derechos reservados.",
+    "legalLinks": {
+      "privacy": "Privacidad",
+      "terms": "Términos",
+      "cookies": "Cookies"
+    }
+  },
+  "heroImageAlt": "Hero"
+}

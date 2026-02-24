@@ -1,0 +1,31 @@
+{
+  "appName": "OposiTest",
+  "actions": {
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+  },
+  "locale": {
+    "label": "Language",
+    "es": "Spanish",
+    "en": "English"
+  },
+  "a11y": {
+    "close": "Close",
+    "breadcrumb": "Breadcrumb",
+    "previousSlide": "Previous slide",
+    "nextSlide": "Next slide",
+    "pagination": "Pagination",
+    "previousPage": "Go to previous page",
+    "nextPage": "Go to next page",
+    "morePages": "More pages",
+    "more": "More",
+    "toggleSidebar": "Toggle sidebar"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "status": {
+    "validatingSession": "Validating session..."
+  }
+}

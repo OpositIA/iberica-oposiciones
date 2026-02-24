@@ -1,3 +1,6 @@
+import { useAuth } from "@/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+import { applyTheme, getStoredTheme, type AppTheme } from "@/lib/theme";
 import {
   Bell,
   Brain,
@@ -12,30 +15,11 @@ import {
   NotebookText,
   Sparkles,
   Sun,
-  X,
+  X
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { applyTheme, getStoredTheme, type AppTheme } from "@/lib/theme";
-import { useAuth } from "@/auth/AuthProvider";
-
-const menuGroups = [
-  {
-    title: "General",
-    items: [
-      { label: "Dashboard", to: "/dashboard", icon: Home },
-      { label: "IA", to: "/perfil/oposia", icon: Brain },
-    ],
-  },
-  {
-    title: "Preparacion",
-    items: [
-      { label: "Test", to: "/perfil/test", icon: FileText },
-      { label: "Temario", to: "/perfil/temario", icon: NotebookText },
-      { label: "Calendario", to: "/perfil/calendario", icon: CalendarDays },
-    ],
-  },
-] as const;
 
 const sanitizeAvatarForRender = (value: string) => {
   const trimmed = value.trim();
@@ -47,22 +31,96 @@ const sanitizeAvatarForRender = (value: string) => {
 
 const AuthenticatedSidebarLayout = () => {
   const location = useLocation();
+  const { t } = useTranslation(["profile"]);
   const { user, forceLogout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [accountName, setAccountName] = useState("Mi cuenta");
+  const [accountName, setAccountName] = useState(
+    t("profile:layout.defaults.account")
+  );
   const [avatarUrl, setAvatarUrl] = useState("");
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
 
+  const menuGroups = useMemo(
+    () => [
+      {
+        title: t("profile:layout.menuGroups.general"),
+        items: [
+          {
+            label: t("profile:layout.menuItems.dashboard"),
+            to: "/dashboard",
+            icon: Home
+          },
+          {
+            label: t("profile:layout.menuItems.ia"),
+            to: "/perfil/oposia",
+            icon: Brain
+          }
+        ]
+      },
+      {
+        title: t("profile:layout.menuGroups.preparation"),
+        items: [
+          {
+            label: t("profile:layout.menuItems.test"),
+            to: "/perfil/test",
+            icon: FileText
+          },
+          {
+            label: t("profile:layout.menuItems.syllabus"),
+            to: "/perfil/temario",
+            icon: NotebookText
+          },
+          {
+            label: t("profile:layout.menuItems.calendar"),
+            to: "/perfil/calendario",
+            icon: CalendarDays
+          }
+        ]
+      }
+    ],
+    [t]
+  );
+
   useEffect(() => {
-    const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
-    const firstName = String(metadata.first_name ?? "").trim();
-    const lastName = String(metadata.last_name ?? "").trim();
-    const fullName = `${firstName} ${lastName}`.trim();
-    const avatar = sanitizeAvatarForRender(String(metadata.avatar_url ?? ""));
-    setAccountName(fullName || user?.email || "Mi cuenta");
-    setAvatarUrl(avatar);
-  }, [user]);
+    let isMounted = true;
+
+    const loadProfileSnapshot = async () => {
+      if (!user) {
+        if (!isMounted) return;
+        setAccountName(t("profile:layout.defaults.account"));
+        setAvatarUrl("");
+        return;
+      }
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, email, avatar_url")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      const firstName = String(data?.first_name ?? "").trim();
+      const lastName = String(data?.last_name ?? "").trim();
+      const fullName = `${firstName} ${lastName}`.trim();
+      const avatar = sanitizeAvatarForRender(String(data?.avatar_url ?? ""));
+
+      setAccountName(
+        fullName ||
+          data?.email ||
+          user.email ||
+          t("profile:layout.defaults.account")
+      );
+      setAvatarUrl(avatar);
+    };
+
+    void loadProfileSnapshot();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [t, user]);
 
   const closeMobileSidebar = () => setIsMobileOpen(false);
 
@@ -90,7 +148,7 @@ const AuthenticatedSidebarLayout = () => {
               type="button"
               onClick={() => setIsMobileOpen(true)}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:bg-secondary transition-colors lg:hidden"
-              aria-label="Abrir menu"
+              aria-label={t("profile:layout.mobileMenuOpen")}
             >
               <Menu className="h-4 w-4" />
             </button>
@@ -101,7 +159,9 @@ const AuthenticatedSidebarLayout = () => {
               onClick={closeMobileSidebar}
             >
               <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-              <span className="font-semibold text-lg text-foreground">Panel</span>
+              <span className="font-semibold text-lg text-foreground">
+                {t("profile:layout.panel")}
+              </span>
             </Link>
           </div>
 
@@ -112,10 +172,14 @@ const AuthenticatedSidebarLayout = () => {
             <Link
               to="/perfil/mi-perfil"
               className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center rounded-full overflow-hidden"
-              aria-label="Abrir mi perfil"
+              aria-label={t("profile:layout.openProfile")}
             >
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Perfil" className="h-full w-full object-cover" />
+                <img
+                  src={avatarUrl}
+                  alt={t("profile:myProfile.avatarAlt")}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <CircleUserRound className="h-4 w-4 text-muted-foreground" />
               )}
@@ -127,7 +191,9 @@ const AuthenticatedSidebarLayout = () => {
               className="h-10 px-4 border border-border hover:bg-secondary transition-colors text-xs font-semibold tracking-widest uppercase inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <LogOut className="h-3.5 w-3.5" />
-              {isSigningOut ? "Saliendo..." : "Salir"}
+              {isSigningOut
+                ? t("profile:layout.signingOut")
+                : t("profile:layout.signOut")}
             </button>
           </div>
         </div>
@@ -136,7 +202,7 @@ const AuthenticatedSidebarLayout = () => {
       {isMobileOpen && (
         <button
           type="button"
-          aria-label="Cerrar menu"
+          aria-label={t("profile:layout.mobileMenuClose")}
           className="fixed inset-0 bg-black/40 z-40 lg:hidden"
           onClick={closeMobileSidebar}
         />
@@ -147,7 +213,7 @@ const AuthenticatedSidebarLayout = () => {
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0`}
         role="dialog"
-        aria-label="Sidebar"
+        aria-label={t("profile:layout.sidebarAriaLabel")}
       >
         <div className="relative flex flex-col h-full max-h-full overflow-hidden">
           <div className="pointer-events-none absolute -top-16 -right-12 h-44 w-44 rounded-full bg-primary/20 blur-3xl" />
@@ -159,7 +225,9 @@ const AuthenticatedSidebarLayout = () => {
               className="inline-flex items-center gap-2"
             >
               <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-              <span className="font-semibold text-lg text-foreground">Panel</span>
+              <span className="font-semibold text-lg text-foreground">
+                {t("profile:layout.panel")}
+              </span>
             </Link>
 
             <div className="inline-flex items-center gap-2">
@@ -167,17 +235,29 @@ const AuthenticatedSidebarLayout = () => {
                 type="button"
                 onClick={handleToggleTheme}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-secondary transition-colors"
-                aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-                title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+                aria-label={
+                  theme === "dark"
+                    ? t("profile:layout.theme.activateLight")
+                    : t("profile:layout.theme.activateDark")
+                }
+                title={
+                  theme === "dark"
+                    ? t("profile:layout.theme.lightTitle")
+                    : t("profile:layout.theme.darkTitle")
+                }
               >
-                {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                {theme === "dark" ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
               </button>
 
               <button
                 type="button"
                 onClick={closeMobileSidebar}
                 className="lg:hidden inline-flex h-8 w-8 items-center justify-center border border-border text-muted-foreground hover:bg-secondary transition-colors rounded-full"
-                aria-label="Cerrar sidebar"
+                aria-label={t("profile:layout.closeSidebar")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -208,7 +288,9 @@ const AuthenticatedSidebarLayout = () => {
                         >
                           <Icon className="h-4 w-4" />
                           <span className="font-medium">{item.label}</span>
-                          {active && <span className="ml-auto h-2 w-2 rounded-full bg-primary-foreground/80" />}
+                          {active && (
+                            <span className="ml-auto h-2 w-2 rounded-full bg-primary-foreground/80" />
+                          )}
                         </Link>
                       </li>
                     );
@@ -227,15 +309,21 @@ const AuthenticatedSidebarLayout = () => {
               >
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Perfil" className="h-full w-full object-cover" />
+                    <img
+                      src={avatarUrl}
+                      alt={t("profile:myProfile.avatarAlt")}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <CircleUserRound className="h-4 w-4 text-muted-foreground" />
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">{accountName}</span>
+                  <span className="block truncate text-sm font-medium text-foreground">
+                    {accountName}
+                  </span>
                   <span className="block text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
-                    Mi perfil
+                    {t("profile:layout.myProfile")}
                   </span>
                 </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -243,7 +331,7 @@ const AuthenticatedSidebarLayout = () => {
 
               <div className="mb-3 inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
                 <Sparkles className="h-3 w-3" />
-                Plan activo
+                {t("profile:layout.activePlan")}
               </div>
 
               <button
@@ -253,7 +341,9 @@ const AuthenticatedSidebarLayout = () => {
                 className="w-full inline-flex items-center justify-center gap-2 border border-border px-3 py-2 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors disabled:opacity-60"
               >
                 <LogOut className="h-3.5 w-3.5" />
-                {isSigningOut ? "Saliendo..." : "Cerrar sesion"}
+                {isSigningOut
+                  ? t("profile:layout.signingOut")
+                  : t("profile:layout.closeSession")}
               </button>
             </div>
           </footer>

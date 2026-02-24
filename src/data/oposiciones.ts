@@ -1,3 +1,5 @@
+import i18n from "@/i18n/config";
+
 export type Oposicion = {
   id: string;
   nombre: string;
@@ -5,74 +7,91 @@ export type Oposicion = {
   temas: string[];
 };
 
-export const oposicionPerfilPorDefecto = "Auxilio Judicial";
+type OposicionDefinition = {
+  id: string;
+  topicIds: string[];
+  aliases: string[];
+};
 
-export const oposicionesDisponibles: Oposicion[] = [
+const oposicionesDefiniciones: OposicionDefinition[] = [
   {
     id: "auxilio-judicial",
-    nombre: "Auxilio Judicial",
-    cuerpo: "Administracion de Justicia",
-    temas: [
-      "Constitucion Espanola",
-      "Organizacion Judicial",
-      "Procedimiento Civil",
-      "Procedimiento Penal",
-      "Actos de comunicacion",
-      "Registro Civil",
-      "Prevencion de riesgos laborales",
+    topicIds: [
+      "constitutional",
+      "judicial-organization",
+      "civil-procedure",
+      "criminal-procedure",
+      "communication-acts",
+      "civil-registry",
+      "occupational-risk"
     ],
+    aliases: ["Auxilio Judicial", "Judicial Assistance"]
   },
   {
     id: "tramitacion-procesal",
-    nombre: "Tramitacion Procesal",
-    cuerpo: "Administracion de Justicia",
-    temas: [
-      "Constitucion y Derechos Fundamentales",
-      "Oficina Judicial",
-      "Procedimiento Contencioso-Administrativo",
-      "Procedimiento Laboral",
-      "Documentacion judicial",
-      "Proteccion de datos",
-      "Recursos procesales",
+    topicIds: [
+      "constitutional-rights",
+      "judicial-office",
+      "administrative-litigation",
+      "labor-procedure",
+      "judicial-documentation",
+      "data-protection",
+      "procedural-appeals"
     ],
+    aliases: [
+      "Tramitación Procesal",
+      "Tramitacion Procesal",
+      "Procedural Processing"
+    ]
   },
   {
     id: "agente-hacienda",
-    nombre: "Agente de Hacienda",
-    cuerpo: "Agencia Tributaria",
-    temas: [
-      "Derecho Constitucional",
-      "Derecho Administrativo General",
-      "Organizacion de la Hacienda Publica",
-      "Sistema Tributario Espanol",
-      "IRPF e IVA",
-      "Recaudacion tributaria",
-      "Inspeccion y sanciones",
+    topicIds: [
+      "constitutional-law",
+      "general-administrative-law",
+      "treasury-organization",
+      "spanish-tax-system",
+      "irpf-iva",
+      "tax-collection",
+      "inspection-sanctions"
     ],
+    aliases: [
+      "Agente de Hacienda",
+      "Tax Agency Officer",
+      "Técnico de Hacienda",
+      "Tecnico de Hacienda"
+    ]
   },
   {
     id: "administrativo-estado",
-    nombre: "Administrativo del Estado",
-    cuerpo: "Administracion General del Estado",
-    temas: [
-      "Constitucion y Union Europea",
-      "Funcion publica",
-      "Ley 39/2015 y 40/2015",
-      "Gestion de personal",
-      "Contratacion publica",
-      "Gestion financiera",
-      "Ofimatica y administracion electronica",
+    topicIds: [
+      "constitution-eu",
+      "civil-service",
+      "law-39-40",
+      "personnel-management",
+      "public-procurement",
+      "financial-management",
+      "office-electronic-admin"
     ],
-  },
+    aliases: [
+      "Administrativo del Estado",
+      "State Administrative Officer",
+      "Auxiliar Administrativo del Estado"
+    ]
+  }
 ];
 
+const oposicionPorDefectoId = "auxilio-judicial";
+
+export const oposicionPerfilPorDefecto = "Auxilio Judicial";
+
 const aliasOposiciones: Record<string, string> = {
-  "auxiliar administrativo del estado": "Administrativo del Estado",
-  "administracion local": "Administrativo del Estado",
-  "gestion de la seguridad social": "Administrativo del Estado",
-  "tramitacion procesal": "Tramitacion Procesal",
-  "tecnico de hacienda": "Agente de Hacienda",
-  "auxilio judicial": "Auxilio Judicial",
+  "auxiliar administrativo del estado": "administrativo-estado",
+  "administracion local": "administrativo-estado",
+  "gestion de la seguridad social": "administrativo-estado",
+  "tramitacion procesal": "tramitacion-procesal",
+  "tecnico de hacienda": "agente-hacienda",
+  "auxilio judicial": "auxilio-judicial"
 };
 
 export const normalizarTexto = (value: string) =>
@@ -81,39 +100,74 @@ export const normalizarTexto = (value: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-export const obtenerNombresOposiciones = () =>
-  oposicionesDisponibles.map((oposicion) => oposicion.nombre);
+const traducir = (key: string) => i18n.t(key, { ns: "oppositions" }) as string;
 
-export const resolverNombreOposicion = (value: string | null | undefined) => {
+const obtenerDefinicionPorId = (id: string) =>
+  oposicionesDefiniciones.find((oposicion) => oposicion.id === id) ??
+  oposicionesDefiniciones[0];
+
+const construirOposicion = (id: string): Oposicion => {
+  const definicion = obtenerDefinicionPorId(id);
+  return {
+    id: definicion.id,
+    nombre: traducir(`${definicion.id}.name`),
+    cuerpo: traducir(`${definicion.id}.body`),
+    temas: definicion.topicIds.map((topicId) =>
+      traducir(`${definicion.id}.topics.${topicId}`)
+    )
+  };
+};
+
+const resolverIdOposicion = (value: string | null | undefined) => {
   const normalized = normalizarTexto(String(value ?? "").trim());
-  if (!normalized) return oposicionPerfilPorDefecto;
+  if (!normalized) return oposicionPorDefectoId;
 
   const porAlias = aliasOposiciones[normalized];
   if (porAlias) return porAlias;
 
-  const exacta = oposicionesDisponibles.find(
-    (oposicion) => normalizarTexto(oposicion.nombre) === normalized,
+  const porId = oposicionesDefiniciones.find(
+    (oposicion) => normalizarTexto(oposicion.id) === normalized
   );
-  if (exacta) return exacta.nombre;
+  if (porId) return porId.id;
 
-  return oposicionPerfilPorDefecto;
+  for (const oposicion of oposicionesDefiniciones) {
+    const aliases = oposicion.aliases.map(normalizarTexto);
+    const nombreActual = normalizarTexto(traducir(`${oposicion.id}.name`));
+    if (aliases.includes(normalized) || nombreActual === normalized)
+      return oposicion.id;
+  }
+
+  return oposicionPorDefectoId;
 };
 
-export const resolverOposicionPorNombre = (value: string | null | undefined) => {
-  const nombre = resolverNombreOposicion(value);
-  return (
-    oposicionesDisponibles.find((oposicion) => oposicion.nombre === nombre) ??
-    oposicionesDisponibles[0]
-  );
+export const obtenerNombresOposiciones = () =>
+  oposicionesDefiniciones.map((oposicion) => traducir(`${oposicion.id}.name`));
+
+export const resolverNombreOposicion = (value: string | null | undefined) => {
+  const id = resolverIdOposicion(value);
+  return traducir(`${id}.name`);
+};
+
+export const resolverOposicionPorNombre = (
+  value: string | null | undefined
+) => {
+  const id = resolverIdOposicion(value);
+  return construirOposicion(id);
 };
 
 export const filtrarOposiciones = (termino: string) => {
   const query = normalizarTexto(termino.trim());
-  if (!query) return oposicionesDisponibles;
+  const oposiciones = oposicionesDefiniciones.map((oposicion) =>
+    construirOposicion(oposicion.id)
+  );
+  if (!query) return oposiciones;
 
-  return oposicionesDisponibles.filter((oposicion) => {
+  return oposiciones.filter((oposicion) => {
     const nombre = normalizarTexto(oposicion.nombre);
     const cuerpo = normalizarTexto(oposicion.cuerpo);
     return nombre.includes(query) || cuerpo.includes(query);
   });
 };
+
+export const obtenerOposicionesDisponibles = () =>
+  oposicionesDefiniciones.map((oposicion) => construirOposicion(oposicion.id));

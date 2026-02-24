@@ -1,0 +1,58 @@
+{
+  "typingStates": [
+    "Buscando información relevante...",
+    "Organizando el contenido por bloques...",
+    "Redactando una respuesta clara...",
+    "Comprobando detalles finales..."
+  ],
+  "newChat": "Nuevo chat",
+  "toasts": {
+    "loadHistoryFailedTitle": "No se pudo cargar el historial",
+    "createChatFailedTitle": "No se pudo crear el chat",
+    "createChatFailedDescription": "Error inesperado al crear una conversación.",
+    "validateDailyLimitFailedTitle": "No se pudo validar el límite diario",
+    "validateDailyLimitFailedDescription": "No se pudo comprobar la cuota de IA.",
+    "loadConversationFailedTitle": "No se pudo cargar la conversación",
+    "dailyLimitReachedTitle": "Límite diario alcanzado",
+    "dailyLimitReachedDescription": "Ya has usado {{used}}/{{limit}} peticiones hoy."
+  },
+  "errors": {
+    "saveUserMessageFailed": "No se pudo guardar tu mensaje: {{message}}",
+    "saveAssistantMessageFailed": "No se pudo guardar la respuesta de la IA: {{message}}",
+    "dailyLimitReached": "Has alcanzado tu límite diario de peticiones IA. Vuelve mañana.",
+    "assistantResponseFailed": "No se pudo obtener respuesta del asistente.",
+    "invalidSession": "Sesión expirada o inválida. Debes iniciar sesión de nuevo.",
+    "connection": "Error de conexión con el endpoint http://localhost:3001/api/gemini-chat",
+    "responseFormat": "No he podido interpretar la respuesta del servidor. Revisa el formato del endpoint.",
+    "prefix": "Error: {{message}}"
+  },
+  "sidebar": {
+    "history": "Historial",
+    "conversations": "Tus conversaciones",
+    "loadingChats": "Cargando chats...",
+    "emptyChats": "No hay conversaciones todavía.",
+    "newChat": "Nuevo chat"
+  },
+  "header": {
+    "badge": "Chat IA",
+    "title": "Asistente de estudio",
+    "dailyLimit": "Límite diario IA",
+    "checkingUsage": "Comprobando peticiones de hoy...",
+    "limitReached": "Has alcanzado el límite diario. Vuelve mañana.",
+    "remaining": "Te quedan {{count}} peticiones hoy."
+  },
+  "chat": {
+    "loadingConversation": "Cargando conversación...",
+    "emptyTitle": "¿En qué podemos ayudarte hoy?",
+    "emptyDescription": "Pide un plan de estudio, un repaso rápido o ayuda para un tema concreto.",
+    "assistantLabel": "IA",
+    "userLabel": "Tú",
+    "writing": "Escribiendo"
+  },
+  "input": {
+    "placeholderLimitReached": "Límite diario alcanzado. Vuelve mañana.",
+    "placeholder": "Escribe tu pregunta para la IA...",
+    "send": "Enviar",
+    "waiting": "Esperando..."
+  }
+}

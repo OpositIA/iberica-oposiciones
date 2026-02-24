@@ -31,7 +31,9 @@ export const registerSessionChecker = (checker: SessionChecker | null) => {
   sessionChecker = checker;
 };
 
-export const registerAuthFailureHandler = (handler: AuthFailureHandler | null) => {
+export const registerAuthFailureHandler = (
+  handler: AuthFailureHandler | null
+) => {
   authFailureHandler = handler;
 };
 
@@ -40,7 +42,10 @@ export const resetAuthFailureGuard = () => {
 };
 
 export const abortAllProtectedRequests = (reason = "auth_logout") => {
-  debugLog("Abortando requests pendientes", { reason, count: pendingControllers.size });
+  debugLog("Abortando requests pendientes", {
+    reason,
+    count: pendingControllers.size
+  });
   pendingControllers.forEach((controller) => controller.abort(reason));
   pendingControllers.clear();
 };
@@ -55,9 +60,7 @@ const triggerAuthFailureOnce = async (reason: string) => {
   debugLog("Auth failure detectado", { reason });
   abortAllProtectedRequests(reason);
 
-  if (authFailureHandler) {
-    await authFailureHandler(reason);
-  }
+  if (authFailureHandler) await authFailureHandler(reason);
 };
 
 const isAbortError = (error: unknown) => {
@@ -65,7 +68,10 @@ const isAbortError = (error: unknown) => {
   return error.name === "AbortError" || /aborted/i.test(error.message);
 };
 
-const combineSignals = (externalSignal: AbortSignal | null | undefined, localController: AbortController) => {
+const combineSignals = (
+  externalSignal: AbortSignal | null | undefined,
+  localController: AbortController
+) => {
   if (!externalSignal) return localController.signal;
 
   if (externalSignal.aborted) {
@@ -73,14 +79,16 @@ const combineSignals = (externalSignal: AbortSignal | null | undefined, localCon
     return localController.signal;
   }
 
-  externalSignal.addEventListener("abort", () => localController.abort(), { once: true });
+  externalSignal.addEventListener("abort", () => localController.abort(), {
+    once: true
+  });
   return localController.signal;
 };
 
 export const secureApiFetch = async (
   input: RequestInfo | URL,
   init?: RequestInit,
-  options: SecureFetchOptions = {},
+  options: SecureFetchOptions = {}
 ) => {
   const isProtected = options.isProtected ?? true;
 
@@ -101,13 +109,17 @@ export const secureApiFetch = async (
 
     if (isProtected && AUTH_FAILURE_STATUS.has(response.status)) {
       await triggerAuthFailureOnce(`http_${response.status}`);
-      throw new AuthSessionError(`Sesion invalida detectada por respuesta HTTP ${response.status}.`);
+      throw new AuthSessionError(
+        `Sesion invalida detectada por respuesta HTTP ${response.status}.`
+      );
     }
 
     return response;
   } catch (error) {
     if (isAbortError(error)) {
-      debugLog("Request abortada", { input: typeof input === "string" ? input : String(input) });
+      debugLog("Request abortada", {
+        input: typeof input === "string" ? input : String(input)
+      });
       throw error;
     }
 
@@ -119,7 +131,8 @@ export const secureApiFetch = async (
 
 export const clearSupabaseAuthStorage = () => {
   const shouldClearKey = (key: string) =>
-    (key.startsWith("sb-") && key.endsWith("-auth-token")) || key.includes("supabase.auth.token");
+    (key.startsWith("sb-") && key.endsWith("-auth-token")) ||
+    key.includes("supabase.auth.token");
 
   try {
     const localKeys = Object.keys(localStorage);

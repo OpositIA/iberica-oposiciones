@@ -6,9 +6,10 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import type { MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 type ConfirmActionDialogProps = {
   open: boolean;
@@ -27,12 +28,14 @@ const ConfirmActionDialog = ({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Confirmar",
-  cancelLabel = "Cancelar",
+  confirmLabel,
+  cancelLabel,
   confirmStyle = "primary",
   isLoading = false,
-  onConfirm,
+  onConfirm
 }: ConfirmActionDialogProps) => {
+  const { t } = useTranslation("common");
+
   const handleConfirm = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     await onConfirm();
@@ -46,7 +49,9 @@ const ConfirmActionDialog = ({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>
+            {cancelLabel ?? t("actions.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={isLoading}
@@ -56,7 +61,7 @@ const ConfirmActionDialog = ({
                 : ""
             }
           >
-            {confirmLabel}
+            {confirmLabel ?? t("actions.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

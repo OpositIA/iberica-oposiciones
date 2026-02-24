@@ -1,0 +1,167 @@
+{
+  "layout": {
+    "defaults": {
+      "account": "Mi cuenta"
+    },
+    "mobileMenuOpen": "Abrir menú",
+    "openProfile": "Abrir mi perfil",
+    "signOut": "Salir",
+    "signingOut": "Saliendo...",
+    "mobileMenuClose": "Cerrar menú",
+    "sidebarAriaLabel": "Barra lateral",
+    "panel": "Panel",
+    "theme": {
+      "activateLight": "Activar modo claro",
+      "activateDark": "Activar modo oscuro",
+      "lightTitle": "Modo claro",
+      "darkTitle": "Modo oscuro"
+    },
+    "closeSidebar": "Cerrar sidebar",
+    "menuGroups": {
+      "general": "General",
+      "preparation": "Preparación"
+    },
+    "menuItems": {
+      "dashboard": "Dashboard",
+      "ia": "IA",
+      "test": "Test",
+      "syllabus": "Temario",
+      "calendar": "Calendario"
+    },
+    "myProfile": "Mi perfil",
+    "activePlan": "Plan activo",
+    "closeSession": "Cerrar sesión"
+  },
+  "myProfile": {
+    "toasts": {
+      "imageTooLargeTitle": "Imagen demasiado pesada",
+      "imageTooLargeDescription": "La imagen debe pesar menos de 2MB.",
+      "invalidFormatTitle": "Formato no válido",
+      "invalidFormatDescription": "Usa PNG, JPG, WEBP o GIF.",
+      "invalidSessionTitle": "Sesión no válida",
+      "invalidSessionDescription": "Inicia sesión de nuevo para guardar el perfil.",
+      "missingDataTitle": "Faltan datos",
+      "missingDataDescription": "Completa nombre y apellidos para guardar el perfil.",
+      "uploadFailedTitle": "No se pudo subir la imagen",
+      "saveFailedTitle": "No se pudo guardar el perfil",
+      "updatedTitle": "Perfil actualizado",
+      "updatedDescription": "Tus datos de perfil se han guardado correctamente.",
+      "selectOppositionTitle": "Selecciona una oposición",
+      "selectOppositionDescription": "Debes elegir una oposición válida antes de cambiar.",
+      "noChangesTitle": "Sin cambios",
+      "noChangesDescription": "Ya tienes seleccionada esta oposición.",
+      "changeOppositionFailedTitle": "No se pudo cambiar la oposición",
+      "oppositionUpdatedTitle": "Oposición actualizada",
+      "oppositionUpdatedDescription": "A partir de ahora, Test y Temario usarán esta oposición.",
+      "localeUpdateFailedTitle": "No se pudo cambiar el idioma",
+      "localeUpdateFailedDescription": "Inténtalo de nuevo en unos segundos.",
+      "localeUpdatedTitle": "Idioma actualizado",
+      "localeUpdatedDescription": "El idioma se ha aplicado y guardado en tu perfil."
+    },
+    "loading": "Cargando perfil...",
+    "avatarAlt": "Perfil",
+    "sectionBadge": "Mi perfil",
+    "defaultUser": "Usuario",
+    "description": "Gestiona tu información personal y de preparación para adaptar toda la experiencia.",
+    "changeImage": "Cambiar imagen",
+    "save": "Guardar perfil",
+    "saving": "Guardando...",
+    "dataSection": {
+      "badge": "Datos de registro",
+      "title": "Información del perfil"
+    },
+    "fields": {
+      "name": "Nombre",
+      "lastName": "Apellidos",
+      "email": "Email",
+      "age": "Edad",
+      "yearsPreparing": "Años opositando",
+      "weeklyTargetHours": "Horas objetivo / semana",
+      "testsPerWeek": "Tests por semana",
+      "mainChallenge": "Principal reto de estudio",
+      "mainChallengePlaceholder": "Describe tu principal reto actual...",
+      "locale": "Idioma"
+    },
+    "oppositionSection": {
+      "badge": "Oposición activa",
+      "title": "Gestión de oposición",
+      "studyingNow": "Estudiando ahora",
+      "undefined": "No definida",
+      "newOpposition": "Nueva oposición",
+      "selectOption": "Selecciona una opción",
+      "description": "Si cambias de oposición, los apartados de Test y Temario se ajustarán a la nueva selección.",
+      "change": "Cambiar",
+      "changing": "Cambiando..."
+    },
+    "dialog": {
+      "title": "Confirmar cambio de oposición",
+      "description": "Vas a cambiar tu oposición activa a \"{{opposition}}\". ¿Quieres continuar?",
+      "confirm": "Confirmar cambio",
+      "changing": "Cambiando...",
+      "cancel": "Cancelar"
+    }
+  },
+  "test": {
+    "toasts": {
+      "mockReadyTitle": "Simulacro preparado",
+      "mockReadyDescription": "Vas a iniciar un simulacro general de {{opposition}}.",
+      "selectTopicTitle": "Selecciona un tema",
+      "selectTopicDescription": "Elige un tema antes de lanzar el test rápido.",
+      "quickTestReadyTitle": "Test rápido preparado",
+      "quickTestReadyDescription": "Tema seleccionado: {{topic}}."
+    },
+    "loading": "Cargando oposición...",
+    "badge": "Test",
+    "title": "Tests de tu oposición",
+    "description": "Solo verás y practicarás con la oposición activa en tu perfil.",
+    "mockMode": "Modo Simulacro",
+    "activeOpposition": "Oposición activa: {{opposition}}",
+    "startMock": "Hacer simulacro de test",
+    "quickMode": "Modo Rápido por tema",
+    "selectTopicOf": "Selecciona tema de {{opposition}}",
+    "launchQuickTest": "Lanzar test rápido",
+    "quickTopics": "Temas para test rápido",
+    "selectTopic": "Selecciona un tema de {{opposition}}"
+  },
+  "syllabus": {
+    "loading": "Cargando temario...",
+    "badge": "Temario",
+    "title": "Temario de tu oposición",
+    "description": "Se muestra únicamente la oposición activa de tu perfil.",
+    "activeOpposition": "Oposición activa",
+    "topicsList": "Listado de temas",
+    "topicItem": "Tema {{index}}. {{topic}}"
+  },
+  "calendar": {
+    "badge": "Calendario",
+    "title": "Plan semanal",
+    "description": "Organiza tus bloques de estudio y revisa los próximos hitos de preparación.",
+    "upcomingSessions": "Próximas sesiones",
+    "blocks": {
+      "monday": {
+        "day": "Lunes",
+        "activity": "Repaso Tema 1-2",
+        "time": "19:00 - 20:30"
+      },
+      "wednesday": {
+        "day": "Miércoles",
+        "activity": "Test rápido Tema 3",
+        "time": "19:30 - 20:00"
+      },
+      "friday": {
+        "day": "Viernes",
+        "activity": "Simulacro general",
+        "time": "18:30 - 19:30"
+      }
+    }
+  },
+  "oposia": {
+    "badge": "IA",
+    "title": "Apartado OposIA",
+    "description": "Tu asistente para resolver dudas, generar planes de estudio y preparar repasos en tiempo real.",
+    "assistant": "Asistente inteligente",
+    "directAccess": "OposIA en acceso directo",
+    "directAccessDescription": "Abre la experiencia completa para trabajar con prompts, contexto de estudio y recomendaciones.",
+    "open": "Abrir OposIA"
+  }
+}

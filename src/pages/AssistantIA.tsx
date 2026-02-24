@@ -1,10 +1,27 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, BookOpen, Loader2, MessageCircle, Plus, Send, User } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import type { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/auth/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
+import { normalizeLocale, toIntlLocale } from "@/i18n/locales";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { AuthSessionError, secureApiFetch } from "@/lib/secureFetch";
+import {
+  AlertTriangle,
+  BookOpen,
+  Loader2,
+  MessageCircle,
+  Plus,
+  Send,
+  User
+} from "lucide-react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
+import { useTranslation } from "react-i18next";
 
 type ChatMessage = {
   id: string;
@@ -32,40 +49,19 @@ type DailyQuotaResult = {
   remaining: number;
 };
 
-const estadosEscrituraIA = [
-  "Buscando informacion relevante...",
-  "Organizando el contenido por bloques...",
-  "Redactando una respuesta clara...",
-  "Comprobando detalles finales...",
-];
 const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
 
-const formatHora = (value?: string | Date) =>
-  new Date(value ?? Date.now()).toLocaleTimeString("es-ES", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-const formatFechaHistorial = (value: string) =>
-  new Date(value).toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "short",
-  });
-
-const truncateTitle = (value: string, max = 42) => {
-  const clean = value.replace(/\s+/g, " ").trim();
-  if (!clean) return "Nuevo chat";
-  return clean.length > max ? `${clean.slice(0, max)}...` : clean;
-};
-
-const mapConversation = (row: Tables<"ai_conversations">): ConversationItem => ({
+const mapConversation = (
+  row: Tables<"ai_conversations">
+): ConversationItem => ({
   id: row.id,
   title: row.title,
   createdAt: row.created_at,
-  lastMessageAt: row.last_message_at,
+  lastMessageAt: row.last_message_at
 });
 
 const AssistantIA = () => {
+  const { t, i18n } = useTranslation(["assistant"]);
   const { toast } = useToast();
   const { user, isAuthReady } = useAuth();
   const [inputChat, setInputChat] = useState("");
@@ -75,16 +71,62 @@ const AssistantIA = () => {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [mensajes, setMensajes] = useState<ChatMessage[]>([]);
   const [dailyUsedRequests, setDailyUsedRequests] = useState(0);
   const [dailyRequestLimit, setDailyRequestLimit] = useState(0);
   const [isLoadingDailyUsage, setIsLoadingDailyUsage] = useState(true);
-  const remainingDailyRequests = Math.max(dailyRequestLimit - dailyUsedRequests, 0);
-  const isDailyLimitReached = Boolean(currentUserId) && !isLoadingDailyUsage && remainingDailyRequests <= 0;
-  const dailyUsagePercent = dailyRequestLimit > 0 ? Math.min((dailyUsedRequests / dailyRequestLimit) * 100, 100) : 0;
+
+  const locale = normalizeLocale(i18n.resolvedLanguage);
+  const intlLocale = toIntlLocale(locale);
+  const estadosEscrituraIA = useMemo(
+    () => t("assistant:typingStates", { returnObjects: true }) as string[],
+    [t]
+  );
+
+  const remainingDailyRequests = Math.max(
+    dailyRequestLimit - dailyUsedRequests,
+    0
+  );
+  const isDailyLimitReached =
+    Boolean(currentUserId) &&
+    !isLoadingDailyUsage &&
+    remainingDailyRequests <= 0;
+  const dailyUsagePercent =
+    dailyRequestLimit > 0
+      ? Math.min((dailyUsedRequests / dailyRequestLimit) * 100, 100)
+      : 0;
+
+  const formatHora = useCallback(
+    (value?: string | Date) =>
+      new Date(value ?? Date.now()).toLocaleTimeString(intlLocale, {
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+    [intlLocale]
+  );
+
+  const formatFechaHistorial = useCallback(
+    (value: string) =>
+      new Date(value).toLocaleDateString(intlLocale, {
+        day: "2-digit",
+        month: "short"
+      }),
+    [intlLocale]
+  );
+
+  const truncateTitle = useCallback(
+    (value: string, max = 42) => {
+      const clean = value.replace(/\s+/g, " ").trim();
+      if (!clean) return t("assistant:newChat");
+      return clean.length > max ? `${clean.slice(0, max)}...` : clean;
+    },
+    [t]
+  );
 
   const getConversations = useCallback(
     async (userId: string) => {
@@ -98,37 +140,38 @@ const AssistantIA = () => {
       if (error) {
         toast({
           variant: "destructive",
-          title: "No se pudo cargar el historial",
-          description: error.message,
+          title: t("assistant:toasts.loadHistoryFailedTitle"),
+          description: error.message
         });
         return null;
       }
 
       return (data ?? []).map(mapConversation);
     },
-    [toast],
+    [t, toast]
   );
 
   const createConversationRecord = useCallback(
     async (userId: string) => {
       const { data, error } = await supabase
         .from("ai_conversations")
-        .insert({ user_id: userId, title: "Nuevo chat" })
+        .insert({ user_id: userId, title: t("assistant:newChat") })
         .select("id, title, created_at, last_message_at")
         .single();
 
       if (error || !data) {
         toast({
           variant: "destructive",
-          title: "No se pudo crear el chat",
-          description: error?.message ?? "Error inesperado al crear una conversacion.",
+          title: t("assistant:toasts.createChatFailedTitle"),
+          description:
+            error?.message ?? t("assistant:toasts.createChatFailedDescription")
         });
         return null;
       }
 
       return mapConversation(data as Tables<"ai_conversations">);
     },
-    [toast],
+    [t, toast]
   );
 
   const refreshConversations = useCallback(async () => {
@@ -137,56 +180,65 @@ const AssistantIA = () => {
     if (data) setConversations(data);
   }, [currentUserId, getConversations]);
 
-  const refreshDailyUsage = useCallback(
-    async (userId: string) => {
-      setIsLoadingDailyUsage(true);
-      const { data, error } = await supabase.rpc("get_ai_daily_quota", {
-        p_user_id: userId,
-        p_tz: DAILY_USAGE_TIMEZONE,
-      });
+  const refreshDailyUsage = useCallback(async (userId: string) => {
+    setIsLoadingDailyUsage(true);
+    const { data, error } = await supabase.rpc("get_ai_daily_quota", {
+      p_user_id: userId,
+      p_tz: DAILY_USAGE_TIMEZONE
+    });
 
-      const row = data?.[0];
-      if (error || !row) {
-        setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
-        setIsLoadingDailyUsage(false);
-        return;
-      }
-
-      const nextLimit =
-        typeof row.limit === "number" && Number.isFinite(row.limit) && row.limit > 0 ? Math.floor(row.limit) : 0;
-      const nextUsed =
-        typeof row.used === "number" && Number.isFinite(row.used) ? Math.max(0, Math.floor(row.used)) : 0;
-
-      setDailyRequestLimit(nextLimit);
-      setDailyUsedRequests(nextUsed);
+    const row = data?.[0];
+    if (error || !row) {
+      setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
       setIsLoadingDailyUsage(false);
-    },
-    [],
-  );
+      return;
+    }
+
+    const nextLimit =
+      typeof row.limit === "number" &&
+      Number.isFinite(row.limit) &&
+      row.limit > 0
+        ? Math.floor(row.limit)
+        : 0;
+    const nextUsed =
+      typeof row.used === "number" && Number.isFinite(row.used)
+        ? Math.max(0, Math.floor(row.used))
+        : 0;
+
+    setDailyRequestLimit(nextLimit);
+    setDailyUsedRequests(nextUsed);
+    setIsLoadingDailyUsage(false);
+  }, []);
 
   const consumeDailyQuota = useCallback(
     async (userId: string): Promise<DailyQuotaResult | null> => {
       const { data, error } = await supabase.rpc("consume_ai_daily_quota", {
         p_user_id: userId,
-        p_tz: DAILY_USAGE_TIMEZONE,
+        p_tz: DAILY_USAGE_TIMEZONE
       });
 
       const row = data?.[0];
       if (error || !row) {
         toast({
           variant: "destructive",
-          title: "No se pudo validar el limite diario",
-          description: error?.message ?? "No se pudo comprobar la cuota de IA.",
+          title: t("assistant:toasts.validateDailyLimitFailedTitle"),
+          description:
+            error?.message ??
+            t("assistant:toasts.validateDailyLimitFailedDescription")
         });
         return null;
       }
 
       const nextLimit =
-        typeof row.limit === "number" && Number.isFinite(row.limit) && row.limit > 0
+        typeof row.limit === "number" &&
+        Number.isFinite(row.limit) &&
+        row.limit > 0
           ? Math.floor(row.limit)
           : 0;
       const nextUsed =
-        typeof row.used === "number" && Number.isFinite(row.used) ? Math.max(0, Math.floor(row.used)) : 0;
+        typeof row.used === "number" && Number.isFinite(row.used)
+          ? Math.max(0, Math.floor(row.used))
+          : 0;
       const nextRemaining =
         typeof row.remaining === "number" && Number.isFinite(row.remaining)
           ? Math.max(0, Math.floor(row.remaining))
@@ -199,10 +251,10 @@ const AssistantIA = () => {
         allowed: Boolean(row.allowed),
         used: nextUsed,
         limit: nextLimit,
-        remaining: nextRemaining,
+        remaining: nextRemaining
       };
     },
-    [toast],
+    [t, toast]
   );
 
   const loadMessages = useCallback(
@@ -218,8 +270,8 @@ const AssistantIA = () => {
       if (error) {
         toast({
           variant: "destructive",
-          title: "No se pudo cargar la conversacion",
-          description: error.message,
+          title: t("assistant:toasts.loadConversationFailedTitle"),
+          description: error.message
         });
         setMensajes([]);
         setIsLoadingMessages(false);
@@ -228,15 +280,17 @@ const AssistantIA = () => {
 
       const mapped = (data ?? []).map((row) => ({
         id: `db-${row.id}`,
-        role: (row.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
+        role: (row.role === "assistant" ? "assistant" : "user") as
+          | "assistant"
+          | "user",
         content: row.content,
-        time: formatHora(row.created_at),
+        time: formatHora(row.created_at)
       }));
 
       setMensajes(mapped);
       setIsLoadingMessages(false);
     },
-    [toast],
+    [formatHora, t, toast]
   );
 
   useEffect(() => {
@@ -290,7 +344,13 @@ const AssistantIA = () => {
     return () => {
       isCancelled = true;
     };
-  }, [createConversationRecord, getConversations, isAuthReady, refreshDailyUsage, user?.id]);
+  }, [
+    createConversationRecord,
+    getConversations,
+    isAuthReady,
+    refreshDailyUsage,
+    user?.id
+  ]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -312,7 +372,7 @@ const AssistantIA = () => {
     }, 1800);
 
     return () => window.clearInterval(intervalId);
-  }, [isSendingChat]);
+  }, [estadosEscrituraIA.length, isSendingChat]);
 
   useEffect(() => {
     const node = chatContainerRef.current;
@@ -335,30 +395,34 @@ const AssistantIA = () => {
       const firstChoice = choices[0] as
         | { message?: { content?: unknown }; text?: unknown }
         | undefined;
-      if (typeof firstChoice?.message?.content === "string") {
+      if (typeof firstChoice?.message?.content === "string")
         return firstChoice.message.content.trim();
-      }
-      if (typeof firstChoice?.text === "string") {
-        return firstChoice.text.trim();
-      }
+
+      if (typeof firstChoice?.text === "string") return firstChoice.text.trim();
     }
 
     return "";
   };
 
   const renderInlineMarkdown = (text: string, keyPrefix: string) =>
-    text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((segment, index) => {
-      const strongMatch = segment.match(/^\*\*(.+)\*\*$/);
-      if (strongMatch) {
-        return (
-          <strong key={`${keyPrefix}-strong-${index}`} className="font-semibold">
-            {strongMatch[1]}
-          </strong>
-        );
-      }
+    text
+      .split(/(\*\*[^*]+\*\*)/g)
+      .filter(Boolean)
+      .map((segment, index) => {
+        const strongMatch = segment.match(/^\*\*(.+)\*\*$/);
+        if (strongMatch) {
+          return (
+            <strong
+              key={`${keyPrefix}-strong-${index}`}
+              className="font-semibold"
+            >
+              {strongMatch[1]}
+            </strong>
+          );
+        }
 
-      return <span key={`${keyPrefix}-text-${index}`}>{segment}</span>;
-    });
+        return <span key={`${keyPrefix}-text-${index}`}>{segment}</span>;
+      });
 
   const renderAssistantContent = (content: string, keyPrefix: string) => {
     const lines = content.split(/\r?\n/);
@@ -369,13 +433,22 @@ const AssistantIA = () => {
       if (bulletItems.length === 0) return;
 
       blocks.push(
-        <ul key={`${keyPrefix}-list-${lineIndex}`} className="list-disc pl-5 space-y-1">
+        <ul
+          key={`${keyPrefix}-list-${lineIndex}`}
+          className="list-disc pl-5 space-y-1"
+        >
           {bulletItems.map((item, itemIndex) => (
-            <li key={`${keyPrefix}-item-${lineIndex}-${itemIndex}`} className="text-sm leading-relaxed">
-              {renderInlineMarkdown(item, `${keyPrefix}-item-content-${lineIndex}-${itemIndex}`)}
+            <li
+              key={`${keyPrefix}-item-${lineIndex}-${itemIndex}`}
+              className="text-sm leading-relaxed"
+            >
+              {renderInlineMarkdown(
+                item,
+                `${keyPrefix}-item-content-${lineIndex}-${itemIndex}`
+              )}
             </li>
           ))}
-        </ul>,
+        </ul>
       );
       bulletItems = [];
     };
@@ -399,9 +472,15 @@ const AssistantIA = () => {
       const h3Match = line.match(/^###\s+(.+)$/);
       if (h3Match) {
         blocks.push(
-          <h3 key={`${keyPrefix}-h3-${lineIndex}`} className="text-sm font-semibold tracking-wide mt-2">
-            {renderInlineMarkdown(h3Match[1], `${keyPrefix}-h3-content-${lineIndex}`)}
-          </h3>,
+          <h3
+            key={`${keyPrefix}-h3-${lineIndex}`}
+            className="text-sm font-semibold tracking-wide mt-2"
+          >
+            {renderInlineMarkdown(
+              h3Match[1],
+              `${keyPrefix}-h3-content-${lineIndex}`
+            )}
+          </h3>
         );
         return;
       }
@@ -409,24 +488,35 @@ const AssistantIA = () => {
       const h4Match = line.match(/^####\s+(.+)$/);
       if (h4Match) {
         blocks.push(
-          <h4 key={`${keyPrefix}-h4-${lineIndex}`} className="text-sm font-semibold text-muted-foreground">
-            {renderInlineMarkdown(h4Match[1], `${keyPrefix}-h4-content-${lineIndex}`)}
-          </h4>,
+          <h4
+            key={`${keyPrefix}-h4-${lineIndex}`}
+            className="text-sm font-semibold text-muted-foreground"
+          >
+            {renderInlineMarkdown(
+              h4Match[1],
+              `${keyPrefix}-h4-content-${lineIndex}`
+            )}
+          </h4>
         );
         return;
       }
 
       blocks.push(
-        <p key={`${keyPrefix}-p-${lineIndex}`} className="text-sm leading-relaxed">
+        <p
+          key={`${keyPrefix}-p-${lineIndex}`}
+          className="text-sm leading-relaxed"
+        >
           {renderInlineMarkdown(line, `${keyPrefix}-p-content-${lineIndex}`)}
-        </p>,
+        </p>
       );
     });
 
     flushBulletItems(lines.length + 1);
 
     if (blocks.length === 0) {
-      return <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>;
+      return (
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
+      );
     }
 
     return <div className="space-y-2">{blocks}</div>;
@@ -441,7 +531,10 @@ const AssistantIA = () => {
 
     if (!created) return;
 
-    setConversations((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
+    setConversations((prev) => [
+      created,
+      ...prev.filter((item) => item.id !== created.id)
+    ]);
     setActiveConversationId(created.id);
     setInputChat("");
     setMensajes([]);
@@ -452,6 +545,16 @@ const AssistantIA = () => {
     setActiveConversationId(conversationId);
   };
 
+  const isDefaultConversationTitle = (value: string) => {
+    const trimmed = value.trim();
+    const knownTitles = new Set([
+      t("assistant:newChat"),
+      i18n.getFixedT("es")("assistant:newChat"),
+      i18n.getFixedT("en")("assistant:newChat")
+    ]);
+    return !trimmed || knownTitles.has(trimmed);
+  };
+
   const onSubmitChat = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -460,8 +563,11 @@ const AssistantIA = () => {
     if (isDailyLimitReached) {
       toast({
         variant: "destructive",
-        title: "Limite diario alcanzado",
-        description: `Ya has usado ${dailyUsedRequests}/${dailyRequestLimit} peticiones hoy.`,
+        title: t("assistant:toasts.dailyLimitReachedTitle"),
+        description: t("assistant:toasts.dailyLimitReachedDescription", {
+          used: dailyUsedRequests,
+          limit: dailyRequestLimit
+        })
       });
       return;
     }
@@ -471,8 +577,11 @@ const AssistantIA = () => {
     if (!quota.allowed) {
       toast({
         variant: "destructive",
-        title: "Limite diario alcanzado",
-        description: `Ya has usado ${quota.used}/${quota.limit} peticiones hoy.`,
+        title: t("assistant:toasts.dailyLimitReachedTitle"),
+        description: t("assistant:toasts.dailyLimitReachedDescription", {
+          used: quota.used,
+          limit: quota.limit
+        })
       });
       return;
     }
@@ -482,19 +591,25 @@ const AssistantIA = () => {
     if (!conversationId) {
       const created = await createConversationRecord(currentUserId);
       if (!created) return;
-      setConversations((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
+      setConversations((prev) => [
+        created,
+        ...prev.filter((item) => item.id !== created.id)
+      ]);
       setActiveConversationId(created.id);
       conversationId = created.id;
     }
 
-    const shouldRenameConversation =
-      (conversations.find((conv) => conv.id === conversationId)?.title ?? "Nuevo chat") === "Nuevo chat";
+    const currentConversationTitle =
+      conversations.find((conv) => conv.id === conversationId)?.title ?? "";
+    const shouldRenameConversation = isDefaultConversationTitle(
+      currentConversationTitle
+    );
 
     const userMessage: ChatMessage = {
       id: `local-user-${Date.now()}`,
       role: "user",
       content: texto,
-      time: formatHora(),
+      time: formatHora()
     };
 
     setMensajes((prev) => [...prev, userMessage]);
@@ -502,15 +617,21 @@ const AssistantIA = () => {
     setIsSendingChat(true);
 
     try {
-      const { error: userMessageError } = await supabase.from("ai_messages").insert({
-        conversation_id: conversationId,
-        user_id: currentUserId,
-        role: "user",
-        content: texto,
-      });
+      const { error: userMessageError } = await supabase
+        .from("ai_messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: currentUserId,
+          role: "user",
+          content: texto
+        });
 
       if (userMessageError) {
-        throw new Error(`No se pudo guardar tu mensaje: ${userMessageError.message}`);
+        throw new Error(
+          t("assistant:errors.saveUserMessageFailed", {
+            message: userMessageError.message
+          })
+        );
       }
 
       if (shouldRenameConversation) {
@@ -523,7 +644,9 @@ const AssistantIA = () => {
 
         if (!renameError) {
           setConversations((prev) =>
-            prev.map((conv) => (conv.id === conversationId ? { ...conv, title: newTitle } : conv)),
+            prev.map((conv) =>
+              conv.id === conversationId ? { ...conv, title: newTitle } : conv
+            )
           );
         }
       }
@@ -534,27 +657,32 @@ const AssistantIA = () => {
         .slice(-20)
         .map((m) => ({
           role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
+          parts: [{ text: m.content }]
         }));
 
-      const response = await secureApiFetch("http://localhost:3001/api/gemini-chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: texto, history }),
-      });
+      const response = await secureApiFetch(
+        "http://localhost:3001/api/gemini-chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message: texto, history })
+        }
+      );
 
       const payload = await response.json().catch(() => ({}));
       const assistantText = extraerTextoRespuesta(payload);
       const usage = payload as { used?: unknown; limit?: unknown };
 
-      if (typeof usage.used === "number" && Number.isFinite(usage.used)) {
+      if (typeof usage.used === "number" && Number.isFinite(usage.used))
         setDailyUsedRequests(Math.max(0, Math.floor(usage.used)));
-      }
-      if (typeof usage.limit === "number" && Number.isFinite(usage.limit) && usage.limit > 0) {
+      if (
+        typeof usage.limit === "number" &&
+        Number.isFinite(usage.limit) &&
+        usage.limit > 0
+      )
         setDailyRequestLimit(Math.floor(usage.limit));
-      }
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -563,27 +691,37 @@ const AssistantIA = () => {
               ? Math.max(0, Math.floor(usage.used))
               : dailyRequestLimit;
           setDailyUsedRequests(usedAtLimit);
-          if (typeof usage.limit === "number" && Number.isFinite(usage.limit) && usage.limit > 0) {
+          if (
+            typeof usage.limit === "number" &&
+            Number.isFinite(usage.limit) &&
+            usage.limit > 0
+          )
             setDailyRequestLimit(Math.floor(usage.limit));
-          }
-          throw new Error("Has alcanzado tu limite diario de peticiones IA. Vuelve manana.");
+          throw new Error(t("assistant:errors.dailyLimitReached"));
         }
-        throw new Error(assistantText || "No se pudo obtener respuesta del asistente.");
+        throw new Error(
+          assistantText || t("assistant:errors.assistantResponseFailed")
+        );
       }
 
       const assistantFinalText =
-        assistantText ||
-        "No he podido interpretar la respuesta del servidor. Revisa el formato del endpoint.";
+        assistantText || t("assistant:errors.responseFormat");
 
-      const { error: assistantMessageError } = await supabase.from("ai_messages").insert({
-        conversation_id: conversationId,
-        user_id: currentUserId,
-        role: "assistant",
-        content: assistantFinalText,
-      });
+      const { error: assistantMessageError } = await supabase
+        .from("ai_messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: currentUserId,
+          role: "assistant",
+          content: assistantFinalText
+        });
 
       if (assistantMessageError) {
-        throw new Error(`No se pudo guardar la respuesta de la IA: ${assistantMessageError.message}`);
+        throw new Error(
+          t("assistant:errors.saveAssistantMessageFailed", {
+            message: assistantMessageError.message
+          })
+        );
       }
 
       setMensajes((prev) => [
@@ -592,21 +730,18 @@ const AssistantIA = () => {
           id: `local-assistant-${Date.now()}`,
           role: "assistant",
           content: assistantFinalText,
-          time: formatHora(),
-        },
+          time: formatHora()
+        }
       ]);
 
       void refreshConversations();
       void refreshDailyUsage(currentUserId);
     } catch (error) {
       const message = (() => {
-        if (error instanceof AuthSessionError) {
-          return "Sesion expirada o invalida. Debes iniciar sesion de nuevo.";
-        }
-        if (error instanceof Error) {
-          return error.message;
-        }
-        return "Error de conexion con el endpoint http://localhost:3001/api/gemini-chat";
+        if (error instanceof AuthSessionError)
+          return t("assistant:errors.invalidSession");
+        if (error instanceof Error) return error.message;
+        return t("assistant:errors.connection");
       })();
 
       setMensajes((prev) => [
@@ -614,9 +749,9 @@ const AssistantIA = () => {
         {
           id: `local-error-${Date.now()}`,
           role: "assistant",
-          content: `Error: ${message}`,
-          time: formatHora(),
-        },
+          content: t("assistant:errors.prefix", { message }),
+          time: formatHora()
+        }
       ]);
       void refreshDailyUsage(currentUserId);
     } finally {
@@ -631,17 +766,23 @@ const AssistantIA = () => {
         <div className="border-b border-border/70 bg-gradient-to-br from-primary/10 via-background to-background px-4 py-4">
           <div className="mb-2">
             <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
-              Historial
+              {t("assistant:sidebar.history")}
             </p>
-            <h2 className="mt-1 text-sm font-semibold text-foreground">Tus conversaciones</h2>
+            <h2 className="mt-1 text-sm font-semibold text-foreground">
+              {t("assistant:sidebar.conversations")}
+            </h2>
           </div>
         </div>
 
         <div className="flex-1 min-h-0 space-y-2 overflow-y-auto p-3">
           {isLoadingConversations ? (
-            <p className="py-3 text-sm text-muted-foreground">Cargando chats...</p>
+            <p className="py-3 text-sm text-muted-foreground">
+              {t("assistant:sidebar.loadingChats")}
+            </p>
           ) : conversations.length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">No hay conversaciones todavia.</p>
+            <p className="py-3 text-sm text-muted-foreground">
+              {t("assistant:sidebar.emptyChats")}
+            </p>
           ) : (
             conversations.map((conversation) => {
               const isActive = conversation.id === activeConversationId;
@@ -659,11 +800,11 @@ const AssistantIA = () => {
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        isActive ? "bg-primary" : "bg-muted-foreground/40"
-                      }`}
+                      className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-primary" : "bg-muted-foreground/40"}`}
                     />
-                    <p className="truncate text-sm font-medium">{conversation.title || "Nuevo chat"}</p>
+                    <p className="truncate text-sm font-medium">
+                      {conversation.title || t("assistant:newChat")}
+                    </p>
                   </div>
                   <p className="mt-1 pl-3.5 text-[11px] text-muted-foreground">
                     {formatFechaHistorial(conversation.lastMessageAt)}
@@ -678,11 +819,17 @@ const AssistantIA = () => {
           <button
             type="button"
             onClick={onCreateConversation}
-            disabled={isCreatingConversation || isLoadingConversations || !currentUserId}
+            disabled={
+              isCreatingConversation || isLoadingConversations || !currentUserId
+            }
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-3 text-xs font-semibold tracking-widest uppercase text-primary-foreground shadow-[0_16px_30px_-20px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
-            {isCreatingConversation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Nuevo chat
+            {isCreatingConversation ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            {t("assistant:sidebar.newChat")}
           </button>
         </div>
       </aside>
@@ -693,40 +840,42 @@ const AssistantIA = () => {
           <div className="flex items-start justify-between gap-4 mb-5">
             <div className="w-full">
               <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-                Chat IA
+                {t("assistant:header.badge")}
               </p>
-              <h1 className="text-2xl font-serif text-foreground">Asistente de estudio</h1>
+              <h1 className="text-2xl font-serif text-foreground">
+                {t("assistant:header.title")}
+              </h1>
               <div
-                className={`mt-3 rounded-2xl border px-3 py-2 ${
-                  isDailyLimitReached ? "border-destructive/40 bg-destructive/10" : "border-border/70 bg-secondary/40"
-                }`}
+                className={`mt-3 rounded-2xl border px-3 py-2 ${isDailyLimitReached ? "border-destructive/40 bg-destructive/10" : "border-border/70 bg-secondary/40"}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Limite diario IA
+                    {t("assistant:header.dailyLimit")}
                   </p>
                   <p
-                    className={`text-xs font-semibold ${
-                      isDailyLimitReached ? "text-destructive" : "text-foreground"
-                    }`}
+                    className={`text-xs font-semibold ${isDailyLimitReached ? "text-destructive" : "text-foreground"}`}
                   >
-                    {isLoadingDailyUsage ? "..." : `${dailyUsedRequests}/${dailyRequestLimit}`}
+                    {isLoadingDailyUsage
+                      ? "..."
+                      : `${dailyUsedRequests}/${dailyRequestLimit}`}
                   </p>
                 </div>
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border/70">
                   <div
-                    className={`h-full transition-all ${
-                      isDailyLimitReached ? "bg-destructive" : "bg-primary"
-                    }`}
+                    className={`h-full transition-all ${isDailyLimitReached ? "bg-destructive" : "bg-primary"}`}
                     style={{ width: `${dailyUsagePercent}%` }}
                   />
                 </div>
-                <p className={`mt-2 text-[11px] ${isDailyLimitReached ? "text-destructive" : "text-muted-foreground"}`}>
+                <p
+                  className={`mt-2 text-[11px] ${isDailyLimitReached ? "text-destructive" : "text-muted-foreground"}`}
+                >
                   {isLoadingDailyUsage
-                    ? "Comprobando peticiones de hoy..."
+                    ? t("assistant:header.checkingUsage")
                     : isDailyLimitReached
-                      ? "Has alcanzado el limite diario. Vuelve manana."
-                      : `Te quedan ${remainingDailyRequests} peticiones hoy.`}
+                      ? t("assistant:header.limitReached")
+                      : t("assistant:header.remaining", {
+                          count: remainingDailyRequests
+                        })}
                 </p>
               </div>
             </div>
@@ -738,7 +887,7 @@ const AssistantIA = () => {
           >
             {isLoadingMessages ? (
               <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground">
-                Cargando conversacion...
+                {t("assistant:chat.loadingConversation")}
               </div>
             ) : (
               <>
@@ -747,9 +896,11 @@ const AssistantIA = () => {
                     <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
-                    <p className="text-sm font-medium text-foreground">En que podemos ayudarte hoy?</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {t("assistant:chat.emptyTitle")}
+                    </p>
                     <p className="max-w-xs text-xs text-muted-foreground">
-                      Pide un plan de estudio, un repaso rapido o ayuda para un tema concreto.
+                      {t("assistant:chat.emptyDescription")}
                     </p>
                   </div>
                 )}
@@ -769,14 +920,20 @@ const AssistantIA = () => {
                         <User className="h-3.5 w-3.5" />
                       )}
                       <span className="text-[11px] uppercase tracking-widest opacity-70">
-                        {m.role === "assistant" ? "IA" : "Tu"}
+                        {m.role === "assistant"
+                          ? t("assistant:chat.assistantLabel")
+                          : t("assistant:chat.userLabel")}
                       </span>
-                      <span className="text-[11px] opacity-70 ml-auto">{m.time}</span>
+                      <span className="text-[11px] opacity-70 ml-auto">
+                        {m.time}
+                      </span>
                     </div>
                     {m.role === "assistant" ? (
                       renderAssistantContent(m.content, `assistant-msg-${m.id}`)
                     ) : (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                        {m.content}
+                      </p>
                     )}
                   </div>
                 ))}
@@ -784,8 +941,12 @@ const AssistantIA = () => {
                   <div className="max-w-[88%] rounded-3xl border border-border/70 bg-background p-3 text-foreground shadow-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <MessageCircle className="h-3.5 w-3.5" />
-                      <span className="text-[11px] uppercase tracking-widest opacity-70">IA</span>
-                      <span className="text-[11px] opacity-70 ml-auto">Escribiendo</span>
+                      <span className="text-[11px] uppercase tracking-widest opacity-70">
+                        {t("assistant:chat.assistantLabel")}
+                      </span>
+                      <span className="text-[11px] opacity-70 ml-auto">
+                        {t("assistant:chat.writing")}
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                       {estadosEscrituraIA[estadoEscrituraIdx]}
@@ -807,13 +968,15 @@ const AssistantIA = () => {
                 onChange={(e) => setInputChat(e.target.value)}
                 placeholder={
                   isDailyLimitReached
-                    ? "Limite diario alcanzado. Vuelve manana."
-                    : "Escribe tu pregunta para la IA..."
+                    ? t("assistant:input.placeholderLimitReached")
+                    : t("assistant:input.placeholder")
                 }
                 disabled={isDailyLimitReached}
                 className="w-full bg-transparent py-3 text-sm focus:outline-none"
               />
-              {isDailyLimitReached && <AlertTriangle className="h-4 w-4 text-destructive" />}
+              {isDailyLimitReached && (
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+              )}
             </div>
             <button
               type="submit"
@@ -821,7 +984,9 @@ const AssistantIA = () => {
               className="inline-flex items-center gap-2 rounded-3xl bg-primary px-4 py-3 text-xs font-semibold tracking-widest uppercase text-primary-foreground shadow-[0_16px_30px_-20px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
-              {isSendingChat ? "Esperando..." : "Enviar"}
+              {isSendingChat
+                ? t("assistant:input.waiting")
+                : t("assistant:input.send")}
             </button>
           </form>
         </div>
