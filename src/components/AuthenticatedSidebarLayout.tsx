@@ -86,12 +86,25 @@ const AuthenticatedSidebarLayout = () => {
 
       <header className="border-b border-border/70 bg-background/85 backdrop-blur relative z-30">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-sm font-bold tracking-widest uppercase text-foreground">
-              OposiTest
-            </span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:bg-secondary transition-colors lg:hidden"
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 lg:hidden"
+              onClick={closeMobileSidebar}
+            >
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+              <span className="font-semibold text-lg text-foreground">Panel</span>
+            </Link>
+          </div>
 
           <div className="flex items-center gap-2">
             <button className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center">
@@ -123,7 +136,7 @@ const AuthenticatedSidebarLayout = () => {
       )}
 
       <aside
-        className={`fixed top-0 start-0 bottom-0 z-50 w-72 border-r border-border/70 bg-background/90 backdrop-blur-xl shadow-2xl transition-transform duration-300 transform ${
+        className={`fixed top-0 start-0 bottom-0 z-50 w-72 max-[480px]:w-[86vw] border-r border-border/70 bg-background/90 backdrop-blur-xl shadow-2xl transition-transform duration-300 transform ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0`}
         role="dialog"
@@ -213,18 +226,6 @@ const AuthenticatedSidebarLayout = () => {
       </aside>
 
       <main className="max-w-7xl mx-auto px-6 py-8 lg:py-10 relative z-10 transition-all duration-300 lg:pl-72">
-        <div className="lg:hidden p-2 mb-2">
-          <button
-            type="button"
-            onClick={() => setIsMobileOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold tracking-widest uppercase text-muted-foreground hover:bg-secondary transition-colors"
-            aria-label="Abrir menu"
-          >
-            <Menu className="h-4 w-4" />
-            Menu
-          </button>
-        </div>
-
         <Outlet />
       </main>
     </div>
