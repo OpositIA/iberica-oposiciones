@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { isSessionExpired } from "@/lib/session";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -13,20 +14,25 @@ const Login = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
+    const validateAndRedirectIfSessionActive = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      const session = data.session;
+      if (error || !session || isSessionExpired(session)) {
+        return;
+      }
 
-      if (isMounted && data.session) {
+      if (isMounted) {
         navigate("/dashboard", { replace: true });
       }
     };
 
-    void checkSession();
+    void validateAndRedirectIfSessionActive();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        navigate("/dashboard", { replace: true });
-      }
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") return;
+      if (!session || isSessionExpired(session)) return;
+
+      void validateAndRedirectIfSessionActive();
     });
 
     return () => {
@@ -74,16 +80,16 @@ const Login = () => {
         <div className="max-w-md">
           <Link to="/" className="flex items-center gap-2 mb-16">
             <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-sm font-bold tracking-widest uppercase text-accent-foreground">
+            <span className="text-sm font-bold tracking-widest uppercase text-slate-100">
               OposiTest
             </span>
           </Link>
-          <h1 className="text-5xl font-serif italic text-accent-foreground leading-tight mb-6">
+          <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
             Bienvenido
             <br />
             de vuelta.
           </h1>
-          <p className="text-sm text-accent-foreground/50 leading-relaxed">
+          <p className="text-sm text-slate-300 leading-relaxed">
             Accede a tu panel de preparacion y continua donde lo dejaste. Tu plaza te espera.
           </p>
         </div>

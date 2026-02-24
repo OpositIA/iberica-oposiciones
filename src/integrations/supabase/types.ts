@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_daily_usage: {
+        Row: {
+          day: string
+          requests_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          day: string
+          requests_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          day?: string
+          requests_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_quota_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value_int: number
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value_int: number
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value_int?: number
+        }
+        Relationships: []
+      }
       ai_messages: {
         Row: {
           content: string
@@ -76,7 +115,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      consume_ai_daily_quota: {
+        Args: {
+          p_limit?: number | null
+          p_tz?: string
+          p_user_id: string
+        }
+        Returns: {
+          allowed: boolean
+          day: string
+          limit: number
+          remaining: number
+          used: number
+        }[]
+      }
+      get_ai_daily_limit: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: number
+      }
+      get_ai_daily_quota: {
+        Args: {
+          p_tz?: string
+          p_user_id: string
+        }
+        Returns: {
+          day: string
+          is_paid: boolean
+          limit: number
+          remaining: number
+          used: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

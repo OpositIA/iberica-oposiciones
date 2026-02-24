@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Mulish:wght@200;300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,77 +6,86 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 7%;
+    --background: 216 45% 98%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 7%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 7%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 25 100% 50%;
+    --primary: 25 95% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 95%;
-    --secondary-foreground: 0 0% 7%;
+    --secondary: 23 100% 93%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 214 32% 95%;
+    --muted-foreground: 215 19% 35%;
 
-    --accent: 0 0% 16%;
+    --accent: 200 98% 39%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 25 100% 50%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 200 98% 39%;
 
-    --radius: 0.25rem;
+    --radius: 0.5rem;
 
-    --charcoal: 0 0% 7%;
-    --graphite: 0 0% 16%;
+    --charcoal: 222 47% 11%;
+    --graphite: 215 19% 35%;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 25 100% 50%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 25 95% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 25 100% 50%;
+    --sidebar-accent: 23 100% 93%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 200 98% 39%;
   }
 
   .dark {
-    --background: 0 0% 7%;
-    --foreground: 0 0% 95%;
+    --background: 214 19% 7%;
+    --foreground: 210 40% 96%;
 
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 95%;
+    --card: 213 19% 11%;
+    --card-foreground: 210 40% 96%;
 
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 213 19% 11%;
+    --popover-foreground: 210 40% 96%;
 
-    --primary: 25 100% 50%;
+    --primary: 25 95% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 16%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 24 49% 15%;
+    --secondary-foreground: 210 40% 96%;
 
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 213 19% 11%;
+    --muted-foreground: 215 21% 70%;
 
-    --accent: 0 0% 16%;
-    --accent-foreground: 0 0% 95%;
+    --accent: 198 93% 60%;
+    --accent-foreground: 214 19% 7%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 72% 52%;
     --destructive-foreground: 0 0% 95%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 25 100% 50%;
+    --border: 215 22% 21%;
+    --input: 215 22% 21%;
+    --ring: 198 93% 60%;
+
+    --sidebar-background: 213 19% 11%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 24 49% 15%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 215 22% 21%;
+    --sidebar-ring: 198 93% 60%;
   }
 }
 
@@ -90,13 +99,18 @@
   }
 
   h1, h2, h3 {
-    @apply font-serif;
+    @apply font-sans;
   }
 }
 
 @layer components {
   .hero-gradient {
-    background: linear-gradient(to right, hsla(0, 0%, 7%, 0.95) 30%, hsla(0, 0%, 7%, 0.4) 60%, hsla(0, 0%, 7%, 0.1) 100%);
+    background: linear-gradient(
+      to right,
+      hsl(var(--charcoal) / 0.95) 30%,
+      hsl(var(--charcoal) / 0.45) 60%,
+      hsl(var(--charcoal) / 0.12) 100%
+    );
   }
 
   .accent-underline {

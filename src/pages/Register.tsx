@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { obtenerNombresOposiciones } from "@/data/oposiciones";
 
 type RegisterForm = {
   name: string;
@@ -42,13 +43,7 @@ const stepTitles = [
   "Confirmacion",
 ] as const;
 
-const oppositionOptions = [
-  "Auxiliar administrativo del Estado",
-  "Administracion local",
-  "Gestion de la Seguridad Social",
-  "Tramitacion procesal",
-  "Tecnico de Hacienda",
-] as const;
+const oppositionOptions = obtenerNombresOposiciones();
 
 const Register = () => {
   const navigate = useNavigate();
@@ -192,16 +187,16 @@ const Register = () => {
         <div className="max-w-md">
           <Link to="/" className="flex items-center gap-2 mb-16">
             <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-sm font-bold tracking-widest uppercase text-accent-foreground">
+            <span className="text-sm font-bold tracking-widest uppercase text-slate-100">
               OposiTest
             </span>
           </Link>
-          <h1 className="text-5xl font-serif italic text-accent-foreground leading-tight mb-6">
+          <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
             Registro guiado
             <br />
             en 4 pasos.
           </h1>
-          <p className="text-sm text-accent-foreground/50 leading-relaxed">
+          <p className="text-sm text-slate-300 leading-relaxed">
             Cuanto mejor entendamos tu perfil, mas preciso sera tu plan inicial de estudio.
           </p>
           <div className="mt-12 space-y-3">
@@ -218,14 +213,14 @@ const Register = () => {
                         ? "bg-primary text-primary-foreground border-primary"
                         : isActive
                           ? "border-primary text-primary bg-background/10"
-                          : "border-accent-foreground/30 text-accent-foreground/40"
+                          : "border-slate-200/25 text-slate-300/70"
                     }`}
                   >
                     {current}
                   </div>
                   <span
                     className={`text-sm ${
-                      isActive || isDone ? "text-accent-foreground" : "text-accent-foreground/50"
+                      isActive || isDone ? "text-slate-100" : "text-slate-300/70"
                     }`}
                   >
                     {label}
