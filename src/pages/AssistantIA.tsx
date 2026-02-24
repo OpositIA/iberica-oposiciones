@@ -1,4 +1,11 @@
 import { useAuth } from "@/auth/AuthProvider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale, toIntlLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +14,7 @@ import { AuthSessionError, secureApiFetch } from "@/lib/secureFetch";
 import {
   AlertTriangle,
   BookOpen,
+  Ellipsis,
   Loader2,
   MessageCircle,
   Plus,
@@ -28,6 +36,8 @@ type ChatMessage = {
   role: "assistant" | "user";
   content: string;
   time: string;
+  dbMessageId?: number;
+  createdAt?: string;
 };
 
 type ConversationItem = {
@@ -50,6 +60,7 @@ type DailyQuotaResult = {
 };
 
 const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
+const MESSAGES_PAGE_SIZE = 8;
 
 const mapConversation = (
   row: Tables<"ai_conversations">
@@ -58,6 +69,18 @@ const mapConversation = (
   title: row.title,
   createdAt: row.created_at,
   lastMessageAt: row.last_message_at
+});
+
+const mapDbMessageToChatMessage = (
+  row: Pick<Tables<"ai_messages">, "id" | "role" | "content" | "created_at">,
+  formatHora: (value?: string | Date) => string
+): ChatMessage => ({
+  id: `db-${row.id}`,
+  role: (row.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
+  content: row.content,
+  time: formatHora(row.created_at),
+  dbMessageId: row.id,
+  createdAt: row.created_at
 });
 
 const AssistantIA = () => {
@@ -69,7 +92,14 @@ const AssistantIA = () => {
   const [estadoEscrituraIdx, setEstadoEscrituraIdx] = useState(0);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [deletingConversationId, setDeletingConversationId] = useState<
+    string | null
+  >(null);
+  const [conversationPendingDelete, setConversationPendingDelete] =
+    useState<ConversationItem | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
@@ -80,6 +110,10 @@ const AssistantIA = () => {
   const [dailyUsedRequests, setDailyUsedRequests] = useState(0);
   const [dailyRequestLimit, setDailyRequestLimit] = useState(0);
   const [isLoadingDailyUsage, setIsLoadingDailyUsage] = useState(true);
+  const isRestoringPrependScrollRef = useRef(false);
+  const prependPreviousScrollHeightRef = useRef(0);
+  const prependPreviousScrollTopRef = useRef(0);
+  const shouldStickToBottomRef = useRef(true);
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const intlLocale = toIntlLocale(locale);
@@ -260,12 +294,15 @@ const AssistantIA = () => {
   const loadMessages = useCallback(
     async (conversationId: string) => {
       setIsLoadingMessages(true);
+      setIsLoadingOlderMessages(false);
+      setHasMoreMessages(false);
 
       const { data, error } = await supabase
         .from("ai_messages")
         .select("id, role, content, created_at")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+        .order("id", { ascending: false })
+        .limit(MESSAGES_PAGE_SIZE);
 
       if (error) {
         toast({
@@ -278,20 +315,94 @@ const AssistantIA = () => {
         return;
       }
 
-      const mapped = (data ?? []).map((row) => ({
-        id: `db-${row.id}`,
-        role: (row.role === "assistant" ? "assistant" : "user") as
-          | "assistant"
-          | "user",
-        content: row.content,
-        time: formatHora(row.created_at)
-      }));
+      const rows = data ?? [];
+      const mapped = rows
+        .slice()
+        .reverse()
+        .map((row) => mapDbMessageToChatMessage(row, formatHora));
 
       setMensajes(mapped);
+      setHasMoreMessages(rows.length === MESSAGES_PAGE_SIZE);
       setIsLoadingMessages(false);
+      shouldStickToBottomRef.current = true;
+      requestAnimationFrame(() => {
+        const node = chatContainerRef.current;
+        if (!node) return;
+        node.scrollTop = node.scrollHeight;
+      });
     },
     [formatHora, t, toast]
   );
+
+  const loadOlderMessages = useCallback(async () => {
+    if (
+      !activeConversationId ||
+      isLoadingMessages ||
+      isLoadingOlderMessages ||
+      !hasMoreMessages
+    )
+      return;
+
+    const oldestDbMessageId = mensajes[0]?.dbMessageId;
+    if (typeof oldestDbMessageId !== "number") {
+      setHasMoreMessages(false);
+      return;
+    }
+
+    const node = chatContainerRef.current;
+    if (node) {
+      prependPreviousScrollHeightRef.current = node.scrollHeight;
+      prependPreviousScrollTopRef.current = node.scrollTop;
+      isRestoringPrependScrollRef.current = true;
+    }
+
+    setIsLoadingOlderMessages(true);
+    const { data, error } = await supabase
+      .from("ai_messages")
+      .select("id, role, content, created_at")
+      .eq("conversation_id", activeConversationId)
+      .lt("id", oldestDbMessageId)
+      .order("id", { ascending: false })
+      .limit(MESSAGES_PAGE_SIZE);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: t("assistant:toasts.loadOlderMessagesFailedTitle", {
+          defaultValue: "No se pudieron cargar mensajes anteriores"
+        }),
+        description: error.message
+      });
+      setIsLoadingOlderMessages(false);
+      isRestoringPrependScrollRef.current = false;
+      return;
+    }
+
+    const rows = data ?? [];
+    if (rows.length === 0) {
+      setHasMoreMessages(false);
+      setIsLoadingOlderMessages(false);
+      isRestoringPrependScrollRef.current = false;
+      return;
+    }
+
+    const mappedOlder = rows
+      .slice()
+      .reverse()
+      .map((row) => mapDbMessageToChatMessage(row, formatHora));
+    setMensajes((prev) => [...mappedOlder, ...prev]);
+    setHasMoreMessages(rows.length === MESSAGES_PAGE_SIZE);
+    setIsLoadingOlderMessages(false);
+  }, [
+    activeConversationId,
+    formatHora,
+    hasMoreMessages,
+    isLoadingMessages,
+    isLoadingOlderMessages,
+    mensajes,
+    t,
+    toast
+  ]);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -303,6 +414,8 @@ const AssistantIA = () => {
       setConversations([]);
       setActiveConversationId(null);
       setMensajes([]);
+      setHasMoreMessages(false);
+      setIsLoadingOlderMessages(false);
       setDailyUsedRequests(0);
       setDailyRequestLimit(0);
       setIsLoadingDailyUsage(false);
@@ -355,6 +468,8 @@ const AssistantIA = () => {
   useEffect(() => {
     if (!activeConversationId) {
       setMensajes([]);
+      setHasMoreMessages(false);
+      setIsLoadingOlderMessages(false);
       return;
     }
 
@@ -377,7 +492,19 @@ const AssistantIA = () => {
   useEffect(() => {
     const node = chatContainerRef.current;
     if (!node) return;
-    node.scrollTop = node.scrollHeight;
+
+    if (isRestoringPrependScrollRef.current) {
+      const nextScrollTop =
+        prependPreviousScrollTopRef.current +
+        (node.scrollHeight - prependPreviousScrollHeightRef.current);
+      node.scrollTop = Math.max(nextScrollTop, 0);
+      isRestoringPrependScrollRef.current = false;
+      return;
+    }
+
+    if (shouldStickToBottomRef.current || isSendingChat) {
+      node.scrollTop = node.scrollHeight;
+    }
   }, [mensajes, isSendingChat, estadoEscrituraIdx, isLoadingMessages]);
 
   const extraerTextoRespuesta = (payload: unknown) => {
@@ -522,8 +649,57 @@ const AssistantIA = () => {
     return <div className="space-y-2">{blocks}</div>;
   };
 
+  const isDefaultConversationTitle = (value: string) => {
+    const trimmed = value.trim();
+    const knownTitles = new Set([
+      t("assistant:newChat"),
+      i18n.getFixedT("es")("assistant:newChat"),
+      i18n.getFixedT("en")("assistant:newChat")
+    ]);
+    return !trimmed || knownTitles.has(trimmed);
+  };
+
+  const isConversationEmpty = useCallback(
+    (conversation: ConversationItem) => {
+      const createdAtMs = Date.parse(conversation.createdAt);
+      const lastMessageAtMs = Date.parse(conversation.lastMessageAt);
+      const hasNoMessagesByTimestamps =
+        !Number.isNaN(createdAtMs) &&
+        !Number.isNaN(lastMessageAtMs) &&
+        Math.abs(lastMessageAtMs - createdAtMs) < 1000;
+      return (
+        isDefaultConversationTitle(conversation.title) || hasNoMessagesByTimestamps
+      );
+    },
+    [isDefaultConversationTitle]
+  );
+
+  const moveConversationToTop = useCallback((conversationId: string) => {
+    setConversations((prev) => {
+      const found = prev.find((conversation) => conversation.id === conversationId);
+      if (!found) return prev;
+      return [
+        found,
+        ...prev.filter((conversation) => conversation.id !== conversationId)
+      ];
+    });
+  }, []);
+
+  const getExistingEmptyConversation = useCallback(
+    (list: ConversationItem[]) => list.find(isConversationEmpty) ?? null,
+    [isConversationEmpty]
+  );
+
   const onCreateConversation = async () => {
     if (!currentUserId || isCreatingConversation) return;
+
+    const existingEmpty = getExistingEmptyConversation(conversations);
+    if (existingEmpty) {
+      moveConversationToTop(existingEmpty.id);
+      setActiveConversationId(existingEmpty.id);
+      setInputChat("");
+      return;
+    }
 
     setIsCreatingConversation(true);
     const created = await createConversationRecord(currentUserId);
@@ -540,20 +716,88 @@ const AssistantIA = () => {
     setMensajes([]);
   };
 
+  const onRequestDeleteConversation = (conversation: ConversationItem) => {
+    if (!currentUserId || deletingConversationId || isSendingChat) return;
+    setConversationPendingDelete(conversation);
+  };
+
+  const onDeleteConversation = async () => {
+    const conversationId = conversationPendingDelete?.id;
+    if (!currentUserId || !conversationId || deletingConversationId || isSendingChat)
+      return;
+
+    setDeletingConversationId(conversationId);
+    const { error } = await supabase
+      .from("ai_conversations")
+      .delete()
+      .eq("id", conversationId)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: t("assistant:toasts.deleteChatFailedTitle", {
+          defaultValue: "No se pudo borrar el chat"
+        }),
+        description: error.message
+      });
+      setDeletingConversationId(null);
+      return;
+    }
+
+    const remainingConversations = conversations.filter(
+      (conversation) => conversation.id !== conversationId
+    );
+    setConversations(remainingConversations);
+
+    if (activeConversationId === conversationId) {
+      if (remainingConversations.length > 0) {
+        setActiveConversationId(remainingConversations[0].id);
+      } else {
+        setActiveConversationId(null);
+        setMensajes([]);
+        const created = await createConversationRecord(currentUserId);
+        if (created) {
+          setConversations([created]);
+          setActiveConversationId(created.id);
+        }
+      }
+    }
+
+    setConversationPendingDelete(null);
+    setDeletingConversationId(null);
+  };
+
+  const isDeleteDialogBusy =
+    Boolean(conversationPendingDelete) &&
+    deletingConversationId === conversationPendingDelete?.id;
+
+  const onDeleteDialogOpenChange = (open: boolean) => {
+    if (isDeleteDialogBusy) return;
+    if (!open) setConversationPendingDelete(null);
+  };
+
   const onSelectConversation = (conversationId: string) => {
     if (isSendingChat) return;
     setActiveConversationId(conversationId);
   };
 
-  const isDefaultConversationTitle = (value: string) => {
-    const trimmed = value.trim();
-    const knownTitles = new Set([
-      t("assistant:newChat"),
-      i18n.getFixedT("es")("assistant:newChat"),
-      i18n.getFixedT("en")("assistant:newChat")
-    ]);
-    return !trimmed || knownTitles.has(trimmed);
-  };
+  const handleChatScroll = useCallback(() => {
+    const node = chatContainerRef.current;
+    if (!node) return;
+
+    const distanceToBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    shouldStickToBottomRef.current = distanceToBottom < 72;
+
+    if (
+      node.scrollTop <= 64 &&
+      hasMoreMessages &&
+      !isLoadingMessages &&
+      !isLoadingOlderMessages
+    ) {
+      void loadOlderMessages();
+    }
+  }, [hasMoreMessages, isLoadingMessages, isLoadingOlderMessages, loadOlderMessages]);
 
   const onSubmitChat = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -589,14 +833,21 @@ const AssistantIA = () => {
     let conversationId = activeConversationId;
 
     if (!conversationId) {
-      const created = await createConversationRecord(currentUserId);
-      if (!created) return;
-      setConversations((prev) => [
-        created,
-        ...prev.filter((item) => item.id !== created.id)
-      ]);
-      setActiveConversationId(created.id);
-      conversationId = created.id;
+      const existingEmpty = getExistingEmptyConversation(conversations);
+      if (existingEmpty) {
+        moveConversationToTop(existingEmpty.id);
+        setActiveConversationId(existingEmpty.id);
+        conversationId = existingEmpty.id;
+      } else {
+        const created = await createConversationRecord(currentUserId);
+        if (!created) return;
+        setConversations((prev) => [
+          created,
+          ...prev.filter((item) => item.id !== created.id)
+        ]);
+        setActiveConversationId(created.id);
+        conversationId = created.id;
+      }
     }
 
     const currentConversationTitle =
@@ -760,8 +1011,8 @@ const AssistantIA = () => {
   };
 
   return (
-    <div className="grid min-h-[74vh] items-stretch gap-4 lg:-ml-4 lg:grid-cols-[18.5rem_minmax(0,1fr)]">
-      <aside className="relative flex h-full min-h-[74vh] flex-col overflow-hidden rounded-[28px] border border-border/70 bg-background/95 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)]">
+    <div className="grid h-[74vh] max-h-[74vh] min-h-0 items-stretch gap-4 lg:-ml-4 lg:grid-cols-[18.5rem_minmax(0,1fr)]">
+      <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/70 bg-background/95 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)]">
         <div className="pointer-events-none absolute -top-14 -left-14 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
         <div className="border-b border-border/70 bg-gradient-to-br from-primary/10 via-background to-background px-4 py-4">
           <div className="mb-2">
@@ -786,30 +1037,74 @@ const AssistantIA = () => {
           ) : (
             conversations.map((conversation) => {
               const isActive = conversation.id === activeConversationId;
+              const isDeletingThis = deletingConversationId === conversation.id;
               return (
-                <button
+                <div
                   key={conversation.id}
-                  type="button"
-                  onClick={() => onSelectConversation(conversation.id)}
-                  disabled={isSendingChat}
                   className={`group w-full rounded-2xl border px-3 py-2.5 text-left transition-all ${
                     isActive
                       ? "border-primary/50 bg-primary/10 text-foreground shadow-[0_10px_30px_-25px_rgba(255,119,0,0.95)]"
                       : "border-border/80 bg-background/90 text-foreground hover:-translate-y-[1px] hover:border-primary/30 hover:bg-secondary"
-                  } ${isSendingChat ? "cursor-not-allowed opacity-70" : ""}`}
+                  } ${isSendingChat ? "opacity-70" : ""}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-primary" : "bg-muted-foreground/40"}`}
-                    />
-                    <p className="truncate text-sm font-medium">
-                      {conversation.title || t("assistant:newChat")}
-                    </p>
+                  <div className="flex items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSelectConversation(conversation.id)}
+                      disabled={isSendingChat}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            isActive ? "bg-primary" : "bg-muted-foreground/40"
+                          }`}
+                        />
+                        <p className="truncate text-sm font-medium">
+                          {conversation.title || t("assistant:newChat")}
+                        </p>
+                      </div>
+                      <p className="mt-1 pl-3.5 text-[11px] text-muted-foreground">
+                        {formatFechaHistorial(conversation.lastMessageAt)}
+                      </p>
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={Boolean(deletingConversationId) || isSendingChat}
+                          className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-all hover:bg-secondary disabled:opacity-60 ${
+                            isDeletingThis
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                          }`}
+                          aria-label={t("assistant:sidebar.chatOptions", {
+                            defaultValue: "Opciones del chat"
+                          })}
+                          title={t("assistant:sidebar.chatOptions", {
+                            defaultValue: "Opciones del chat"
+                          })}
+                        >
+                          {isDeletingThis ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Ellipsis className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuItem
+                          onClick={() => onRequestDeleteConversation(conversation)}
+                          className="text-foreground focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                        >
+                          {t("assistant:sidebar.deleteChat", {
+                            defaultValue: "Eliminar"
+                          })}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <p className="mt-1 pl-3.5 text-[11px] text-muted-foreground">
-                    {formatFechaHistorial(conversation.lastMessageAt)}
-                  </p>
-                </button>
+                </div>
               );
             })
           )}
@@ -834,7 +1129,7 @@ const AssistantIA = () => {
         </div>
       </aside>
 
-      <section className="relative flex h-full min-h-[74vh] flex-col overflow-hidden rounded-[28px] border border-border/70 bg-background/95 p-5 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)] md:p-6">
+      <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/70 bg-background/95 p-5 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)] md:p-6">
         <div className="pointer-events-none absolute -top-20 -right-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
         <div className="min-w-0 flex-1 min-h-0 flex flex-col">
           <div className="flex items-start justify-between gap-4 mb-5">
@@ -883,7 +1178,8 @@ const AssistantIA = () => {
 
           <div
             ref={chatContainerRef}
-            className="flex-1 min-h-[20rem] space-y-3 overflow-y-auto rounded-3xl border border-border/70 bg-gradient-to-b from-secondary/30 via-secondary/15 to-background p-4"
+            onScroll={handleChatScroll}
+            className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-3xl border border-border/70 bg-gradient-to-b from-secondary/30 via-secondary/15 to-background p-4"
           >
             {isLoadingMessages ? (
               <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground">
@@ -891,6 +1187,14 @@ const AssistantIA = () => {
               </div>
             ) : (
               <>
+                {isLoadingOlderMessages && mensajes.length > 0 && (
+                  <div className="flex items-center justify-center py-1 text-xs text-muted-foreground">
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    {t("assistant:chat.loadingOlderMessages", {
+                      defaultValue: "Cargando mensajes anteriores..."
+                    })}
+                  </div>
+                )}
                 {mensajes.length === 0 && (
                   <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 text-center">
                     <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
@@ -991,6 +1295,28 @@ const AssistantIA = () => {
           </form>
         </div>
       </section>
+
+      <ConfirmActionDialog
+        open={Boolean(conversationPendingDelete)}
+        onOpenChange={onDeleteDialogOpenChange}
+        title={t("assistant:sidebar.deleteDialogTitle", {
+          defaultValue: "Eliminar conversacion"
+        })}
+        description={t("assistant:sidebar.deleteDialogDescription", {
+          title: conversationPendingDelete?.title || t("assistant:newChat"),
+          defaultValue:
+            'Se eliminara "{{title}}" con todos sus mensajes. Esta accion no se puede deshacer.'
+        })}
+        confirmLabel={t("assistant:sidebar.deleteChat", {
+          defaultValue: "Eliminar"
+        })}
+        cancelLabel={t("assistant:sidebar.cancelDelete", {
+          defaultValue: "Cancelar"
+        })}
+        confirmStyle="destructive"
+        isLoading={isDeleteDialogBusy}
+        onConfirm={onDeleteConversation}
+      />
     </div>
   );
 };

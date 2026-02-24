@@ -142,7 +142,7 @@ const AuthenticatedSidebarLayout = () => {
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-charcoal/10 blur-3xl" />
 
       <header className="border-b border-border/70 bg-background/85 backdrop-blur relative z-30">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+        <div className="w-full max-w-[110rem] mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300 lg:pl-72">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -350,7 +350,7 @@ const AuthenticatedSidebarLayout = () => {
         </div>
       </aside>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 lg:py-10 relative z-10 transition-all duration-300 lg:pl-72">
+      <main className="w-full max-w-[110rem] mx-auto px-4 md:px-6 py-8 lg:py-10 relative z-10 transition-all duration-300 lg:pl-72">
         <Outlet />
       </main>
     </div>
