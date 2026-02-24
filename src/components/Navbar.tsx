@@ -1,8 +1,24 @@
+import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import { useAuth } from "@/auth/AuthProvider";
+import UserActionsDropdown from "@/components/UserActionsDropdown";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const { t } = useTranslation(["landing", "common"]);
+  const { isAuthReady, isAuthenticated } = useAuth();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const updateScrollState = () => {
+      setIsScrolled(window.scrollY > 16);
+    };
+
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollState);
+  }, []);
 
   const navItems = [
     t("landing:navbar.navLinks.oppositions"),
@@ -12,20 +28,31 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-5">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-5 transition-all duration-300 ${
+        isScrolled
+          ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
+          : "border-b border-transparent bg-transparent"
+      }`}
+    >
       <div className="flex items-center gap-8">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-primary" />
-          <span className="text-sm font-bold tracking-widest uppercase text-primary-foreground">
-            {t("common:appName")}
-          </span>
+        <Link to="/" className="flex items-center gap-2 mb-[-5px]">
+          <img
+            src={opositaiHorizontalLogo}
+            alt="OpositAI"
+            className="h-16 w-auto"
+          />
         </Link>
         <div className="hidden md:flex items-center gap-6">
           {navItems.map((item) => (
             <Link
               key={item}
               to="/"
-              className="text-xs font-medium tracking-widest uppercase text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+              className={`text-xs font-medium tracking-widest uppercase transition-colors ${
+                isScrolled
+                  ? "text-muted-foreground hover:text-foreground"
+                  : "text-primary-foreground/70 hover:text-primary-foreground"
+              }`}
             >
               {item}
             </Link>
@@ -33,24 +60,33 @@ const Navbar = () => {
         </div>
       </div>
       <div className="flex items-center gap-4">
-        <Link
-          to="/dashboard"
-          className="text-xs font-medium tracking-widest uppercase text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-        >
-          {t("landing:navbar.account")}
-        </Link>
-        <Link
-          to="/login"
-          className="text-xs font-medium tracking-widest uppercase text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-        >
-          {t("landing:navbar.login")}
-        </Link>
-        <Link
-          to="/registro"
-          className="bg-primary text-primary-foreground px-5 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors"
-        >
-          {t("landing:navbar.freeMonth")}
-        </Link>
+        {!isAuthReady ? (
+          <div className="h-10 w-20" />
+        ) : isAuthenticated ? (
+          <UserActionsDropdown
+            buttonClassName={
+              isScrolled
+                ? "border-border bg-background hover:bg-secondary"
+                : "border-primary-foreground/30 hover:border-primary-foreground/50 bg-charcoal/40 hover:bg-charcoal/65"
+            }
+            fallbackIconClassName={
+              isScrolled
+                ? "text-muted-foreground"
+                : "text-primary-foreground/70"
+            }
+          />
+        ) : (
+          <Link
+            to="/login"
+            className={`text-xs font-medium tracking-widest uppercase transition-colors ${
+              isScrolled
+                ? "text-muted-foreground hover:text-foreground"
+                : "text-primary-foreground/70 hover:text-primary-foreground"
+            }`}
+          >
+            {t("landing:navbar.login")}
+          </Link>
+        )}
       </div>
     </nav>
   );

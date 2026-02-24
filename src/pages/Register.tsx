@@ -1,3 +1,6 @@
+import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import CustomInput from "@/components/ui/custom-input";
+import CustomSelect from "@/components/ui/custom-select";
 import { obtenerNombresOposiciones } from "@/data/oposiciones";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -213,10 +216,11 @@ const Register = () => {
       <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-16">
         <div className="max-w-md">
           <Link to="/" className="flex items-center gap-2 mb-16">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-sm font-bold tracking-widest uppercase text-slate-100">
-              {t("common:appName")}
-            </span>
+            <img
+              src={opositaiHorizontalLogo}
+              alt="OpositAI"
+              className="h-60 w-auto"
+            />
           </Link>
           <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
             {t("auth:register.heroTitleLine1")}
@@ -261,10 +265,11 @@ const Register = () => {
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-10">
             <Link to="/" className="flex items-center gap-2 mb-8">
-              <div className="w-3 h-3 rounded-full bg-primary" />
-              <span className="text-sm font-bold tracking-widest uppercase text-foreground">
-                {t("common:appName")}
-              </span>
+              <img
+                src={opositaiHorizontalLogo}
+                alt="OpositAI"
+                className="h-4 w-auto"
+              />
             </Link>
           </div>
 
@@ -295,35 +300,35 @@ const Register = () => {
                   <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                     {t("auth:register.fields.name")}
                   </label>
-                  <input
+                  <CustomInput
                     type="text"
                     value={form.name}
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, name: e.target.value }))
                     }
                     placeholder={t("auth:register.placeholders.name")}
-                    className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                    className="w-full"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                     {t("auth:register.fields.lastName")}
                   </label>
-                  <input
+                  <CustomInput
                     type="text"
                     value={form.lastName}
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, lastName: e.target.value }))
                     }
                     placeholder={t("auth:register.placeholders.lastName")}
-                    className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                    className="w-full"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                     {t("auth:register.fields.email")}
                   </label>
-                  <input
+                  <CustomInput
                     type="email"
                     value={form.email}
                     onChange={(e) =>
@@ -331,7 +336,7 @@ const Register = () => {
                     }
                     placeholder={t("auth:register.placeholders.email")}
                     autoComplete="email"
-                    className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                    className="w-full"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -339,7 +344,7 @@ const Register = () => {
                     <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                       {t("auth:register.fields.password")}
                     </label>
-                    <input
+                    <CustomInput
                       type="password"
                       value={form.password}
                       onChange={(e) =>
@@ -350,14 +355,14 @@ const Register = () => {
                       }
                       placeholder={t("auth:register.placeholders.password")}
                       autoComplete="new-password"
-                      className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                      className="w-full"
                     />
                   </div>
                   <div>
                     <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                       {t("auth:register.fields.confirmPassword")}
                     </label>
-                    <input
+                    <CustomInput
                       type="password"
                       value={form.confirmPassword}
                       onChange={(e) =>
@@ -370,7 +375,7 @@ const Register = () => {
                         "auth:register.placeholders.confirmPassword"
                       )}
                       autoComplete="new-password"
-                      className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -384,7 +389,7 @@ const Register = () => {
                     <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                       {t("auth:register.fields.age")}
                     </label>
-                    <input
+                    <CustomInput
                       type="number"
                       min={16}
                       max={75}
@@ -393,14 +398,14 @@ const Register = () => {
                         setForm((prev) => ({ ...prev, age: e.target.value }))
                       }
                       placeholder={t("auth:register.placeholders.age")}
-                      className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                      className="w-full"
                     />
                   </div>
                   <div>
                     <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                       {t("auth:register.fields.yearsPreparing")}
                     </label>
-                    <input
+                    <CustomInput
                       type="number"
                       min={0}
                       max={40}
@@ -414,7 +419,7 @@ const Register = () => {
                       placeholder={t(
                         "auth:register.placeholders.yearsPreparing"
                       )}
-                      className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -422,7 +427,7 @@ const Register = () => {
                   <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                     {t("auth:register.fields.preferredOpposition")}
                   </label>
-                  <select
+                  <CustomSelect
                     value={form.preferredOpposition}
                     onChange={(e) =>
                       setForm((prev) => ({
@@ -440,7 +445,7 @@ const Register = () => {
                         {option}
                       </option>
                     ))}
-                  </select>
+                  </CustomSelect>
                 </div>
               </>
             )}
@@ -481,7 +486,7 @@ const Register = () => {
                   <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                     {t("auth:register.fields.testsPerWeek")}
                   </label>
-                  <input
+                  <CustomInput
                     type="number"
                     min={1}
                     max={14}
@@ -493,7 +498,7 @@ const Register = () => {
                       }))
                     }
                     placeholder={t("auth:register.placeholders.testsPerWeek")}
-                    className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                    className="w-full"
                   />
                 </div>
               </>

@@ -1,5 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
+import { runSingleFlight } from "@/lib/singleFlight";
 import {
   BarChart3,
   BookOpen,
@@ -32,9 +33,14 @@ type TestItem = {
 
 const Dashboard = () => {
   const { t } = useTranslation("dashboard");
-  const { user } = useAuth();
-  const [accountName, setAccountName] = useState(t("defaults.user"));
+  const { user, profile } = useAuth();
   const [weeklyTargetHours, setWeeklyTargetHours] = useState(16);
+  const accountName = useMemo(() => {
+    const fullName = `${profile?.firstName ?? ""} ${
+      profile?.lastName ?? ""
+    }`.trim();
+    return fullName || profile?.email || t("defaults.user");
+  }, [profile, t]);
 
   const historialTests = useMemo<TestItem[]>(
     () => [
@@ -117,29 +123,26 @@ const Dashboard = () => {
 
   useEffect(() => {
     let isMounted = true;
+    const userId = user?.id;
 
     const loadProfileSnapshot = async () => {
-      if (!user) {
-        if (!isMounted) return;
-        setAccountName(t("defaults.user"));
+      if (!userId) {
         setWeeklyTargetHours(16);
         return;
       }
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("first_name, last_name, email, weekly_target_hours")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const { data } = await runSingleFlight(
+        `dashboard:weekly-target:${userId}`,
+        () =>
+          supabase
+            .from("profiles")
+            .select("weekly_target_hours")
+            .eq("user_id", userId)
+            .maybeSingle(),
+        { reuseResultForMs: 1500 }
+      );
 
       if (!isMounted) return;
-
-      const firstName = String(data?.first_name ?? "").trim();
-      const lastName = String(data?.last_name ?? "").trim();
-      const fullName = `${firstName} ${lastName}`.trim();
-      setAccountName(
-        fullName || data?.email || user.email || t("defaults.user")
-      );
 
       const weeklyTarget = Number(data?.weekly_target_hours);
       if (Number.isFinite(weeklyTarget) && weeklyTarget > 0)
@@ -152,7 +155,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [t, user]);
+  }, [user?.id]);
 
   return (
     <div className="space-y-6">
@@ -186,7 +189,7 @@ const Dashboard = () => {
               {t("actions.goToTest")}
             </Link>
             <Link
-              to="/perfil/oposia"
+              to="/perfil/opositAI"
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors"
             >
               <Brain className="h-4 w-4" />

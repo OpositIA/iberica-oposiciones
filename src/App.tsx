@@ -26,7 +26,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <AuthProvider>
           <ScrollToTop />
           <Routes>
@@ -44,13 +46,13 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route
                 path="/asistente-ia"
-                element={<Navigate to="/perfil/oposia" replace />}
+                element={<Navigate to="/perfil/opositAI" replace />}
               />
               <Route
                 path="/perfil"
-                element={<Navigate to="/perfil/oposia" replace />}
+                element={<Navigate to="/perfil/mi-perfil" replace />}
               />
-              <Route path="/perfil/oposia" element={<AssistantIA />} />
+              <Route path="/perfil/opositAI" element={<AssistantIA />} />
               <Route path="/perfil/test" element={<ProfileTest />} />
               <Route path="/perfil/temario" element={<ProfileTemario />} />
               <Route

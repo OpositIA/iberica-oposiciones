@@ -1,6 +1,9 @@
+import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import CustomInput from "@/components/ui/custom-input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { isSessionExpired } from "@/lib/session";
+import { runSingleFlight } from "@/lib/singleFlight";
 import { FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -17,7 +20,11 @@ const Login = () => {
     let isMounted = true;
 
     const validateAndRedirectIfSessionActive = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await runSingleFlight(
+        "login:active-session",
+        () => supabase.auth.getSession(),
+        { reuseResultForMs: 1200 }
+      );
       const session = data.session;
       if (error || !session || isSessionExpired(session)) return;
 
@@ -79,10 +86,11 @@ const Login = () => {
       <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-16">
         <div className="max-w-md">
           <Link to="/" className="flex items-center gap-2 mb-16">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-sm font-bold tracking-widest uppercase text-slate-100">
-              {t("common:appName")}
-            </span>
+            <img
+              src={opositaiHorizontalLogo}
+              alt="OpositAI"
+              className="h-60 w-auto"
+            />
           </Link>
           <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
             {t("auth:login.heroTitleLine1")}
@@ -99,10 +107,11 @@ const Login = () => {
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-10">
             <Link to="/" className="flex items-center gap-2 mb-8">
-              <div className="w-3 h-3 rounded-full bg-primary" />
-              <span className="text-sm font-bold tracking-widest uppercase text-foreground">
-                {t("common:appName")}
-              </span>
+              <img
+                src={opositaiHorizontalLogo}
+                alt="OpositAI"
+                className="h-4 w-auto"
+              />
             </Link>
           </div>
 
@@ -118,26 +127,26 @@ const Login = () => {
               <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                 {t("auth:login.email")}
               </label>
-              <input
+              <CustomInput
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t("auth:login.emailPlaceholder")}
                 autoComplete="email"
-                className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                className="w-full"
               />
             </div>
             <div>
               <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                 {t("auth:login.password")}
               </label>
-              <input
+              <CustomInput
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t("auth:login.passwordPlaceholder")}
                 autoComplete="current-password"
-                className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50"
+                className="w-full"
               />
             </div>
 

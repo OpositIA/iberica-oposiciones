@@ -1,3 +1,5 @@
+import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import CustomInput from "@/components/ui/custom-input";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
@@ -25,22 +27,23 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-charcoal text-accent-foreground">
+    <footer className="bg-charcoal text-white">
       <div className="max-w-7xl mx-auto px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-primary" />
-              <span className="text-sm font-bold tracking-widest uppercase">
-                {t("common:appName")}
-              </span>
+              <img
+                src={opositaiHorizontalLogo}
+                alt="OpositAI"
+                className="h-20 w-auto"
+              />
             </div>
-            <p className="text-sm text-accent-foreground/50 leading-relaxed">
+            <p className="text-sm text-white/50 leading-relaxed">
               {t("landing:footer.description")}
             </p>
           </div>
           <div>
-            <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-accent-foreground/70">
+            <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-white/70">
               {t("landing:footer.company")}
             </h4>
             <ul className="space-y-3">
@@ -48,7 +51,7 @@ const Footer = () => {
                 <li key={item}>
                   <Link
                     to="/"
-                    className="text-sm text-accent-foreground/50 hover:text-accent-foreground transition-colors"
+                    className="text-sm text-white/50 hover:text-white transition-colors"
                   >
                     {item}
                   </Link>
@@ -57,7 +60,7 @@ const Footer = () => {
             </ul>
           </div>
           <div>
-            <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-accent-foreground/70">
+            <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-white/70">
               {t("landing:footer.resources")}
             </h4>
             <ul className="space-y-3">
@@ -65,7 +68,7 @@ const Footer = () => {
                 <li key={item}>
                   <Link
                     to="/"
-                    className="text-sm text-accent-foreground/50 hover:text-accent-foreground transition-colors"
+                    className="text-sm text-white/50 hover:text-white transition-colors"
                   >
                     {item}
                   </Link>
@@ -74,17 +77,17 @@ const Footer = () => {
             </ul>
           </div>
           <div>
-            <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-accent-foreground/70">
+            <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-white/70">
               {t("landing:footer.newsletter")}
             </h4>
-            <p className="text-sm text-accent-foreground/50 mb-4">
+            <p className="text-sm text-white/50 mb-4">
               {t("landing:footer.newsletterDescription")}
             </p>
-            <div className="flex border border-accent-foreground/20">
-              <input
+            <div className="flex border border-white/20">
+              <CustomInput
                 type="email"
                 placeholder={t("landing:footer.newsletterPlaceholder")}
-                className="flex-1 bg-transparent text-sm px-4 py-2.5 text-accent-foreground placeholder:text-accent-foreground/30 focus:outline-none"
+                className="h-auto flex-1 rounded-none border-0 bg-transparent px-4 py-2.5 text-white placeholder:text-white/30 focus:ring-0 focus:ring-offset-0"
               />
               <button className="px-3 text-primary hover:text-primary/80 transition-colors">
                 →
@@ -92,8 +95,8 @@ const Footer = () => {
             </div>
           </div>
         </div>
-        <div className="border-t border-accent-foreground/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-accent-foreground/40">
+        <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-xs text-white/40">
             {t("landing:footer.copyright")}
           </p>
           <div className="flex gap-6">
@@ -101,7 +104,7 @@ const Footer = () => {
               <Link
                 key={item}
                 to="/"
-                className="text-xs text-accent-foreground/40 hover:text-accent-foreground transition-colors"
+                className="text-xs text-white/40 hover:text-white transition-colors"
               >
                 {item}
               </Link>

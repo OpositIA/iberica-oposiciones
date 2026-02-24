@@ -3,13 +3,24 @@
     "defaults": {
       "account": "Mi cuenta"
     },
+    "mainMenu": "Menú principal",
+    "plans": "Planes",
     "mobileMenuOpen": "Abrir menú",
     "openProfile": "Abrir mi perfil",
+    "profileMenuLabel": "Abrir menú de cuenta",
     "signOut": "Salir",
     "signingOut": "Saliendo...",
     "mobileMenuClose": "Cerrar menú",
     "sidebarAriaLabel": "Barra lateral",
     "panel": "Panel",
+    "accountMenu": {
+      "navigation": "Navegación",
+      "sections": {
+        "web": "Web",
+        "workspace": "Panel",
+        "preferences": "Preferencias"
+      }
+    },
     "theme": {
       "activateLight": "Activar modo claro",
       "activateDark": "Activar modo oscuro",
@@ -18,11 +29,15 @@
     },
     "closeSidebar": "Cerrar sidebar",
     "menuGroups": {
+      "web": "Web",
       "general": "General",
       "preparation": "Preparación"
     },
     "menuItems": {
+      "mainMenu": "Menú principal",
+      "plans": "Planes",
       "dashboard": "Dashboard",
+      "profile": "Mi perfil",
       "ia": "IA",
       "test": "Test",
       "syllabus": "Temario",
@@ -155,13 +170,13 @@
       }
     }
   },
-  "oposia": {
+  "opositAI": {
     "badge": "IA",
-    "title": "Apartado OposIA",
+    "title": "Apartado opositAI",
     "description": "Tu asistente para resolver dudas, generar planes de estudio y preparar repasos en tiempo real.",
     "assistant": "Asistente inteligente",
-    "directAccess": "OposIA en acceso directo",
+    "directAccess": "opositAI en acceso directo",
     "directAccessDescription": "Abre la experiencia completa para trabajar con prompts, contexto de estudio y recomendaciones.",
-    "open": "Abrir OposIA"
+    "open": "Abrir opositAI"
   }
 }

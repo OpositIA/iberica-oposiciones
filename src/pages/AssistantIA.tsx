@@ -1,16 +1,18 @@
 import { useAuth } from "@/auth/AuthProvider";
+import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import CustomInput from "@/components/ui/custom-input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale, toIntlLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { AuthSessionError, secureApiFetch } from "@/lib/secureFetch";
+import { runSingleFlight } from "@/lib/singleFlight";
 import {
   AlertTriangle,
   BookOpen,
@@ -76,7 +78,9 @@ const mapDbMessageToChatMessage = (
   formatHora: (value?: string | Date) => string
 ): ChatMessage => ({
   id: `db-${row.id}`,
-  role: (row.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
+  role: (row.role === "assistant" ? "assistant" : "user") as
+    | "assistant"
+    | "user",
   content: row.content,
   time: formatHora(row.created_at),
   dbMessageId: row.id,
@@ -114,6 +118,8 @@ const AssistantIA = () => {
   const prependPreviousScrollHeightRef = useRef(0);
   const prependPreviousScrollTopRef = useRef(0);
   const shouldStickToBottomRef = useRef(true);
+  const bootstrappedUserIdRef = useRef<string | null>(null);
+  const lastLoadedConversationIdRef = useRef<string | null>(null);
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const intlLocale = toIntlLocale(locale);
@@ -163,25 +169,30 @@ const AssistantIA = () => {
   );
 
   const getConversations = useCallback(
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("ai_conversations")
-        .select("id, title, created_at, last_message_at")
-        .eq("user_id", userId)
-        .eq("archived", false)
-        .order("last_message_at", { ascending: false });
+    async (userId: string) =>
+      runSingleFlight(
+        `assistant:get-conversations:${userId}`,
+        async () => {
+          const { data, error } = await supabase
+            .from("ai_conversations")
+            .select("id, title, created_at, last_message_at")
+            .eq("user_id", userId)
+            .eq("archived", false)
+            .order("last_message_at", { ascending: false });
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: t("assistant:toasts.loadHistoryFailedTitle"),
-          description: error.message
-        });
-        return null;
-      }
+          if (error) {
+            toast({
+              variant: "destructive",
+              title: t("assistant:toasts.loadHistoryFailedTitle"),
+              description: error.message
+            });
+            return null;
+          }
 
-      return (data ?? []).map(mapConversation);
-    },
+          return (data ?? []).map(mapConversation);
+        },
+        { reuseResultForMs: 1500 }
+      ),
     [t, toast]
   );
 
@@ -216,10 +227,15 @@ const AssistantIA = () => {
 
   const refreshDailyUsage = useCallback(async (userId: string) => {
     setIsLoadingDailyUsage(true);
-    const { data, error } = await supabase.rpc("get_ai_daily_quota", {
-      p_user_id: userId,
-      p_tz: DAILY_USAGE_TIMEZONE
-    });
+    const { data, error } = await runSingleFlight(
+      `assistant:daily-usage:${userId}`,
+      () =>
+        supabase.rpc("get_ai_daily_quota", {
+          p_user_id: userId,
+          p_tz: DAILY_USAGE_TIMEZONE
+        }),
+      { reuseResultForMs: 1000 }
+    );
 
     const row = data?.[0];
     if (error || !row) {
@@ -297,12 +313,17 @@ const AssistantIA = () => {
       setIsLoadingOlderMessages(false);
       setHasMoreMessages(false);
 
-      const { data, error } = await supabase
-        .from("ai_messages")
-        .select("id, role, content, created_at")
-        .eq("conversation_id", conversationId)
-        .order("id", { ascending: false })
-        .limit(MESSAGES_PAGE_SIZE);
+      const { data, error } = await runSingleFlight(
+        `assistant:load-messages:${conversationId}`,
+        () =>
+          supabase
+            .from("ai_messages")
+            .select("id, role, content, created_at")
+            .eq("conversation_id", conversationId)
+            .order("id", { ascending: false })
+            .limit(MESSAGES_PAGE_SIZE),
+        { reuseResultForMs: 1000 }
+      );
 
       if (error) {
         toast({
@@ -310,6 +331,7 @@ const AssistantIA = () => {
           title: t("assistant:toasts.loadConversationFailedTitle"),
           description: error.message
         });
+        lastLoadedConversationIdRef.current = null;
         setMensajes([]);
         setIsLoadingMessages(false);
         return;
@@ -324,6 +346,7 @@ const AssistantIA = () => {
       setMensajes(mapped);
       setHasMoreMessages(rows.length === MESSAGES_PAGE_SIZE);
       setIsLoadingMessages(false);
+      lastLoadedConversationIdRef.current = conversationId;
       shouldStickToBottomRef.current = true;
       requestAnimationFrame(() => {
         const node = chatContainerRef.current;
@@ -411,6 +434,8 @@ const AssistantIA = () => {
     setCurrentUserId(userId);
 
     if (!userId) {
+      bootstrappedUserIdRef.current = null;
+      lastLoadedConversationIdRef.current = null;
       setConversations([]);
       setActiveConversationId(null);
       setMensajes([]);
@@ -423,6 +448,10 @@ const AssistantIA = () => {
       return;
     }
 
+    if (bootstrappedUserIdRef.current === userId) return;
+
+    bootstrappedUserIdRef.current = userId;
+
     let isCancelled = false;
 
     const bootstrap = async () => {
@@ -431,6 +460,7 @@ const AssistantIA = () => {
       if (isCancelled) return;
 
       if (!loadedConversations) {
+        bootstrappedUserIdRef.current = null;
         setIsLoadingConversations(false);
         return;
       }
@@ -441,7 +471,8 @@ const AssistantIA = () => {
         if (created) {
           setConversations([created]);
           setActiveConversationId(created.id);
-        }
+        } else bootstrappedUserIdRef.current = null;
+
         setIsLoadingConversations(false);
         return;
       }
@@ -467,11 +498,14 @@ const AssistantIA = () => {
 
   useEffect(() => {
     if (!activeConversationId) {
+      lastLoadedConversationIdRef.current = null;
       setMensajes([]);
       setHasMoreMessages(false);
       setIsLoadingOlderMessages(false);
       return;
     }
+
+    if (lastLoadedConversationIdRef.current === activeConversationId) return;
 
     void loadMessages(activeConversationId);
   }, [activeConversationId, loadMessages]);
@@ -502,9 +536,8 @@ const AssistantIA = () => {
       return;
     }
 
-    if (shouldStickToBottomRef.current || isSendingChat) {
+    if (shouldStickToBottomRef.current || isSendingChat)
       node.scrollTop = node.scrollHeight;
-    }
   }, [mensajes, isSendingChat, estadoEscrituraIdx, isLoadingMessages]);
 
   const extraerTextoRespuesta = (payload: unknown) => {
@@ -649,15 +682,18 @@ const AssistantIA = () => {
     return <div className="space-y-2">{blocks}</div>;
   };
 
-  const isDefaultConversationTitle = (value: string) => {
-    const trimmed = value.trim();
-    const knownTitles = new Set([
-      t("assistant:newChat"),
-      i18n.getFixedT("es")("assistant:newChat"),
-      i18n.getFixedT("en")("assistant:newChat")
-    ]);
-    return !trimmed || knownTitles.has(trimmed);
-  };
+  const isDefaultConversationTitle = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      const knownTitles = new Set([
+        t("assistant:newChat"),
+        i18n.getFixedT("es")("assistant:newChat"),
+        i18n.getFixedT("en")("assistant:newChat")
+      ]);
+      return !trimmed || knownTitles.has(trimmed);
+    },
+    [i18n, t]
+  );
 
   const isConversationEmpty = useCallback(
     (conversation: ConversationItem) => {
@@ -668,7 +704,8 @@ const AssistantIA = () => {
         !Number.isNaN(lastMessageAtMs) &&
         Math.abs(lastMessageAtMs - createdAtMs) < 1000;
       return (
-        isDefaultConversationTitle(conversation.title) || hasNoMessagesByTimestamps
+        isDefaultConversationTitle(conversation.title) ||
+        hasNoMessagesByTimestamps
       );
     },
     [isDefaultConversationTitle]
@@ -676,7 +713,9 @@ const AssistantIA = () => {
 
   const moveConversationToTop = useCallback((conversationId: string) => {
     setConversations((prev) => {
-      const found = prev.find((conversation) => conversation.id === conversationId);
+      const found = prev.find(
+        (conversation) => conversation.id === conversationId
+      );
       if (!found) return prev;
       return [
         found,
@@ -723,7 +762,12 @@ const AssistantIA = () => {
 
   const onDeleteConversation = async () => {
     const conversationId = conversationPendingDelete?.id;
-    if (!currentUserId || !conversationId || deletingConversationId || isSendingChat)
+    if (
+      !currentUserId ||
+      !conversationId ||
+      deletingConversationId ||
+      isSendingChat
+    )
       return;
 
     setDeletingConversationId(conversationId);
@@ -751,9 +795,9 @@ const AssistantIA = () => {
     setConversations(remainingConversations);
 
     if (activeConversationId === conversationId) {
-      if (remainingConversations.length > 0) {
+      if (remainingConversations.length > 0)
         setActiveConversationId(remainingConversations[0].id);
-      } else {
+      else {
         setActiveConversationId(null);
         setMensajes([]);
         const created = await createConversationRecord(currentUserId);
@@ -786,7 +830,8 @@ const AssistantIA = () => {
     const node = chatContainerRef.current;
     if (!node) return;
 
-    const distanceToBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    const distanceToBottom =
+      node.scrollHeight - node.scrollTop - node.clientHeight;
     shouldStickToBottomRef.current = distanceToBottom < 72;
 
     if (
@@ -794,10 +839,14 @@ const AssistantIA = () => {
       hasMoreMessages &&
       !isLoadingMessages &&
       !isLoadingOlderMessages
-    ) {
+    )
       void loadOlderMessages();
-    }
-  }, [hasMoreMessages, isLoadingMessages, isLoadingOlderMessages, loadOlderMessages]);
+  }, [
+    hasMoreMessages,
+    isLoadingMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages
+  ]);
 
   const onSubmitChat = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -1011,8 +1060,8 @@ const AssistantIA = () => {
   };
 
   return (
-    <div className="grid h-[74vh] max-h-[74vh] min-h-0 items-stretch gap-4 lg:-ml-4 lg:grid-cols-[18.5rem_minmax(0,1fr)]">
-      <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/70 bg-background/95 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)]">
+    <div className="grid h-[74vh] max-h-[74vh] min-h-0 items-stretch gap-4 lg:grid-cols-[18.5rem_minmax(0,1fr)]">
+      <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)]">
         <div className="pointer-events-none absolute -top-14 -left-14 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
         <div className="border-b border-border/70 bg-gradient-to-br from-primary/10 via-background to-background px-4 py-4">
           <div className="mb-2">
@@ -1041,7 +1090,7 @@ const AssistantIA = () => {
               return (
                 <div
                   key={conversation.id}
-                  className={`group w-full rounded-2xl border px-3 py-2.5 text-left transition-all ${
+                  className={`group w-full rounded-xl border px-3 py-2.5 text-left transition-all ${
                     isActive
                       ? "border-primary/50 bg-primary/10 text-foreground shadow-[0_10px_30px_-25px_rgba(255,119,0,0.95)]"
                       : "border-border/80 bg-background/90 text-foreground hover:-translate-y-[1px] hover:border-primary/30 hover:bg-secondary"
@@ -1072,8 +1121,10 @@ const AssistantIA = () => {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          disabled={Boolean(deletingConversationId) || isSendingChat}
-                          className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-all hover:bg-secondary disabled:opacity-60 ${
+                          disabled={
+                            Boolean(deletingConversationId) || isSendingChat
+                          }
+                          className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 text-muted-foreground transition-all hover:bg-secondary disabled:opacity-60 ${
                             isDeletingThis
                               ? "opacity-100"
                               : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
@@ -1094,7 +1145,9 @@ const AssistantIA = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-36">
                         <DropdownMenuItem
-                          onClick={() => onRequestDeleteConversation(conversation)}
+                          onClick={() =>
+                            onRequestDeleteConversation(conversation)
+                          }
                           className="text-foreground focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
                         >
                           {t("assistant:sidebar.deleteChat", {
@@ -1117,7 +1170,7 @@ const AssistantIA = () => {
             disabled={
               isCreatingConversation || isLoadingConversations || !currentUserId
             }
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-3 py-3 text-xs font-semibold tracking-widest uppercase text-primary-foreground shadow-[0_16px_30px_-20px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-3 text-xs font-semibold tracking-widest uppercase text-primary-foreground shadow-[0_16px_30px_-20px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
             {isCreatingConversation ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1129,7 +1182,7 @@ const AssistantIA = () => {
         </div>
       </aside>
 
-      <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/70 bg-background/95 p-5 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)] md:p-6">
+      <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 p-5 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)] md:p-6">
         <div className="pointer-events-none absolute -top-20 -right-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
         <div className="min-w-0 flex-1 min-h-0 flex flex-col">
           <div className="flex items-start justify-between gap-4 mb-5">
@@ -1179,7 +1232,7 @@ const AssistantIA = () => {
           <div
             ref={chatContainerRef}
             onScroll={handleChatScroll}
-            className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-3xl border border-border/70 bg-gradient-to-b from-secondary/30 via-secondary/15 to-background p-4"
+            className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl border border-border/70 bg-gradient-to-b from-secondary/30 via-secondary/15 to-background p-4"
           >
             {isLoadingMessages ? (
               <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground">
@@ -1211,7 +1264,7 @@ const AssistantIA = () => {
                 {mensajes.map((m) => (
                   <div
                     key={m.id}
-                    className={`max-w-[88%] rounded-3xl p-3 ${
+                    className={`max-w-[88%] rounded-2xl p-3 ${
                       m.role === "assistant"
                         ? "border border-border/70 bg-background text-foreground shadow-sm"
                         : "ml-auto bg-primary text-primary-foreground shadow-[0_12px_24px_-18px_rgba(255,119,0,0.95)]"
@@ -1242,7 +1295,7 @@ const AssistantIA = () => {
                   </div>
                 ))}
                 {isSendingChat && (
-                  <div className="max-w-[88%] rounded-3xl border border-border/70 bg-background p-3 text-foreground shadow-sm">
+                  <div className="max-w-[88%] rounded-2xl border border-border/70 bg-background p-3 text-foreground shadow-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <MessageCircle className="h-3.5 w-3.5" />
                       <span className="text-[11px] uppercase tracking-widest opacity-70">
@@ -1263,11 +1316,11 @@ const AssistantIA = () => {
 
           <form onSubmit={onSubmitChat} className="mt-4 flex gap-2">
             <div
-              className={`flex flex-1 items-center rounded-3xl border bg-background px-3 shadow-sm ${
+              className={`flex flex-1 items-center rounded-2xl border bg-background px-3 shadow-sm ${
                 isDailyLimitReached ? "border-destructive/40" : "border-border"
               }`}
             >
-              <input
+              <CustomInput
                 value={inputChat}
                 onChange={(e) => setInputChat(e.target.value)}
                 placeholder={
@@ -1276,7 +1329,7 @@ const AssistantIA = () => {
                     : t("assistant:input.placeholder")
                 }
                 disabled={isDailyLimitReached}
-                className="w-full bg-transparent py-3 text-sm focus:outline-none"
+                className="h-auto w-full border-0 bg-transparent px-0 py-3 shadow-none focus:ring-0 focus:ring-offset-0"
               />
               {isDailyLimitReached && (
                 <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -1285,7 +1338,7 @@ const AssistantIA = () => {
             <button
               type="submit"
               disabled={isSendingChat || !currentUserId || isDailyLimitReached}
-              className="inline-flex items-center gap-2 rounded-3xl bg-primary px-4 py-3 text-xs font-semibold tracking-widest uppercase text-primary-foreground shadow-[0_16px_30px_-20px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-3 text-xs font-semibold tracking-widest uppercase text-primary-foreground shadow-[0_16px_30px_-20px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
               {isSendingChat
