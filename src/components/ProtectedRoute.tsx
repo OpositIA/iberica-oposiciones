@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isSessionExpired } from "@/lib/session";
 
 type ProtectedRouteProps = {
   children: ReactNode;
@@ -14,25 +15,62 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   useEffect(() => {
     let isMounted = true;
 
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
+    const markUnauthenticated = () => {
       if (!isMounted) return;
-
-      setHasSession(Boolean(data.session));
+      setHasSession(false);
       setIsCheckingSession(false);
     };
 
-    void checkSession();
+    const validateSession = async () => {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const session = sessionData.session;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (sessionError || !session || isSessionExpired(session)) {
+        markUnauthenticated();
+        return;
+      }
+
       if (!isMounted) return;
-
-      setHasSession(Boolean(session));
+      setHasSession(true);
       setIsCheckingSession(false);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void validateSession();
+      }
+    };
+
+    void validateSession();
+
+    const intervalId = window.setInterval(() => {
+      void validateSession();
+    }, 60_000);
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        if (!isMounted) return;
+        setHasSession(false);
+        setIsCheckingSession(false);
+        return;
+      }
+
+      if (!session || isSessionExpired(session)) {
+        if (!isMounted) return;
+        setHasSession(false);
+        setIsCheckingSession(false);
+        return;
+      }
+
+      void validateSession();
     });
 
     return () => {
       isMounted = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       authListener.subscription.unsubscribe();
     };
   }, []);

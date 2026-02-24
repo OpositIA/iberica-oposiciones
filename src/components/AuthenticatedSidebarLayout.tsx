@@ -1,22 +1,23 @@
 import {
-  BarChart3,
   Bell,
   Brain,
   CalendarDays,
+  ChevronRight,
   CircleUserRound,
   FileText,
   Home,
   LogOut,
   Menu,
+  Moon,
   NotebookText,
-  Settings,
   Sparkles,
+  Sun,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { applyTheme, getStoredTheme, type AppTheme } from "@/lib/theme";
+import { useAuth } from "@/auth/AuthProvider";
 
 const menuGroups = [
   {
@@ -32,50 +33,48 @@ const menuGroups = [
       { label: "Test", to: "/perfil/test", icon: FileText },
       { label: "Temario", to: "/perfil/temario", icon: NotebookText },
       { label: "Calendario", to: "/perfil/calendario", icon: CalendarDays },
-      { label: "Estadisticas", to: "/perfil/estadisticas", icon: BarChart3 },
     ],
   },
 ] as const;
 
+const sanitizeAvatarForRender = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("data:") || lower.startsWith("blob:")) return "";
+  return trimmed;
+};
+
 const AuthenticatedSidebarLayout = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
   const location = useLocation();
+  const { user, forceLogout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [accountName, setAccountName] = useState("Mi cuenta");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
 
   useEffect(() => {
-    const loadUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
-      const firstName = String(metadata.first_name ?? "").trim();
-      const lastName = String(metadata.last_name ?? "").trim();
-      const fullName = `${firstName} ${lastName}`.trim();
-      setAccountName(fullName || user?.email || "Mi cuenta");
-    };
-
-    void loadUser();
-  }, []);
+    const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
+    const firstName = String(metadata.first_name ?? "").trim();
+    const lastName = String(metadata.last_name ?? "").trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+    const avatar = sanitizeAvatarForRender(String(metadata.avatar_url ?? ""));
+    setAccountName(fullName || user?.email || "Mi cuenta");
+    setAvatarUrl(avatar);
+  }, [user]);
 
   const closeMobileSidebar = () => setIsMobileOpen(false);
 
+  const handleToggleTheme = () => {
+    const nextTheme: AppTheme = theme === "dark" ? "light" : "dark";
+    applyTheme(nextTheme);
+    setTheme(nextTheme);
+  };
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "No se pudo cerrar sesion",
-        description: error.message,
-      });
-      setIsSigningOut(false);
-      return;
-    }
-
-    navigate("/login", { replace: true });
+    await forceLogout("manual_sign_out");
     setIsSigningOut(false);
   };
 
@@ -110,9 +109,17 @@ const AuthenticatedSidebarLayout = () => {
             <button className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center">
               <Bell className="h-4 w-4 text-muted-foreground" />
             </button>
-            <button className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center">
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            </button>
+            <Link
+              to="/perfil/mi-perfil"
+              className="h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center rounded-full overflow-hidden"
+              aria-label="Abrir mi perfil"
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Perfil" className="h-full w-full object-cover" />
+              ) : (
+                <CircleUserRound className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}
@@ -155,14 +162,26 @@ const AuthenticatedSidebarLayout = () => {
               <span className="font-semibold text-lg text-foreground">Panel</span>
             </Link>
 
-            <button
-              type="button"
-              onClick={closeMobileSidebar}
-              className="lg:hidden inline-flex h-8 w-8 items-center justify-center border border-border text-muted-foreground hover:bg-secondary transition-colors rounded-full"
-              aria-label="Cerrar sidebar"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleTheme}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-secondary transition-colors"
+                aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+                title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+              >
+                {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={closeMobileSidebar}
+                className="lg:hidden inline-flex h-8 w-8 items-center justify-center border border-border text-muted-foreground hover:bg-secondary transition-colors rounded-full"
+                aria-label="Cerrar sidebar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </header>
 
           <nav className="relative h-full overflow-y-auto p-3 space-y-5">
@@ -201,10 +220,26 @@ const AuthenticatedSidebarLayout = () => {
 
           <footer className="relative mt-auto p-3 border-t border-border/60">
             <div className="rounded-2xl border border-border bg-background/70 p-3">
-              <div className="inline-flex items-center gap-2 mb-3">
-                <CircleUserRound className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground truncate">{accountName}</span>
-              </div>
+              <Link
+                to="/perfil/mi-perfil"
+                onClick={closeMobileSidebar}
+                className="mb-3 flex items-center gap-2 rounded-xl border border-border/70 bg-background px-2.5 py-2 transition-colors hover:bg-secondary/70"
+              >
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Perfil" className="h-full w-full object-cover" />
+                  ) : (
+                    <CircleUserRound className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">{accountName}</span>
+                  <span className="block text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
+                    Mi perfil
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
 
               <div className="mb-3 inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
                 <Sparkles className="h-3 w-3" />

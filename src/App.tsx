@@ -14,8 +14,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ProfileTest from "./pages/ProfileTest";
 import ProfileTemario from "./pages/ProfileTemario";
 import ProfileCalendario from "./pages/ProfileCalendario";
-import ProfileEstadisticas from "./pages/ProfileEstadisticas";
 import AuthenticatedSidebarLayout from "./components/AuthenticatedSidebarLayout";
+import MiPerfil from "./pages/MiPerfil";
+import { AuthProvider } from "@/auth/AuthProvider";
 
 const queryClient = new QueryClient();
 
@@ -25,29 +26,32 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/registro" element={<Register />} />
-          <Route path="/planes" element={<Plans />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <AuthenticatedSidebarLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/asistente-ia" element={<Navigate to="/perfil/oposia" replace />} />
-            <Route path="/perfil" element={<Navigate to="/perfil/oposia" replace />} />
-            <Route path="/perfil/oposia" element={<AssistantIA />} />
-            <Route path="/perfil/test" element={<ProfileTest />} />
-            <Route path="/perfil/temario" element={<ProfileTemario />} />
-            <Route path="/perfil/calendario" element={<ProfileCalendario />} />
-            <Route path="/perfil/estadisticas" element={<ProfileEstadisticas />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/registro" element={<Register />} />
+            <Route path="/planes" element={<Plans />} />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedSidebarLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/asistente-ia" element={<Navigate to="/perfil/oposia" replace />} />
+              <Route path="/perfil" element={<Navigate to="/perfil/oposia" replace />} />
+              <Route path="/perfil/oposia" element={<AssistantIA />} />
+              <Route path="/perfil/test" element={<ProfileTest />} />
+              <Route path="/perfil/temario" element={<ProfileTemario />} />
+              <Route path="/perfil/calendario" element={<ProfileCalendario />} />
+              <Route path="/perfil/mi-perfil" element={<MiPerfil />} />
+              <Route path="/perfil/estadisticas" element={<Navigate to="/dashboard" replace />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

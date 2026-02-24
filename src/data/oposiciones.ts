@@ -66,11 +66,46 @@ export const oposicionesDisponibles: Oposicion[] = [
   },
 ];
 
+const aliasOposiciones: Record<string, string> = {
+  "auxiliar administrativo del estado": "Administrativo del Estado",
+  "administracion local": "Administrativo del Estado",
+  "gestion de la seguridad social": "Administrativo del Estado",
+  "tramitacion procesal": "Tramitacion Procesal",
+  "tecnico de hacienda": "Agente de Hacienda",
+  "auxilio judicial": "Auxilio Judicial",
+};
+
 export const normalizarTexto = (value: string) =>
   value
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+
+export const obtenerNombresOposiciones = () =>
+  oposicionesDisponibles.map((oposicion) => oposicion.nombre);
+
+export const resolverNombreOposicion = (value: string | null | undefined) => {
+  const normalized = normalizarTexto(String(value ?? "").trim());
+  if (!normalized) return oposicionPerfilPorDefecto;
+
+  const porAlias = aliasOposiciones[normalized];
+  if (porAlias) return porAlias;
+
+  const exacta = oposicionesDisponibles.find(
+    (oposicion) => normalizarTexto(oposicion.nombre) === normalized,
+  );
+  if (exacta) return exacta.nombre;
+
+  return oposicionPerfilPorDefecto;
+};
+
+export const resolverOposicionPorNombre = (value: string | null | undefined) => {
+  const nombre = resolverNombreOposicion(value);
+  return (
+    oposicionesDisponibles.find((oposicion) => oposicion.nombre === nombre) ??
+    oposicionesDisponibles[0]
+  );
+};
 
 export const filtrarOposiciones = (termino: string) => {
   const query = normalizarTexto(termino.trim());
