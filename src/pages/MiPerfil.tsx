@@ -122,6 +122,8 @@ const MiPerfil = () => {
   useEffect(() => {
     if (!isAuthReady) return;
     const userId = user?.id;
+    const userEmail = user?.email ?? "";
+    const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
 
     if (!userId) {
       setProfile(initialProfile);
@@ -137,7 +139,6 @@ const MiPerfil = () => {
 
     const loadProfile = async () => {
       setIsLoadingProfile(true);
-      const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
       const abortController = new AbortController();
       const timeoutId = window.setTimeout(
         () => abortController.abort("profile_load_timeout"),
@@ -153,8 +154,6 @@ const MiPerfil = () => {
           .eq("user_id", userId)
           .abortSignal(abortController.signal)
           .maybeSingle();
-
-        console.log("Loaded profile data:", { data, error, metadata });
 
         if (error) throw error;
         if (!isMounted) return;
@@ -172,7 +171,7 @@ const MiPerfil = () => {
         setProfile({
           firstName: String(data?.first_name ?? metadata.first_name ?? ""),
           lastName: String(data?.last_name ?? metadata.last_name ?? ""),
-          email: String(data?.email ?? user.email ?? ""),
+          email: String(data?.email ?? userEmail),
           age:
             data?.age != null ? String(data.age) : String(metadata.age ?? ""),
           preferredOpposition: resolvedOpposition,
@@ -211,7 +210,7 @@ const MiPerfil = () => {
         setProfile({
           firstName: String(metadata.first_name ?? ""),
           lastName: String(metadata.last_name ?? ""),
-          email: String(user.email ?? ""),
+          email: String(userEmail),
           age: String(metadata.age ?? ""),
           preferredOpposition: fallbackOpposition,
           yearsPreparing: String(metadata.years_preparing ?? ""),
@@ -235,7 +234,7 @@ const MiPerfil = () => {
     return () => {
       isMounted = false;
     };
-  }, [isAuthReady, user]);
+  }, [isAuthReady, user?.id, user?.email, user?.user_metadata]);
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

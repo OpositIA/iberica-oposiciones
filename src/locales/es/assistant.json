@@ -47,11 +47,31 @@
     "emptyDescription": "Pide un plan de estudio, un repaso rápido o ayuda para un tema concreto.",
     "assistantLabel": "IA",
     "userLabel": "Tú",
-    "writing": "Escribiendo"
+    "writing": "Escribiendo",
+    "conceptMapResponse": "He preparado el mapa mental: {{title}}",
+    "conceptMapReady": "Mapa mental listo para explorar.",
+    "conceptMapStats": "{{nodes}} nodos \u00b7 {{edges}} conexiones principales",
+    "viewConceptMap": "Ver mapa mental",
+    "conceptMapGeneratingTitle": "Generando mapa mental",
+    "conceptMapGeneratingDescription": "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo.",
+    "conceptMapDialogDescription": "{{nodes}} nodos y {{edges}} conexiones listas para explorar",
+    "zoomOutMindMap": "Reducir zoom del mapa mental",
+    "zoomInMindMap": "Aumentar zoom del mapa mental",
+    "centerMindMap": "Centrar",
+    "selectedNode": "Nodo seleccionado",
+    "selectedNodeLevel": "Nivel {{level}}",
+    "relatedNodes": "Relaciones",
+    "incomingRelations": "Entradas",
+    "outgoingRelations": "Salidas",
+    "noIncomingRelations": "Sin relaciones de entrada.",
+    "noOutgoingRelations": "Sin relaciones de salida.",
+    "selectNodeHint": "Selecciona un nodo del arbol para ver sus detalles."
   },
   "input": {
     "placeholderLimitReached": "Límite diario alcanzado. Vuelve mañana.",
     "placeholder": "Escribe tu pregunta para la IA...",
+    "quickActions": "Acciones rapidas",
+    "mindMap": "Mapa mental",
     "send": "Enviar",
     "waiting": "Esperando..."
   }

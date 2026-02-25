@@ -47,11 +47,31 @@
     "emptyDescription": "Ask for a study plan, a quick review, or help with a specific topic.",
     "assistantLabel": "AI",
     "userLabel": "You",
-    "writing": "Typing"
+    "writing": "Typing",
+    "conceptMapResponse": "I prepared the mind map: {{title}}",
+    "conceptMapReady": "Mind map ready to explore.",
+    "conceptMapStats": "{{nodes}} nodes \u00b7 {{edges}} key connections",
+    "viewConceptMap": "View mind map",
+    "conceptMapGeneratingTitle": "Generating mind map",
+    "conceptMapGeneratingDescription": "I am organizing key nodes and connections so you can explore them in an interactive diagram.",
+    "conceptMapDialogDescription": "{{nodes}} nodes and {{edges}} connections ready to explore",
+    "zoomOutMindMap": "Zoom out mind map",
+    "zoomInMindMap": "Zoom in mind map",
+    "centerMindMap": "Center",
+    "selectedNode": "Selected node",
+    "selectedNodeLevel": "Level {{level}}",
+    "relatedNodes": "Relations",
+    "incomingRelations": "Incoming",
+    "outgoingRelations": "Outgoing",
+    "noIncomingRelations": "No incoming relations.",
+    "noOutgoingRelations": "No outgoing relations.",
+    "selectNodeHint": "Select a node from the tree to see details."
   },
   "input": {
     "placeholderLimitReached": "Daily limit reached. Come back tomorrow.",
     "placeholder": "Type your AI question...",
+    "quickActions": "Quick actions",
+    "mindMap": "Mind map",
     "send": "Send",
     "waiting": "Waiting..."
   }
