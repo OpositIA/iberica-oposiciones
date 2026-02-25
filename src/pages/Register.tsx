@@ -215,7 +215,7 @@ const Register = () => {
     <div className="min-h-screen bg-charcoal flex">
       <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-16">
         <div className="max-w-md">
-          <Link to="/" className="flex items-center gap-2 mb-16">
+          <Link to="/" className="flex items-center gap-2 mb-5">
             <img
               src={opositaiHorizontalLogo}
               alt="OpositAI"

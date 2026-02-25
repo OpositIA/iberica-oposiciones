@@ -99,6 +99,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [locale, setLocaleState] = useState<AppLocale>(DEFAULT_LOCALE);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const logoutPromiseRef = useRef<Promise<void> | null>(null);
+  const hydratedSessionFingerprintRef = useRef<string | null>(null);
 
   const applyLocale = useCallback(async (nextLocale: AppLocale) => {
     setLocaleState(nextLocale);
@@ -172,6 +173,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   );
 
   const setLoggedOutState = useCallback(() => {
+    hydratedSessionFingerprintRef.current = null;
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -251,8 +253,22 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     let isMounted = true;
 
-    const onValidSession = async (nextSession: Session) => {
+    const onValidSession = async (
+      nextSession: Session,
+      source: AuthChangeEvent | "init"
+    ) => {
       const fingerprint = `${nextSession.user.id}:${nextSession.expires_at ?? "unknown"}`;
+      if (
+        hydratedSessionFingerprintRef.current === fingerprint &&
+        source !== "USER_UPDATED"
+      ) {
+        if (!isMounted) return;
+        setSession(nextSession);
+        setUser(nextSession.user ?? null);
+        resetAuthFailureGuard();
+        setIsAuthReady(true);
+        return;
+      }
 
       await runSingleFlight(
         `auth:hydrate-session:${fingerprint}`,
@@ -273,6 +289,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           if (!isMounted) return;
 
           setIsAuthReady(true);
+          hydratedSessionFingerprintRef.current = fingerprint;
         },
         { reuseResultForMs: 1500 }
       );
@@ -307,7 +324,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         return;
       }
 
-      await onValidSession(currentSession);
+      await onValidSession(currentSession, "init");
       authLog("Sesion inicial valida", { userId: currentSession.user?.id });
     };
 
@@ -336,7 +353,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           return;
         }
 
-        await onValidSession(nextSession);
+        await onValidSession(nextSession, event);
       }
     );
 
