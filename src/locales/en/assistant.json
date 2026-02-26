@@ -36,7 +36,7 @@
   "header": {
     "badge": "AI Chat",
     "title": "Study assistant",
-    "dailyLimit": "Daily AI limit",
+    "dailyLimit": "Daily limit",
     "checkingUsage": "Checking today's requests...",
     "limitReached": "You reached the daily limit. Come back tomorrow.",
     "remaining": "You have {{count}} requests left today."

@@ -2,16 +2,19 @@ import { useAuth } from "@/auth/AuthProvider";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
-import {
-  obtenerNombresOposiciones,
-  resolverNombreOposicion
-} from "@/data/oposiciones";
+import { resolveOppositionNameById } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  useOppositionOptionsQuery,
+  useProfileDetailsQuery,
+  useResolvedOppositionQuery
+} from "@/queries/profileQueries";
+import { useQueryClient } from "@tanstack/react-query";
 import { Camera, Save, User } from "lucide-react";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type ProfileForm = {
@@ -19,7 +22,7 @@ type ProfileForm = {
   lastName: string;
   email: string;
   age: string;
-  preferredOpposition: string;
+  preferredOppositionId: string;
   yearsPreparing: string;
   weeklyTargetHours: string;
   testsPerWeek: string;
@@ -32,7 +35,7 @@ const initialProfile: ProfileForm = {
   lastName: "",
   email: "",
   age: "",
-  preferredOpposition: "",
+  preferredOppositionId: "",
   yearsPreparing: "",
   weeklyTargetHours: "16",
   testsPerWeek: "",
@@ -42,7 +45,6 @@ const initialProfile: ProfileForm = {
 
 const AVATAR_BUCKET = "profile-avatars";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const PROFILE_LOAD_TIMEOUT_MS = 12000;
 const ALLOWED_AVATAR_TYPES = new Set([
   "image/png",
   "image/jpeg",
@@ -91,21 +93,45 @@ const parseOptionalInteger = (value: string) => {
 };
 
 const MiPerfil = () => {
-  const { t } = useTranslation(["profile", "common", "oppositions"]);
+  const { t } = useTranslation(["profile", "common"]);
   const { toast } = useToast();
   const { user, isAuthReady, locale, setLocale, refreshProfile } = useAuth();
+  const shouldLoadProfile = isAuthReady && Boolean(user?.id);
+  const queryClient = useQueryClient();
+  const userMetadata = useMemo(
+    () => ((user?.user_metadata ?? {}) as Record<string, unknown>),
+    [user?.id]
+  );
+  const { data: profileDetails, isFetching: isFetchingProfileDetails } =
+    useProfileDetailsQuery(shouldLoadProfile ? user?.id : null);
+  const preferredOppositionId = String(
+    profileDetails?.preferred_opposition_id ??
+      userMetadata.preferred_opposition_id ??
+      ""
+  );
+  const preferredOppositionName = String(
+    profileDetails?.preferred_opposition ?? userMetadata.preferred_opposition ?? ""
+  );
+  const {
+    data: resolvedOpposition,
+    isFetching: isFetchingResolvedOpposition
+  } = useResolvedOppositionQuery({
+    preferredOppositionId,
+    preferredOppositionName,
+    locale,
+    enabled: shouldLoadProfile
+  });
+  const { data: oppositionOptions = [] } = useOppositionOptionsQuery(locale);
   const [profile, setProfile] = useState<ProfileForm>(initialProfile);
   const [persistedAvatarUrl, setPersistedAvatarUrl] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingOpposition, setIsChangingOpposition] = useState(false);
   const [isChangingLocale, setIsChangingLocale] = useState(false);
-  const [activeOpposition, setActiveOpposition] = useState("");
+  const [activeOppositionId, setActiveOppositionId] = useState("");
   const [isOppositionDialogOpen, setIsOppositionDialogOpen] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const avatarBlobPreviewRef = useRef<string | null>(null);
-
-  const oppositionOptions = obtenerNombresOposiciones();
 
   const clearAvatarBlobPreview = () => {
     if (!avatarBlobPreviewRef.current) return;
@@ -119,122 +145,81 @@ const MiPerfil = () => {
     };
   }, []);
 
+  const getOppositionName = (oppositionId: string | null | undefined) =>
+    resolveOppositionNameById(oppositionId, oppositionOptions);
+
   useEffect(() => {
     if (!isAuthReady) return;
     const userId = user?.id;
     const userEmail = user?.email ?? "";
-    const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
 
     if (!userId) {
       setProfile(initialProfile);
       setPendingAvatarFile(null);
       clearAvatarBlobPreview();
       setPersistedAvatarUrl("");
-      setActiveOpposition("");
+      setActiveOppositionId("");
       setIsLoadingProfile(false);
       return;
     }
 
-    let isMounted = true;
-
-    const loadProfile = async () => {
+    if (
+      (isFetchingProfileDetails && !profileDetails) ||
+      (isFetchingResolvedOpposition && !resolvedOpposition)
+    ) {
       setIsLoadingProfile(true);
-      const abortController = new AbortController();
-      const timeoutId = window.setTimeout(
-        () => abortController.abort("profile_load_timeout"),
-        PROFILE_LOAD_TIMEOUT_MS
-      );
+      return;
+    }
 
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select(
-            "email, first_name, last_name, age, preferred_opposition, years_preparing, weekly_target_hours, tests_per_week, main_challenge, avatar_url"
-          )
-          .eq("user_id", userId)
-          .abortSignal(abortController.signal)
-          .maybeSingle();
+    const resolvedAvatar = sanitizeAvatarForMetadata(
+      String(profileDetails?.avatar_url ?? userMetadata.avatar_url ?? "")
+    );
+    const resolvedOppositionId =
+      resolvedOpposition?.id ||
+      String(userMetadata.preferred_opposition_id ?? "");
 
-        if (error) throw error;
-        if (!isMounted) return;
+    setProfile({
+      firstName: String(profileDetails?.first_name ?? userMetadata.first_name ?? ""),
+      lastName: String(profileDetails?.last_name ?? userMetadata.last_name ?? ""),
+      email: String(profileDetails?.email ?? userEmail),
+      age:
+        profileDetails?.age != null
+          ? String(profileDetails.age)
+          : String(userMetadata.age ?? ""),
+      preferredOppositionId: resolvedOppositionId,
+      yearsPreparing:
+        profileDetails?.years_preparing != null
+          ? String(profileDetails.years_preparing)
+          : String(userMetadata.years_preparing ?? ""),
+      weeklyTargetHours:
+        profileDetails?.weekly_target_hours != null
+          ? String(profileDetails.weekly_target_hours)
+          : String(userMetadata.weekly_target_hours ?? "16"),
+      testsPerWeek:
+        profileDetails?.tests_per_week != null
+          ? String(profileDetails.tests_per_week)
+          : String(userMetadata.tests_per_week ?? ""),
+      mainChallenge: String(
+        profileDetails?.main_challenge ?? userMetadata.main_challenge ?? ""
+      ),
+      avatarUrl: resolvedAvatar
+    });
 
-        const resolvedOpposition = resolverNombreOposicion(
-          String(
-            data?.preferred_opposition ?? metadata.preferred_opposition ?? ""
-          )
-        );
-
-        const resolvedAvatar = sanitizeAvatarForMetadata(
-          String(data?.avatar_url ?? metadata.avatar_url ?? "")
-        );
-
-        setProfile({
-          firstName: String(data?.first_name ?? metadata.first_name ?? ""),
-          lastName: String(data?.last_name ?? metadata.last_name ?? ""),
-          email: String(data?.email ?? userEmail),
-          age:
-            data?.age != null ? String(data.age) : String(metadata.age ?? ""),
-          preferredOpposition: resolvedOpposition,
-          yearsPreparing:
-            data?.years_preparing != null
-              ? String(data.years_preparing)
-              : String(metadata.years_preparing ?? ""),
-          weeklyTargetHours:
-            data?.weekly_target_hours != null
-              ? String(data.weekly_target_hours)
-              : String(metadata.weekly_target_hours ?? "16"),
-          testsPerWeek:
-            data?.tests_per_week != null
-              ? String(data.tests_per_week)
-              : String(metadata.tests_per_week ?? ""),
-          mainChallenge: String(
-            data?.main_challenge ?? metadata.main_challenge ?? ""
-          ),
-          avatarUrl: resolvedAvatar
-        });
-
-        setPersistedAvatarUrl(resolvedAvatar);
-        setPendingAvatarFile(null);
-        clearAvatarBlobPreview();
-        setActiveOpposition(resolvedOpposition);
-      } catch {
-        if (!isMounted) return;
-
-        const fallbackOpposition = resolverNombreOposicion(
-          String(metadata.preferred_opposition ?? "")
-        );
-        const fallbackAvatar = sanitizeAvatarForMetadata(
-          String(metadata.avatar_url ?? "")
-        );
-
-        setProfile({
-          firstName: String(metadata.first_name ?? ""),
-          lastName: String(metadata.last_name ?? ""),
-          email: String(userEmail),
-          age: String(metadata.age ?? ""),
-          preferredOpposition: fallbackOpposition,
-          yearsPreparing: String(metadata.years_preparing ?? ""),
-          weeklyTargetHours: String(metadata.weekly_target_hours ?? "16"),
-          testsPerWeek: String(metadata.tests_per_week ?? ""),
-          mainChallenge: String(metadata.main_challenge ?? ""),
-          avatarUrl: fallbackAvatar
-        });
-        setPersistedAvatarUrl(fallbackAvatar);
-        setPendingAvatarFile(null);
-        clearAvatarBlobPreview();
-        setActiveOpposition(fallbackOpposition);
-      } finally {
-        window.clearTimeout(timeoutId);
-        if (isMounted) setIsLoadingProfile(false);
-      }
-    };
-
-    void loadProfile();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthReady, user?.id, user?.email, user?.user_metadata]);
+    setPersistedAvatarUrl(resolvedAvatar);
+    setPendingAvatarFile(null);
+    clearAvatarBlobPreview();
+    setActiveOppositionId(resolvedOppositionId);
+    setIsLoadingProfile(false);
+  }, [
+    isAuthReady,
+    isFetchingProfileDetails,
+    isFetchingResolvedOpposition,
+    profileDetails,
+    resolvedOpposition,
+    user?.id,
+    user?.email,
+    userMetadata
+  ]);
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -320,6 +305,7 @@ const MiPerfil = () => {
     const nextWeeklyTargetHours = parseOptionalInteger(
       profile.weeklyTargetHours
     );
+    const selectedOppositionCode = profile.preferredOppositionId || null;
     const profilePayload = {
       user_id: user.id,
       email: profile.email.trim() || user.email || null,
@@ -335,6 +321,8 @@ const MiPerfil = () => {
           : 16,
       tests_per_week: parseOptionalInteger(profile.testsPerWeek),
       main_challenge: profile.mainChallenge.trim() || null,
+      preferred_opposition_id: profile.preferredOppositionId || null,
+      preferred_opposition: selectedOppositionCode,
       avatar_url: avatarUrlForProfile || null,
       locale
     };
@@ -373,14 +361,15 @@ const MiPerfil = () => {
       title: t("profile:myProfile.toasts.updatedTitle"),
       description: t("profile:myProfile.toasts.updatedDescription")
     });
+    await queryClient.invalidateQueries({ queryKey: ["profiles"] });
     await refreshProfile();
     setIsSavingProfile(false);
   };
 
   const handleOpenOppositionDialog = () => {
-    const nextOpposition = resolverNombreOposicion(profile.preferredOpposition);
+    const nextOppositionId = profile.preferredOppositionId.trim();
 
-    if (!nextOpposition) {
+    if (!nextOppositionId) {
       toast({
         variant: "destructive",
         title: t("profile:myProfile.toasts.selectOppositionTitle"),
@@ -389,7 +378,7 @@ const MiPerfil = () => {
       return;
     }
 
-    if (nextOpposition === activeOpposition) {
+    if (nextOppositionId === activeOppositionId) {
       toast({
         title: t("profile:myProfile.toasts.noChangesTitle"),
         description: t("profile:myProfile.toasts.noChangesDescription")
@@ -403,13 +392,16 @@ const MiPerfil = () => {
   const handleChangeOpposition = async () => {
     if (!user) return;
 
-    const nextOpposition = resolverNombreOposicion(profile.preferredOpposition);
+    const nextOppositionId = profile.preferredOppositionId.trim();
+    if (!nextOppositionId) return;
+    const nextOppositionCode = nextOppositionId || null;
     setIsChangingOpposition(true);
 
     const { error } = await supabase.from("profiles").upsert(
       {
         user_id: user.id,
-        preferred_opposition: nextOpposition,
+        preferred_opposition_id: nextOppositionId,
+        preferred_opposition: nextOppositionCode,
         locale
       },
       { onConflict: "user_id" }
@@ -425,13 +417,14 @@ const MiPerfil = () => {
       return;
     }
 
-    setActiveOpposition(nextOpposition);
-    setProfile((prev) => ({ ...prev, preferredOpposition: nextOpposition }));
+    setActiveOppositionId(nextOppositionId);
+    setProfile((prev) => ({ ...prev, preferredOppositionId: nextOppositionId }));
     setIsOppositionDialogOpen(false);
     toast({
       title: t("profile:myProfile.toasts.oppositionUpdatedTitle"),
       description: t("profile:myProfile.toasts.oppositionUpdatedDescription")
     });
+    await queryClient.invalidateQueries({ queryKey: ["profiles"] });
     setIsChangingOpposition(false);
   };
 
@@ -688,7 +681,7 @@ const MiPerfil = () => {
             {t("profile:myProfile.oppositionSection.studyingNow")}
           </p>
           <p className="text-sm font-medium text-foreground mb-3">
-            {activeOpposition ||
+            {getOppositionName(activeOppositionId) ||
               t("profile:myProfile.oppositionSection.undefined")}
           </p>
 
@@ -696,11 +689,11 @@ const MiPerfil = () => {
             {t("profile:myProfile.oppositionSection.newOpposition")}
           </label>
           <CustomSelect
-            value={profile.preferredOpposition}
+            value={profile.preferredOppositionId}
             onChange={(e) =>
               setProfile((prev) => ({
                 ...prev,
-                preferredOpposition: e.target.value
+                preferredOppositionId: e.target.value
               }))
             }
             className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
@@ -709,8 +702,8 @@ const MiPerfil = () => {
               {t("profile:myProfile.oppositionSection.selectOption")}
             </option>
             {oppositionOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
+              <option key={option.id} value={option.id}>
+                {option.name}
               </option>
             ))}
           </CustomSelect>
@@ -737,7 +730,7 @@ const MiPerfil = () => {
         onOpenChange={setIsOppositionDialogOpen}
         title={t("profile:myProfile.dialog.title")}
         description={t("profile:myProfile.dialog.description", {
-          opposition: resolverNombreOposicion(profile.preferredOpposition)
+          opposition: getOppositionName(profile.preferredOppositionId)
         })}
         confirmLabel={
           isChangingOpposition
