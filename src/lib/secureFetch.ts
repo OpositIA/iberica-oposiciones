@@ -17,7 +17,6 @@ const isDev = import.meta.env.DEV;
 
 const debugLog = (...args: unknown[]) => {
   if (!isDev) return;
-  console.info("[secure-fetch]", ...args);
 };
 
 export class AuthSessionError extends Error {

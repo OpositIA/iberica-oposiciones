@@ -1,5 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import {
   Dialog,
@@ -31,6 +32,7 @@ import {
   MessageCircle,
   Plus,
   Send,
+  Trash2,
   User
 } from "lucide-react";
 import {
@@ -182,8 +184,7 @@ const normalizeConceptMapData = (input: unknown): ConceptMapData | null => {
     if (!from || !to) return;
     if (!nodeMap.has(from) || !nodeMap.has(to)) return;
 
-    const label =
-      typeof rawEdge.label === "string" ? rawEdge.label.trim() : "";
+    const label = typeof rawEdge.label === "string" ? rawEdge.label.trim() : "";
     const edgeKey = `${from}->${to}|${label}`;
     if (seenEdgeKeys.has(edgeKey)) return;
     seenEdgeKeys.add(edgeKey);
@@ -206,7 +207,9 @@ const normalizeConceptMapData = (input: unknown): ConceptMapData | null => {
   };
 };
 
-const extractConceptMapFromPayload = (payload: unknown): ConceptMapData | null => {
+const extractConceptMapFromPayload = (
+  payload: unknown
+): ConceptMapData | null => {
   const tryNormalize = (candidate: unknown): ConceptMapData | null => {
     if (typeof candidate === "string") {
       const parsed = parseJson(candidate);
@@ -960,16 +963,19 @@ const AssistantIA = () => {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
+          <CustomButton
             type="button"
             onClick={() => openConceptMapDialog(message)}
-            className="inline-flex items-center gap-2 rounded-xl border border-border/70 bg-background px-3 py-1.5 text-xs font-semibold tracking-wide text-foreground transition-colors hover:bg-secondary"
+            styleType="menu"
+            size="sm"
+            radius="xl"
+            className="border-border/70"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {t("assistant:chat.viewConceptMap", {
               defaultValue: "Ver mapa mental"
             })}
-          </button>
+          </CustomButton>
         </div>
       </div>
     );
@@ -1192,8 +1198,9 @@ const AssistantIA = () => {
 
     if (roots.length > 0) return roots;
 
-    const fallbackRoot = conceptMapDialogData.nodes.reduce((current, candidate) =>
-      candidate.level < current.level ? candidate : current
+    const fallbackRoot = conceptMapDialogData.nodes.reduce(
+      (current, candidate) =>
+        candidate.level < current.level ? candidate : current
     );
 
     if (conceptMapGraph.nodeById.has(fallbackRoot.id)) return [fallbackRoot.id];
@@ -1212,7 +1219,9 @@ const AssistantIA = () => {
       (current, candidate) => Math.min(current, candidate.level),
       Number.POSITIVE_INFINITY
     );
-    const baseLevel = Number.isFinite(fallbackBaseLevel) ? fallbackBaseLevel : 0;
+    const baseLevel = Number.isFinite(fallbackBaseLevel)
+      ? fallbackBaseLevel
+      : 0;
 
     const levels = Array.from(
       new Set(validNodes.map((node) => Math.max(0, node.level - baseLevel)))
@@ -1398,7 +1407,10 @@ const AssistantIA = () => {
       conceptMapRootNodeIds[0] ?? conceptMapDialogData.nodes[0]?.id ?? null;
     if (!fallbackNodeId) return;
 
-    if (!selectedConceptMapNodeId || !conceptMapGraph.nodeById.has(selectedConceptMapNodeId))
+    if (
+      !selectedConceptMapNodeId ||
+      !conceptMapGraph.nodeById.has(selectedConceptMapNodeId)
+    )
       setSelectedConceptMapNodeId(fallbackNodeId);
   }, [
     conceptMapDialogData,
@@ -1523,7 +1535,11 @@ const AssistantIA = () => {
   }, []);
 
   useEffect(() => {
-    if (!isConceptMapDialogOpen || !selectedConceptMapNodeId || !conceptMapLayout)
+    if (
+      !isConceptMapDialogOpen ||
+      !selectedConceptMapNodeId ||
+      !conceptMapLayout
+    )
       return;
     const timeoutId = window.setTimeout(() => {
       centerMindMapNode(selectedConceptMapNodeId, "auto");
@@ -1800,19 +1816,28 @@ const AssistantIA = () => {
               return (
                 <div
                   key={conversation.id}
+                  role="button"
+                  tabIndex={isSendingChat ? -1 : 0}
+                  aria-disabled={isSendingChat}
+                  onClick={() => {
+                    if (isSendingChat) return;
+                    onSelectConversation(conversation.id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (isSendingChat) return;
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    onSelectConversation(conversation.id);
+                  }}
                   className={`group w-full rounded-xl border px-3 py-2.5 text-left transition-all ${
                     isActive
                       ? "border-primary/50 bg-primary/10 text-foreground shadow-[0_10px_30px_-25px_rgba(255,119,0,0.95)]"
                       : "border-border/80 bg-background/90 text-foreground hover:-translate-y-[1px] hover:border-primary/30 hover:bg-secondary"
-                  } ${isSendingChat ? "opacity-70" : ""}`}
+                  } ${isSendingChat ? "cursor-default opacity-70" : "cursor-pointer"}`}
                 >
                   <div className="flex items-start gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onSelectConversation(conversation.id)}
-                      disabled={isSendingChat}
-                      className="min-w-0 flex-1 text-left"
-                    >
+                    <div className="min-w-0 flex-1 text-left">
                       <div className="flex items-center gap-2">
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${
@@ -1826,11 +1851,17 @@ const AssistantIA = () => {
                       <p className="mt-1 pl-3.5 text-[11px] text-muted-foreground">
                         {formatFechaHistorial(conversation.lastMessageAt)}
                       </p>
-                    </button>
+                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                          onKeyDown={(event) => {
+                            event.stopPropagation();
+                          }}
                           disabled={
                             Boolean(deletingConversationId) || isSendingChat
                           }
@@ -1858,8 +1889,9 @@ const AssistantIA = () => {
                           onClick={() =>
                             onRequestDeleteConversation(conversation)
                           }
-                          className="text-foreground focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                          className="text-foreground focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive cursor-pointer gap-2"
                         >
+                          <Trash2 className="h-3.5 w-3.5" />
                           {t("assistant:sidebar.deleteChat", {
                             defaultValue: "Eliminar"
                           })}
@@ -1874,13 +1906,15 @@ const AssistantIA = () => {
         </div>
 
         <div className="mt-auto border-t border-border/70 bg-background/85 p-3 backdrop-blur">
-          <button
+          <CustomButton
             type="button"
             onClick={onCreateConversation}
             disabled={
               isCreatingConversation || isLoadingConversations || !currentUserId
             }
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-3 text-xs font-semibold tracking-widest uppercase text-primary-foreground shadow-[0_16px_30px_-20px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
+            styleType="primary"
+            radius="xl"
+            className="w-full px-3 py-3"
           >
             {isCreatingConversation ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1888,7 +1922,7 @@ const AssistantIA = () => {
               <Plus className="h-4 w-4" />
             )}
             {t("assistant:sidebar.newChat")}
-          </button>
+          </CustomButton>
         </div>
       </aside>
 
@@ -1999,7 +2033,10 @@ const AssistantIA = () => {
                       m.conceptMap ? (
                         renderConceptMapMessage(m)
                       ) : (
-                        renderAssistantContent(m.content, `assistant-msg-${m.id}`)
+                        renderAssistantContent(
+                          m.content,
+                          `assistant-msg-${m.id}`
+                        )
                       )
                     ) : (
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -2023,10 +2060,13 @@ const AssistantIA = () => {
                               })}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {t("assistant:chat.conceptMapGeneratingDescription", {
-                                defaultValue:
-                                  "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo."
-                              })}
+                              {t(
+                                "assistant:chat.conceptMapGeneratingDescription",
+                                {
+                                  defaultValue:
+                                    "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo."
+                                }
+                              )}
                             </p>
                           </div>
                         </div>
@@ -2077,18 +2117,25 @@ const AssistantIA = () => {
                 <div className="flex items-center gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button
+                      <CustomButton
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-secondary/70 disabled:opacity-60"
+                        styleType="ghost"
+                        size="iconSm"
+                        radius="full"
+                        className="border-border/70 text-muted-foreground disabled:opacity-60"
                         aria-label={t("assistant:input.quickActions", {
                           defaultValue: "Acciones rapidas"
                         })}
                         disabled={isDailyLimitReached}
                       >
                         <Plus className="h-4 w-4" />
-                      </button>
+                      </CustomButton>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="top" className="w-48">
+                    <DropdownMenuContent
+                      align="start"
+                      side="top"
+                      className="w-48"
+                    >
                       <DropdownMenuCheckboxItem
                         checked={isMindMapEnabled}
                         onCheckedChange={(checked) =>
@@ -2113,12 +2160,14 @@ const AssistantIA = () => {
                   {isDailyLimitReached && (
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                   )}
-                  <button
+                  <CustomButton
                     type="submit"
                     disabled={
                       isSendingChat || !currentUserId || isDailyLimitReached
                     }
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_14px_26px_-18px_rgba(255,119,0,0.95)] transition-colors hover:bg-primary/90 disabled:opacity-60"
+                    styleType="primary"
+                    size="icon"
+                    radius="full"
                     aria-label={
                       isSendingChat
                         ? t("assistant:input.waiting")
@@ -2126,7 +2175,7 @@ const AssistantIA = () => {
                     }
                   >
                     <Send className="h-4 w-4" />
-                  </button>
+                  </CustomButton>
                 </div>
               </div>
             </div>
@@ -2134,7 +2183,10 @@ const AssistantIA = () => {
         </div>
       </section>
 
-      <Dialog open={isConceptMapDialogOpen} onOpenChange={onConceptMapDialogOpenChange}>
+      <Dialog
+        open={isConceptMapDialogOpen}
+        onOpenChange={onConceptMapDialogOpenChange}
+      >
         <DialogContent className="h-[86vh] w-[95vw] max-w-[1100px] overflow-hidden rounded-2xl border border-border/70 bg-background/95 p-0 shadow-[0_40px_90px_-50px_rgba(0,0,0,0.55)]">
           {conceptMapDialogData && conceptMapGraph && (
             <div className="flex h-full flex-col">
@@ -2188,8 +2240,12 @@ const AssistantIA = () => {
                           fill="none"
                         >
                           {conceptMapLayout.edges.map((edge) => {
-                            const fromNode = conceptMapLayout.nodeById.get(edge.from);
-                            const toNode = conceptMapLayout.nodeById.get(edge.to);
+                            const fromNode = conceptMapLayout.nodeById.get(
+                              edge.from
+                            );
+                            const toNode = conceptMapLayout.nodeById.get(
+                              edge.to
+                            );
                             if (!fromNode || !toNode) return null;
 
                             const isSelectedEdge =
@@ -2200,7 +2256,10 @@ const AssistantIA = () => {
                               fromNode.width +
                               (toNode.x - (fromNode.x + fromNode.width)) / 2;
                             const labelY =
-                              (fromNode.y + fromNode.height / 2 + toNode.y + toNode.height / 2) /
+                              (fromNode.y +
+                                fromNode.height / 2 +
+                                toNode.y +
+                                toNode.height / 2) /
                               2;
 
                             return (
@@ -2236,7 +2295,8 @@ const AssistantIA = () => {
                         </svg>
 
                         {conceptMapLayout.nodes.map((node) => {
-                          const isSelected = node.id === selectedConceptMapNodeId;
+                          const isSelected =
+                            node.id === selectedConceptMapNodeId;
                           const isRelated =
                             !isSelected &&
                             selectedMindMapRelatedNodeIds.has(node.id);
@@ -2248,7 +2308,7 @@ const AssistantIA = () => {
                                 : "border-border/70 bg-background/85 text-foreground";
 
                           return (
-                            <button
+                            <CustomButton
                               key={node.id}
                               type="button"
                               onMouseDown={(e) => {
@@ -2261,6 +2321,9 @@ const AssistantIA = () => {
                                 if (mindMapSuppressNodeClickRef.current) return;
                                 setSelectedConceptMapNodeId(node.id);
                               }}
+                              styleType="unstyled"
+                              size="none"
+                              radius="none"
                               className={`absolute rounded-2xl border px-3 py-2 text-left shadow-[0_12px_30px_-22px_rgba(0,0,0,0.45)] transition-all ${
                                 isSelected
                                   ? "scale-[1.02] border-primary bg-primary/15 ring-2 ring-primary/30"
@@ -2278,7 +2341,7 @@ const AssistantIA = () => {
                               <span className="line-clamp-2 text-[12px] font-semibold leading-snug">
                                 {node.label}
                               </span>
-                            </button>
+                            </CustomButton>
                           );
                         })}
                       </div>

@@ -45,7 +45,6 @@ const isDev = import.meta.env.DEV;
 
 const authLog = (...args: unknown[]) => {
   if (!isDev) return;
-  console.info("[auth]", ...args);
 };
 
 const sanitizeString = (value: unknown) =>
@@ -71,15 +70,11 @@ const buildProfileSnapshot = (
     | undefined,
   authUser: User
 ): UserProfileSnapshot => {
-  const metadata = (authUser.user_metadata ?? {}) as Record<string, unknown>;
-
   return {
-    firstName: sanitizeString(data?.first_name ?? metadata.first_name),
-    lastName: sanitizeString(data?.last_name ?? metadata.last_name),
-    email: sanitizeString(data?.email ?? authUser.email ?? metadata.email),
-    avatarUrl: sanitizeAvatarForRender(
-      sanitizeString(data?.avatar_url ?? metadata.avatar_url)
-    )
+    firstName: sanitizeString(data?.first_name),
+    lastName: sanitizeString(data?.last_name),
+    email: sanitizeString(data?.email ?? authUser.email),
+    avatarUrl: sanitizeAvatarForRender(sanitizeString(data?.avatar_url))
   };
 };
 

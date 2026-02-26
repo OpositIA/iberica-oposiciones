@@ -27,5 +27,8 @@
   },
   "status": {
     "validatingSession": "Validando sesión..."
+  },
+  "meta": {
+    "version": "Versión"
   }
 }
