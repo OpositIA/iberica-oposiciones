@@ -1,54 +1,154 @@
 {
-  "auxilio-judicial": {
-    "name": "Auxilio Judicial",
-    "body": "Administración de Justicia",
-    "topics": {
-      "constitutional": "Constitución Española",
-      "judicial-organization": "Organización Judicial",
-      "civil-procedure": "Procedimiento Civil",
-      "criminal-procedure": "Procedimiento Penal",
-      "communication-acts": "Actos de comunicación",
-      "civil-registry": "Registro Civil",
-      "occupational-risk": "Prevención de riesgos laborales"
+  "catalog": {
+    "cuerpo-general-auxiliar-age": {
+      "name": "Cuerpo General Auxiliar AGE (C2)",
+      "body": "Administracion General del Estado"
+    },
+    "administrativo-estado": {
+      "name": "Cuerpo General Administrativo AGE (C1)",
+      "body": "Administracion General del Estado"
+    },
+    "gestion-procesal": {
+      "name": "Gestion Procesal (A2, Justicia)",
+      "body": "Administracion de Justicia"
+    },
+    "tramitacion-procesal": {
+      "name": "Tramitacion Procesal (C1, Justicia)",
+      "body": "Administracion de Justicia"
+    },
+    "auxilio-judicial": {
+      "name": "Auxilio Judicial (C2, Justicia)",
+      "body": "Administracion de Justicia"
+    },
+    "inspectores-hacienda": {
+      "name": "Inspectores de Hacienda (A1)",
+      "body": "Agencia Tributaria"
+    },
+    "tecnicos-hacienda": {
+      "name": "Tecnicos de Hacienda (A2)",
+      "body": "Agencia Tributaria"
+    },
+    "agente-hacienda": {
+      "name": "Agentes de Hacienda Publica (C1)",
+      "body": "Agencia Tributaria"
+    },
+    "policia-nacional": {
+      "name": "Policia Nacional (Basica y Ejecutiva)",
+      "body": "Fuerzas y Cuerpos de Seguridad del Estado"
+    },
+    "guardia-civil": {
+      "name": "Guardia Civil (Cabos y Guardias)",
+      "body": "Fuerzas y Cuerpos de Seguridad del Estado"
+    },
+    "gestion-administracion-civil-estado": {
+      "name": "Cuerpo de Gestion de la Administracion Civil del Estado (A2 AGE)",
+      "body": "Administracion General del Estado"
+    },
+    "superior-administradores-civiles-estado": {
+      "name": "Cuerpo Superior de Administradores Civiles del Estado (A1 AGE)",
+      "body": "Administracion General del Estado"
     }
   },
-  "tramitacion-procesal": {
-    "name": "Tramitación Procesal",
-    "body": "Administración de Justicia",
-    "topics": {
-      "constitutional-rights": "Constitución y Derechos Fundamentales",
-      "judicial-office": "Oficina Judicial",
-      "administrative-litigation": "Procedimiento Contencioso-Administrativo",
-      "labor-procedure": "Procedimiento Laboral",
-      "judicial-documentation": "Documentación judicial",
-      "data-protection": "Protección de datos",
-      "procedural-appeals": "Recursos procesales"
+  "topics": {
+    "agente-hacienda": {
+      "bloque-1-organizacion-estado-y-funcionamiento-age": {
+        "title": "Organizacion del Estado y funcionamiento de la Administracion General del Estado (Bloque I)",
+        "subtopics": [
+          "Tema 1. La Constitución Española de 1978",
+          "Tema 2. Las Cortes Generales",
+          "Tema 3. El Gobierno",
+          "Tema 4. La Organizacion territorial del Estado",
+          "Tema 5. El funcionamiento electronico del sector publico",
+          "Tema 6. Politicas Sociales Publicas",
+          "Tema 7. Regimen juridico del personal al servicio de las Administraciones Publicas"
+        ]
+      },
+      "bloque-2-derecho-tributario": {
+        "title": "Derecho Tributario (Bloque II)",
+        "subtopics": [
+          "Tema 1. Las fuentes del Derecho Administrativo",
+          "Tema 2. Los actos administrativos",
+          "Tema 3. El procedimiento administrativo comun",
+          "Tema 4. Las fases del procedimiento administrativo",
+          "Tema 5. Los recursos administrativos"
+        ]
+      },
+      "bloque-3-organizacion-hacienda-publica-y-derecho-administrativo": {
+        "title": "Organizacion de la Hacienda Publica y Derecho Administrativo (Bloque III)",
+        "subtopics": [
+          "Tema 1. El sistema fiscal español",
+          "Tema 2. La Agencia Estatal de Administracion Tributaria",
+          "Tema 3. Derecho Tributario",
+          "Tema 4. Derecho y garantias de los obligados tributarios",
+          "Tema 5. Las obligaciones formales de los contribuyentes",
+          "Tema 6. Informacion y asistencia: la consulta tributaria",
+          "Tema 7. Las declaraciones tributarias: concepto y clases",
+          "Tema 8. Actuaciones y procedimiento de gestion tributaria",
+          "Tema 9. Actuaciones y procedimiento de inspeccion: funciones y facultades",
+          "Tema 10. La extincion de la deuda tributaria (I)",
+          "Tema 11. La extincion de la deuda tributaria (II)",
+          "Tema 12. El procedimiento de recaudacion en periodo voluntario",
+          "Tema 13. El embargo",
+          "Tema 14. La potestad sancionadora en materia tributaria",
+          "Tema 15. La revision de los actos de caracter tributario en via administrativa",
+          "Tema 16. El Impuesto sobre la Renta de las Personas Fisicas (I)",
+          "Tema 17. El Impuesto sobre la Renta de las Personas Fisicas (II)",
+          "Tema 18. Impuesto sobre la Renta de no residentes",
+          "Tema 19. El Impuesto sobre Sociedades",
+          "Tema 20. El Impuesto sobre el Valor Añadido (I)",
+          "Tema 21. El Impuesto sobre el Valor Añadido (II)",
+          "Tema 22. La Aduana"
+        ]
+      }
     }
   },
-  "agente-hacienda": {
-    "name": "Agente de Hacienda",
-    "body": "Agencia Tributaria",
-    "topics": {
-      "constitutional-law": "Derecho Constitucional",
-      "general-administrative-law": "Derecho Administrativo General",
-      "treasury-organization": "Organización de la Hacienda Pública",
-      "spanish-tax-system": "Sistema Tributario Español",
-      "irpf-iva": "IRPF e IVA",
-      "tax-collection": "Recaudación tributaria",
-      "inspection-sanctions": "Inspección y sanciones"
+  "subtopics": {
+    "agente-hacienda": {
+      "bloque-1-organizacion-estado-y-funcionamiento-age": {
+        "b1-t01-constitucion-espanola-1978": "Tema 1. La Constitución Española de 1978",
+        "b1-t01-constitucion-española-1978": "Tema 1. La Constitución Española de 1978",
+        "b1-t02-cortes-generales": "Tema 2. Las Cortes Generales",
+        "b1-t03-gobierno": "Tema 3. El Gobierno",
+        "b1-t04-organizacion-territorial-estado": "Tema 4. La Organizacion territorial del Estado",
+        "b1-t05-funcionamiento-electronico-sector-publico": "Tema 5. El funcionamiento electronico del sector publico",
+        "b1-t06-politicas-sociales-publicas": "Tema 6. Politicas Sociales Publicas",
+        "b1-t07-regimen-juridico-personal-aa-pp": "Tema 7. Regimen juridico del personal al servicio de las Administraciones Publicas"
+      },
+      "bloque-2-derecho-tributario": {
+        "b2-t01-fuentes-derecho-administrativo": "Tema 1. Las fuentes del Derecho Administrativo",
+        "b2-t02-actos-administrativos": "Tema 2. Los actos administrativos",
+        "b2-t03-procedimiento-administrativo-comun": "Tema 3. El procedimiento administrativo comun",
+        "b2-t04-fases-procedimiento-administrativo": "Tema 4. Las fases del procedimiento administrativo",
+        "b2-t05-recursos-administrativos": "Tema 5. Los recursos administrativos"
+      },
+      "bloque-3-organizacion-hacienda-publica-y-derecho-administrativo": {
+        "b3-t01-sistema-fiscal-espanol": "Tema 1. El sistema fiscal español",
+        "b3-t01-sistema-fiscal-español": "Tema 1. El sistema fiscal español",
+        "b3-t02-aeat": "Tema 2. La Agencia Estatal de Administracion Tributaria",
+        "b3-t03-derecho-tributario": "Tema 3. Derecho Tributario",
+        "b3-t04-derechos-y-garantias-obligados-tributarios": "Tema 4. Derecho y garantias de los obligados tributarios",
+        "b3-t05-obligaciones-formales-contribuyentes": "Tema 5. Las obligaciones formales de los contribuyentes",
+        "b3-t06-informacion-asistencia-consulta-tributaria": "Tema 6. Informacion y asistencia: la consulta tributaria",
+        "b3-t07-declaraciones-tributarias-concepto-y-clases": "Tema 7. Las declaraciones tributarias: concepto y clases",
+        "b3-t08-procedimiento-gestion-tributaria": "Tema 8. Actuaciones y procedimiento de gestion tributaria",
+        "b3-t09-procedimiento-inspeccion-funciones-y-facultades": "Tema 9. Actuaciones y procedimiento de inspeccion: funciones y facultades",
+        "b3-t10-extincion-deuda-tributaria-i": "Tema 10. La extincion de la deuda tributaria (I)",
+        "b3-t11-extincion-deuda-tributaria-ii": "Tema 11. La extincion de la deuda tributaria (II)",
+        "b3-t12-recaudacion-periodo-voluntario": "Tema 12. El procedimiento de recaudacion en periodo voluntario",
+        "b3-t13-embargo": "Tema 13. El embargo",
+        "b3-t14-potestad-sancionadora-tributaria": "Tema 14. La potestad sancionadora en materia tributaria",
+        "b3-t15-revision-actos-tributarios-via-administrativa": "Tema 15. La revision de los actos de caracter tributario en via administrativa",
+        "b3-t16-irpf-i": "Tema 16. El Impuesto sobre la Renta de las Personas Fisicas (I)",
+        "b3-t17-irpf-ii": "Tema 17. El Impuesto sobre la Renta de las Personas Fisicas (II)",
+        "b3-t18-irnr": "Tema 18. Impuesto sobre la Renta de no residentes",
+        "b3-t19-impuesto-sociedades": "Tema 19. El Impuesto sobre Sociedades",
+        "b3-t20-iva-i": "Tema 20. El Impuesto sobre el Valor Añadido (I)",
+        "b3-t21-iva-ii": "Tema 21. El Impuesto sobre el Valor Añadido (II)",
+        "b3-t22-aduana": "Tema 22. La Aduana"
+      }
     }
   },
-  "administrativo-estado": {
-    "name": "Administrativo del Estado",
-    "body": "Administración General del Estado",
-    "topics": {
-      "constitution-eu": "Constitución y Unión Europea",
-      "civil-service": "Función pública",
-      "law-39-40": "Ley 39/2015 y 40/2015",
-      "personnel-management": "Gestión de personal",
-      "public-procurement": "Contratación pública",
-      "financial-management": "Gestión financiera",
-      "office-electronic-admin": "Ofimática y administración electrónica"
-    }
+  "fallback": {
+    "unknownName": "Oposicion"
   }
 }

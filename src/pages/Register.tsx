@@ -1,10 +1,14 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
-import { obtenerNombresOposiciones } from "@/data/oposiciones";
+import {
+  fetchOppositionOptions,
+  type OppositionOption
+} from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
+import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -42,13 +46,30 @@ const initialForm: RegisterForm = {
 
 const Register = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation(["auth", "common", "oppositions"]);
+  const { t, i18n } = useTranslation(["auth", "common"]);
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [form, setForm] = useState<RegisterForm>(initialForm);
+  const [oppositionOptions, setOppositionOptions] = useState<OppositionOption[]>(
+    []
+  );
 
-  const oppositionOptions = obtenerNombresOposiciones();
+  const locale = normalizeLocale(i18n.resolvedLanguage);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadOppositions = async () => {
+      const options = await fetchOppositionOptions(locale);
+      if (!isMounted) return;
+      setOppositionOptions(options);
+    };
+
+    void loadOppositions();
+    return () => {
+      isMounted = false;
+    };
+  }, [locale]);
 
   const stepTitles = useMemo(
     () => [
@@ -163,7 +184,6 @@ const Register = () => {
     }
 
     setIsLoading(true);
-
     const { data, error } = await supabase.auth.signUp({
       email: form.email.trim(),
       password: form.password,
@@ -173,7 +193,8 @@ const Register = () => {
           last_name: form.lastName.trim(),
           full_name: `${form.name.trim()} ${form.lastName.trim()}`.trim(),
           age: Number(form.age),
-          preferred_opposition: form.preferredOpposition,
+          preferred_opposition_id: form.preferredOpposition,
+          preferred_opposition: form.preferredOpposition || null,
           years_preparing: Number(form.yearsPreparing),
           weekly_target_hours: Number(form.weeklyTargetHours),
           tests_per_week: Number(form.testsPerWeek),
@@ -441,8 +462,8 @@ const Register = () => {
                       {t("auth:register.selectOpposition")}
                     </option>
                     {oppositionOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
+                      <option key={option.id} value={option.id}>
+                        {option.name}
                       </option>
                     ))}
                   </CustomSelect>

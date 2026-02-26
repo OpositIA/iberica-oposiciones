@@ -1,54 +1,154 @@
 {
-  "auxilio-judicial": {
-    "name": "Judicial Assistance",
-    "body": "Justice Administration",
-    "topics": {
-      "constitutional": "Spanish Constitution",
-      "judicial-organization": "Judicial Organization",
-      "civil-procedure": "Civil Procedure",
-      "criminal-procedure": "Criminal Procedure",
-      "communication-acts": "Communication Acts",
-      "civil-registry": "Civil Registry",
-      "occupational-risk": "Occupational Risk Prevention"
+  "catalog": {
+    "cuerpo-general-auxiliar-age": {
+      "name": "General Auxiliary Corps AGE (C2)",
+      "body": "General State Administration"
+    },
+    "administrativo-estado": {
+      "name": "General Administrative Corps AGE (C1)",
+      "body": "General State Administration"
+    },
+    "gestion-procesal": {
+      "name": "Procedural Management (A2, Justice)",
+      "body": "Justice Administration"
+    },
+    "tramitacion-procesal": {
+      "name": "Procedural Processing (C1, Justice)",
+      "body": "Justice Administration"
+    },
+    "auxilio-judicial": {
+      "name": "Judicial Assistance (C2, Justice)",
+      "body": "Justice Administration"
+    },
+    "inspectores-hacienda": {
+      "name": "Tax Inspectors (A1)",
+      "body": "Tax Agency"
+    },
+    "tecnicos-hacienda": {
+      "name": "Tax Technicians (A2)",
+      "body": "Tax Agency"
+    },
+    "agente-hacienda": {
+      "name": "Tax Agency Officers (C1)",
+      "body": "Tax Agency"
+    },
+    "policia-nacional": {
+      "name": "National Police (Basic and Executive)",
+      "body": "State Security Forces"
+    },
+    "guardia-civil": {
+      "name": "Guardia Civil (Corporals and Guards)",
+      "body": "State Security Forces"
+    },
+    "gestion-administracion-civil-estado": {
+      "name": "Civil State Administration Management Corps (A2 AGE)",
+      "body": "General State Administration"
+    },
+    "superior-administradores-civiles-estado": {
+      "name": "Senior Civil Administrators Corps (A1 AGE)",
+      "body": "General State Administration"
     }
   },
-  "tramitacion-procesal": {
-    "name": "Procedural Processing",
-    "body": "Justice Administration",
-    "topics": {
-      "constitutional-rights": "Constitution and Fundamental Rights",
-      "judicial-office": "Judicial Office",
-      "administrative-litigation": "Administrative Litigation Procedure",
-      "labor-procedure": "Labor Procedure",
-      "judicial-documentation": "Judicial Documentation",
-      "data-protection": "Data Protection",
-      "procedural-appeals": "Procedural Appeals"
+  "topics": {
+    "agente-hacienda": {
+      "bloque-1-organizacion-estado-y-funcionamiento-age": {
+        "title": "Organization of the State and operation of the General State Administration (Block I)",
+        "subtopics": [
+          "Topic 1. The Spanish Constitution of 1978",
+          "Topic 2. The Cortes Generales",
+          "Topic 3. The Government",
+          "Topic 4. The territorial organization of the State",
+          "Topic 5. Electronic functioning of the public sector",
+          "Topic 6. Public social policies",
+          "Topic 7. Legal regime of public administration staff"
+        ]
+      },
+      "bloque-2-derecho-tributario": {
+        "title": "Tax Law (Block II)",
+        "subtopics": [
+          "Topic 1. Sources of Administrative Law",
+          "Topic 2. Administrative acts",
+          "Topic 3. Common administrative procedure",
+          "Topic 4. Stages of administrative procedure",
+          "Topic 5. Administrative appeals"
+        ]
+      },
+      "bloque-3-organizacion-hacienda-publica-y-derecho-administrativo": {
+        "title": "Public Treasury Organization and Administrative Law (Block III)",
+        "subtopics": [
+          "Topic 1. The Spanish tax system",
+          "Topic 2. The State Tax Administration Agency",
+          "Topic 3. Tax Law",
+          "Topic 4. Rights and guarantees of taxpayers",
+          "Topic 5. Formal obligations of taxpayers",
+          "Topic 6. Information and assistance: tax consultation",
+          "Topic 7. Tax returns: concept and classes",
+          "Topic 8. Tax management actions and procedures",
+          "Topic 9. Inspection actions and procedures: functions and powers",
+          "Topic 10. Extinction of tax debt (I)",
+          "Topic 11. Extinction of tax debt (II)",
+          "Topic 12. Collection procedure in voluntary period",
+          "Topic 13. Seizure",
+          "Topic 14. Sanctioning power in tax matters",
+          "Topic 15. Review of tax acts in administrative proceedings",
+          "Topic 16. Personal Income Tax (I)",
+          "Topic 17. Personal Income Tax (II)",
+          "Topic 18. Non-Resident Income Tax",
+          "Topic 19. Corporate Income Tax",
+          "Topic 20. Value Added Tax (I)",
+          "Topic 21. Value Added Tax (II)",
+          "Topic 22. Customs"
+        ]
+      }
     }
   },
-  "agente-hacienda": {
-    "name": "Tax Agency Officer",
-    "body": "Tax Agency",
-    "topics": {
-      "constitutional-law": "Constitutional Law",
-      "general-administrative-law": "General Administrative Law",
-      "treasury-organization": "Public Treasury Organization",
-      "spanish-tax-system": "Spanish Tax System",
-      "irpf-iva": "Personal Income Tax and VAT",
-      "tax-collection": "Tax Collection",
-      "inspection-sanctions": "Inspection and Sanctions"
+  "subtopics": {
+    "agente-hacienda": {
+      "bloque-1-organizacion-estado-y-funcionamiento-age": {
+        "b1-t01-constitucion-espanola-1978": "Topic 1. The Spanish Constitution of 1978",
+        "b1-t01-constitucion-española-1978": "Topic 1. The Spanish Constitution of 1978",
+        "b1-t02-cortes-generales": "Topic 2. The Cortes Generales",
+        "b1-t03-gobierno": "Topic 3. The Government",
+        "b1-t04-organizacion-territorial-estado": "Topic 4. The territorial organization of the State",
+        "b1-t05-funcionamiento-electronico-sector-publico": "Topic 5. Electronic functioning of the public sector",
+        "b1-t06-politicas-sociales-publicas": "Topic 6. Public social policies",
+        "b1-t07-regimen-juridico-personal-aa-pp": "Topic 7. Legal regime of public administration staff"
+      },
+      "bloque-2-derecho-tributario": {
+        "b2-t01-fuentes-derecho-administrativo": "Topic 1. Sources of Administrative Law",
+        "b2-t02-actos-administrativos": "Topic 2. Administrative acts",
+        "b2-t03-procedimiento-administrativo-comun": "Topic 3. Common administrative procedure",
+        "b2-t04-fases-procedimiento-administrativo": "Topic 4. Stages of administrative procedure",
+        "b2-t05-recursos-administrativos": "Topic 5. Administrative appeals"
+      },
+      "bloque-3-organizacion-hacienda-publica-y-derecho-administrativo": {
+        "b3-t01-sistema-fiscal-espanol": "Topic 1. The Spanish tax system",
+        "b3-t01-sistema-fiscal-español": "Topic 1. The Spanish tax system",
+        "b3-t02-aeat": "Topic 2. The State Tax Administration Agency",
+        "b3-t03-derecho-tributario": "Topic 3. Tax Law",
+        "b3-t04-derechos-y-garantias-obligados-tributarios": "Topic 4. Rights and guarantees of taxpayers",
+        "b3-t05-obligaciones-formales-contribuyentes": "Topic 5. Formal obligations of taxpayers",
+        "b3-t06-informacion-asistencia-consulta-tributaria": "Topic 6. Information and assistance: tax consultation",
+        "b3-t07-declaraciones-tributarias-concepto-y-clases": "Topic 7. Tax returns: concept and classes",
+        "b3-t08-procedimiento-gestion-tributaria": "Topic 8. Tax management actions and procedures",
+        "b3-t09-procedimiento-inspeccion-funciones-y-facultades": "Topic 9. Inspection actions and procedures: functions and powers",
+        "b3-t10-extincion-deuda-tributaria-i": "Topic 10. Extinction of tax debt (I)",
+        "b3-t11-extincion-deuda-tributaria-ii": "Topic 11. Extinction of tax debt (II)",
+        "b3-t12-recaudacion-periodo-voluntario": "Topic 12. Collection procedure in voluntary period",
+        "b3-t13-embargo": "Topic 13. Seizure",
+        "b3-t14-potestad-sancionadora-tributaria": "Topic 14. Sanctioning power in tax matters",
+        "b3-t15-revision-actos-tributarios-via-administrativa": "Topic 15. Review of tax acts in administrative proceedings",
+        "b3-t16-irpf-i": "Topic 16. Personal Income Tax (I)",
+        "b3-t17-irpf-ii": "Topic 17. Personal Income Tax (II)",
+        "b3-t18-irnr": "Topic 18. Non-Resident Income Tax",
+        "b3-t19-impuesto-sociedades": "Topic 19. Corporate Income Tax",
+        "b3-t20-iva-i": "Topic 20. Value Added Tax (I)",
+        "b3-t21-iva-ii": "Topic 21. Value Added Tax (II)",
+        "b3-t22-aduana": "Topic 22. Customs"
+      }
     }
   },
-  "administrativo-estado": {
-    "name": "State Administrative Officer",
-    "body": "General State Administration",
-    "topics": {
-      "constitution-eu": "Constitution and European Union",
-      "civil-service": "Civil Service",
-      "law-39-40": "Law 39/2015 and 40/2015",
-      "personnel-management": "Personnel Management",
-      "public-procurement": "Public Procurement",
-      "financial-management": "Financial Management",
-      "office-electronic-admin": "Office Tools and e-Administration"
-    }
+  "fallback": {
+    "unknownName": "Opposition"
   }
 }

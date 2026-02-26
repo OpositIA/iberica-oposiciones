@@ -36,7 +36,7 @@
   "header": {
     "badge": "Chat IA",
     "title": "Asistente de estudio",
-    "dailyLimit": "Límite diario IA",
+    "dailyLimit": "Límite diario",
     "checkingUsage": "Comprobando peticiones de hoy...",
     "limitReached": "Has alcanzado el límite diario. Vuelve mañana.",
     "remaining": "Te quedan {{count}} peticiones hoy."

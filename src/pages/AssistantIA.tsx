@@ -1,6 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
-import CustomInput from "@/components/ui/custom-input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,22 @@ import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale, toIntlLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import {
+  buildMindMapEdgePath,
+  clampMindMapZoom,
+  zoomMindMapAroundPoint,
+  type MindMapViewportState
+} from "@/lib/mindMapInteractions";
 import { AuthSessionError, secureApiFetch } from "@/lib/secureFetch";
-import { runSingleFlight } from "@/lib/singleFlight";
+import {
+  assistantQueryConfig,
+  assistantQueryKeys,
+  type AssistantConversationRow,
+  fetchAssistantConversations,
+  fetchAssistantDailyQuota,
+  fetchAssistantMessages
+} from "@/queries/assistantQueries";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BookOpen,
@@ -29,19 +43,20 @@ import {
   GitBranch,
   Loader2,
   MessageCircle,
+  Minus,
   Plus,
   Send,
   User
 } from "lucide-react";
 import {
   FormEvent,
-  MouseEvent,
+  KeyboardEvent,
+  PointerEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
-  WheelEvent
+  useState
 } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -112,7 +127,11 @@ type MindMapLayoutEdge = {
   from: string;
   to: string;
   label: string;
-  path: string;
+};
+
+type MindMapNodePosition = {
+  x: number;
+  y: number;
 };
 
 const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
@@ -138,6 +157,14 @@ const parseJson = (value: string) => {
   } catch {
     return null;
   }
+};
+
+const isEditableEventTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  if (tagName === "input" || tagName === "textarea" || tagName === "select")
+    return true;
+  return target.isContentEditable;
 };
 
 const normalizeConceptMapData = (input: unknown): ConceptMapData | null => {
@@ -282,7 +309,7 @@ const parseAssistantContentFromStorage = (
 };
 
 const mapConversation = (
-  row: Tables<"ai_conversations">
+  row: Pick<Tables<"ai_conversations">, "id" | "title" | "created_at" | "last_message_at">
 ): ConversationItem => ({
   id: row.id,
   title: row.title,
@@ -316,6 +343,7 @@ const AssistantIA = () => {
   const { t, i18n } = useTranslation(["assistant"]);
   const { toast } = useToast();
   const { user, isAuthReady, session } = useAuth();
+  const queryClient = useQueryClient();
   const [inputChat, setInputChat] = useState("");
   const [isMindMapEnabled, setIsMindMapEnabled] = useState(false);
   const [isSendingChat, setIsSendingChat] = useState(false);
@@ -335,6 +363,7 @@ const AssistantIA = () => {
     string | null
   >(null);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const chatFormRef = useRef<HTMLFormElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [mensajes, setMensajes] = useState<ChatMessage[]>([]);
   const [dailyUsedRequests, setDailyUsedRequests] = useState(0);
@@ -349,17 +378,40 @@ const AssistantIA = () => {
   const [selectedConceptMapNodeId, setSelectedConceptMapNodeId] = useState<
     string | null
   >(null);
-  const [mindMapZoom, setMindMapZoom] = useState(1);
-  const [isMindMapDragging, setIsMindMapDragging] = useState(false);
-  const mindMapViewportRef = useRef<HTMLDivElement | null>(null);
-  const mindMapDragRef = useRef({
-    active: false,
-    startX: 0,
-    startY: 0,
-    scrollLeft: 0,
-    scrollTop: 0,
-    moved: false
+  const [mindMapView, setMindMapView] = useState<MindMapViewportState>({
+    zoom: 1,
+    offsetX: 0,
+    offsetY: 0
   });
+  const [mindMapNodePositions, setMindMapNodePositions] = useState<
+    Record<string, MindMapNodePosition>
+  >({});
+  const [isMindMapPanning, setIsMindMapPanning] = useState(false);
+  const [isMindMapNodeDragging, setIsMindMapNodeDragging] = useState(false);
+  const [isMindMapSpacePressed, setIsMindMapSpacePressed] = useState(false);
+  const mindMapViewportRef = useRef<HTMLDivElement | null>(null);
+  const mindMapInteractionRef = useRef<
+    | {
+        mode: "pan";
+        pointerId: number;
+        startClientX: number;
+        startClientY: number;
+        startOffsetX: number;
+        startOffsetY: number;
+        moved: boolean;
+      }
+    | {
+        mode: "node-drag";
+        pointerId: number;
+        nodeId: string;
+        startClientX: number;
+        startClientY: number;
+        startNodeX: number;
+        startNodeY: number;
+        moved: boolean;
+      }
+    | null
+  >(null);
   const mindMapSuppressNodeClickRef = useRef(false);
   const mindMapSuppressTimerRef = useRef<number | null>(null);
   const isRestoringPrependScrollRef = useRef(false);
@@ -388,6 +440,12 @@ const AssistantIA = () => {
     dailyRequestLimit > 0
       ? Math.min((dailyUsedRequests / dailyRequestLimit) * 100, 100)
       : 0;
+  const dailyUsageFillPercent = isLoadingDailyUsage
+    ? 4
+    : Math.max(0, dailyUsagePercent);
+  const dailyUsageProgressColor = isDailyLimitReached
+    ? "hsl(var(--destructive))"
+    : "hsl(var(--primary))";
 
   const formatHora = useCallback(
     (value?: string | Date) =>
@@ -417,31 +475,30 @@ const AssistantIA = () => {
   );
 
   const getConversations = useCallback(
-    async (userId: string) =>
-      runSingleFlight(
-        `assistant:get-conversations:${userId}`,
-        async () => {
-          const { data, error } = await supabase
-            .from("ai_conversations")
-            .select("id, title, created_at, last_message_at")
-            .eq("user_id", userId)
-            .eq("archived", false)
-            .order("last_message_at", { ascending: false });
-
-          if (error) {
-            toast({
-              variant: "destructive",
-              title: t("assistant:toasts.loadHistoryFailedTitle"),
-              description: error.message
-            });
-            return null;
-          }
-
-          return (data ?? []).map(mapConversation);
-        },
-        { reuseResultForMs: 1500 }
-      ),
-    [t, toast]
+    async (userId: string) => {
+      try {
+        const data = await queryClient.fetchQuery({
+          queryKey: assistantQueryKeys.conversations(userId),
+          queryFn: () => fetchAssistantConversations(userId),
+          ...assistantQueryConfig
+        });
+        return data.map((row) => mapConversation(row));
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : t("assistant:toasts.loadHistoryFailedDescription", {
+                defaultValue: "No se pudo cargar el historial."
+              });
+        toast({
+          variant: "destructive",
+          title: t("assistant:toasts.loadHistoryFailedTitle"),
+          description: message
+        });
+        return null;
+      }
+    },
+    [queryClient, t, toast]
   );
 
   const createConversationRecord = useCallback(
@@ -462,51 +519,69 @@ const AssistantIA = () => {
         return null;
       }
 
-      return mapConversation(data as Tables<"ai_conversations">);
+      const createdConversation = mapConversation(data);
+      queryClient.setQueryData(
+        assistantQueryKeys.conversations(userId),
+        (prev: AssistantConversationRow[] | undefined) => {
+          const mappedRow = data as AssistantConversationRow;
+          if (!prev || prev.length === 0) return [mappedRow];
+          const withoutExisting = prev.filter((item) => item.id !== mappedRow.id);
+          return [mappedRow, ...withoutExisting];
+        }
+      );
+
+      return createdConversation;
     },
-    [t, toast]
+    [queryClient, t, toast]
   );
 
   const refreshConversations = useCallback(async () => {
     if (!currentUserId) return;
+    await queryClient.invalidateQueries({
+      queryKey: assistantQueryKeys.conversations(currentUserId)
+    });
     const data = await getConversations(currentUserId);
     if (data) setConversations(data);
-  }, [currentUserId, getConversations]);
+  }, [currentUserId, getConversations, queryClient]);
 
   const refreshDailyUsage = useCallback(async (userId: string) => {
     setIsLoadingDailyUsage(true);
-    const { data, error } = await runSingleFlight(
-      `assistant:daily-usage:${userId}`,
-      () =>
-        supabase.rpc("get_ai_daily_quota", {
-          p_user_id: userId,
-          p_tz: DAILY_USAGE_TIMEZONE
-        }),
-      { reuseResultForMs: 1000 }
-    );
+    await queryClient.invalidateQueries({
+      queryKey: assistantQueryKeys.dailyQuota(userId)
+    });
+    try {
+      const row = await queryClient.fetchQuery({
+        queryKey: assistantQueryKeys.dailyQuota(userId),
+        queryFn: () => fetchAssistantDailyQuota(userId, DAILY_USAGE_TIMEZONE),
+        ...assistantQueryConfig
+      });
 
-    const row = data?.[0];
-    if (error || !row) {
+      if (!row) {
+        setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
+        setIsLoadingDailyUsage(false);
+        return;
+      }
+
+      const nextLimit =
+        typeof row.limit === "number" &&
+        Number.isFinite(row.limit) &&
+        row.limit > 0
+          ? Math.floor(row.limit)
+          : 0;
+      const nextUsed =
+        typeof row.used === "number" && Number.isFinite(row.used)
+          ? Math.max(0, Math.floor(row.used))
+          : 0;
+
+      setDailyRequestLimit(nextLimit);
+      setDailyUsedRequests(nextUsed);
+      setIsLoadingDailyUsage(false);
+    } catch {
       setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
       setIsLoadingDailyUsage(false);
       return;
     }
-
-    const nextLimit =
-      typeof row.limit === "number" &&
-      Number.isFinite(row.limit) &&
-      row.limit > 0
-        ? Math.floor(row.limit)
-        : 0;
-    const nextUsed =
-      typeof row.used === "number" && Number.isFinite(row.used)
-        ? Math.max(0, Math.floor(row.used))
-        : 0;
-
-    setDailyRequestLimit(nextLimit);
-    setDailyUsedRequests(nextUsed);
-    setIsLoadingDailyUsage(false);
-  }, []);
+  }, [queryClient]);
 
   const consumeDailyQuota = useCallback(
     async (userId: string): Promise<DailyQuotaResult | null> => {
@@ -544,6 +619,13 @@ const AssistantIA = () => {
 
       setDailyRequestLimit(nextLimit);
       setDailyUsedRequests(nextUsed);
+      queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
+        day: String(row.day ?? ""),
+        is_paid: false,
+        limit: nextLimit,
+        remaining: nextRemaining,
+        used: nextUsed
+      });
 
       return {
         allowed: Boolean(row.allowed),
@@ -552,7 +634,7 @@ const AssistantIA = () => {
         remaining: nextRemaining
       };
     },
-    [t, toast]
+    [queryClient, t, toast]
   );
 
   const loadMessages = useCallback(
@@ -560,49 +642,42 @@ const AssistantIA = () => {
       setIsLoadingMessages(true);
       setIsLoadingOlderMessages(false);
       setHasMoreMessages(false);
+      try {
+        const rows = await queryClient.fetchQuery({
+          queryKey: assistantQueryKeys.messages(conversationId),
+          queryFn: () => fetchAssistantMessages(conversationId, MESSAGES_PAGE_SIZE),
+          ...assistantQueryConfig
+        });
 
-      const { data, error } = await runSingleFlight(
-        `assistant:load-messages:${conversationId}`,
-        () =>
-          supabase
-            .from("ai_messages")
-            .select("id, role, content, created_at")
-            .eq("conversation_id", conversationId)
-            .order("id", { ascending: false })
-            .limit(MESSAGES_PAGE_SIZE),
-        { reuseResultForMs: 1000 }
-      );
+        const mapped = rows
+          .slice()
+          .reverse()
+          .map((row) => mapDbMessageToChatMessage(row, formatHora));
 
-      if (error) {
+        setMensajes(mapped);
+        setHasMoreMessages(rows.length === MESSAGES_PAGE_SIZE);
+        setIsLoadingMessages(false);
+        lastLoadedConversationIdRef.current = conversationId;
+        shouldStickToBottomRef.current = true;
+        requestAnimationFrame(() => {
+          const node = chatContainerRef.current;
+          if (!node) return;
+          node.scrollTop = node.scrollHeight;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : t("assistant:errors.connection");
         toast({
           variant: "destructive",
           title: t("assistant:toasts.loadConversationFailedTitle"),
-          description: error.message
+          description: message
         });
         lastLoadedConversationIdRef.current = null;
         setMensajes([]);
         setIsLoadingMessages(false);
-        return;
       }
-
-      const rows = data ?? [];
-      const mapped = rows
-        .slice()
-        .reverse()
-        .map((row) => mapDbMessageToChatMessage(row, formatHora));
-
-      setMensajes(mapped);
-      setHasMoreMessages(rows.length === MESSAGES_PAGE_SIZE);
-      setIsLoadingMessages(false);
-      lastLoadedConversationIdRef.current = conversationId;
-      shouldStickToBottomRef.current = true;
-      requestAnimationFrame(() => {
-        const node = chatContainerRef.current;
-        if (!node) return;
-        node.scrollTop = node.scrollHeight;
-      });
     },
-    [formatHora, t, toast]
+    [formatHora, queryClient, t, toast]
   );
 
   const loadOlderMessages = useCallback(async () => {
@@ -1046,6 +1121,7 @@ const AssistantIA = () => {
     setActiveConversationId(created.id);
     setInputChat("");
     setMensajes([]);
+    queryClient.setQueryData(assistantQueryKeys.messages(created.id), []);
   };
 
   const onRequestDeleteConversation = (conversation: ConversationItem) => {
@@ -1081,6 +1157,13 @@ const AssistantIA = () => {
       setDeletingConversationId(null);
       return;
     }
+
+    queryClient.removeQueries({
+      queryKey: assistantQueryKeys.messages(conversationId)
+    });
+    await queryClient.invalidateQueries({
+      queryKey: assistantQueryKeys.conversations(currentUserId)
+    });
 
     const remainingConversations = conversations.filter(
       (conversation) => conversation.id !== conversationId
@@ -1305,19 +1388,11 @@ const AssistantIA = () => {
       const toNode = layoutNodes.get(edge.to);
       if (!fromNode || !toNode) return;
 
-      const x1 = fromNode.x + fromNode.width;
-      const y1 = fromNode.y + fromNode.height / 2;
-      const x2 = toNode.x;
-      const y2 = toNode.y + toNode.height / 2;
-      const controlOffset = Math.max(58, Math.abs(x2 - x1) * 0.36);
-      const path = `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`;
-
       edges.push({
         key: `${edge.from}-${edge.to}-${edge.label}-${edgeIdx}`,
         from: edge.from,
         to: edge.to,
-        label: edge.label,
-        path
+        label: edge.label
       });
     });
 
@@ -1351,6 +1426,56 @@ const AssistantIA = () => {
     return related;
   }, [conceptMapGraph, selectedConceptMapNodeId]);
 
+  const positionedMindMapNodes = useMemo(() => {
+    if (!conceptMapLayout) return [];
+    return conceptMapLayout.nodes.map((node) => {
+      const override = mindMapNodePositions[node.id];
+      return {
+        ...node,
+        x: override?.x ?? node.x,
+        y: override?.y ?? node.y
+      };
+    });
+  }, [conceptMapLayout, mindMapNodePositions]);
+
+  const positionedMindMapNodeById = useMemo(() => {
+    const map = new Map<string, MindMapLayoutNode>();
+    positionedMindMapNodes.forEach((node) => {
+      map.set(node.id, node);
+    });
+    return map;
+  }, [positionedMindMapNodes]);
+
+  const selectedMindMapNode = useMemo(() => {
+    if (!selectedConceptMapNodeId) return null;
+    return positionedMindMapNodeById.get(selectedConceptMapNodeId) ?? null;
+  }, [positionedMindMapNodeById, selectedConceptMapNodeId]);
+
+  const selectedMindMapNodeRelations = useMemo(() => {
+    if (!selectedConceptMapNodeId || !conceptMapGraph)
+      return { incoming: 0, outgoing: 0 };
+    return {
+      incoming: (conceptMapGraph.parentsById.get(selectedConceptMapNodeId) ?? [])
+        .length,
+      outgoing: (
+        conceptMapGraph.childrenById.get(selectedConceptMapNodeId) ?? []
+      ).length
+    };
+  }, [conceptMapGraph, selectedConceptMapNodeId]);
+
+  useEffect(() => {
+    if (!conceptMapLayout) {
+      setMindMapNodePositions({});
+      return;
+    }
+
+    const nextPositions: Record<string, MindMapNodePosition> = {};
+    conceptMapLayout.nodes.forEach((node) => {
+      nextPositions[node.id] = { x: node.x, y: node.y };
+    });
+    setMindMapNodePositions(nextPositions);
+  }, [conceptMapLayout]);
+
   const openConceptMapDialog = useCallback((message: ChatMessage) => {
     const conceptMap = message.conceptMap;
     if (!conceptMap) return;
@@ -1364,7 +1489,7 @@ const AssistantIA = () => {
         candidate.level < current.level ? candidate : current
       );
 
-    setMindMapZoom(1);
+    setMindMapView({ zoom: 1, offsetX: 0, offsetY: 0 });
     setSelectedConceptMapNodeId(rootNode.id);
     setConceptMapDialogMessageId(message.id);
   }, []);
@@ -1373,7 +1498,11 @@ const AssistantIA = () => {
     if (open) return;
     setConceptMapDialogMessageId(null);
     setSelectedConceptMapNodeId(null);
-    setMindMapZoom(1);
+    setMindMapView({ zoom: 1, offsetX: 0, offsetY: 0 });
+    setMindMapNodePositions({});
+    setIsMindMapPanning(false);
+    setIsMindMapNodeDragging(false);
+    setIsMindMapSpacePressed(false);
   };
 
   useEffect(() => {
@@ -1387,7 +1516,8 @@ const AssistantIA = () => {
     if (!messageStillExists) {
       setConceptMapDialogMessageId(null);
       setSelectedConceptMapNodeId(null);
-      setMindMapZoom(1);
+      setMindMapView({ zoom: 1, offsetX: 0, offsetY: 0 });
+      setMindMapNodePositions({});
     }
   }, [conceptMapDialogMessageId, mensajes]);
 
@@ -1408,113 +1538,267 @@ const AssistantIA = () => {
   ]);
 
   const centerMindMapNode = useCallback(
-    (nodeId: string, behavior: ScrollBehavior = "smooth") => {
-      if (!conceptMapLayout) return;
+    (nodeId: string) => {
       const viewport = mindMapViewportRef.current;
-      const node = conceptMapLayout.nodeById.get(nodeId);
+      const node = positionedMindMapNodeById.get(nodeId);
       if (!viewport || !node) return;
 
-      const targetX = (node.x + node.width / 2) * mindMapZoom;
-      const targetY = (node.y + node.height / 2) * mindMapZoom;
-
-      viewport.scrollTo({
-        left: Math.max(0, targetX - viewport.clientWidth / 2),
-        top: Math.max(0, targetY - viewport.clientHeight / 2),
-        behavior
-      });
+      setMindMapView((prev) => ({
+        ...prev,
+        offsetX: viewport.clientWidth / 2 - (node.x + node.width / 2) * prev.zoom,
+        offsetY:
+          viewport.clientHeight / 2 - (node.y + node.height / 2) * prev.zoom
+      }));
     },
-    [conceptMapLayout, mindMapZoom]
+    [positionedMindMapNodeById]
   );
 
-  const onMindMapMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    const viewport = mindMapViewportRef.current;
-    if (!viewport) return;
-    e.preventDefault();
-
+  const triggerMindMapClickSuppression = useCallback(() => {
     if (mindMapSuppressTimerRef.current) {
       window.clearTimeout(mindMapSuppressTimerRef.current);
       mindMapSuppressTimerRef.current = null;
     }
-    mindMapSuppressNodeClickRef.current = false;
+    mindMapSuppressNodeClickRef.current = true;
+    mindMapSuppressTimerRef.current = window.setTimeout(() => {
+      mindMapSuppressNodeClickRef.current = false;
+      mindMapSuppressTimerRef.current = null;
+    }, 120);
+  }, []);
 
-    mindMapDragRef.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      scrollLeft: viewport.scrollLeft,
-      scrollTop: viewport.scrollTop,
-      moved: false
-    };
-    setIsMindMapDragging(true);
-  };
+  const startMindMapPan = useCallback(
+    (pointerId: number, clientX: number, clientY: number) => {
+      const viewport = mindMapViewportRef.current;
+      if (!viewport) return;
+      mindMapInteractionRef.current = {
+        mode: "pan",
+        pointerId,
+        startClientX: clientX,
+        startClientY: clientY,
+        startOffsetX: mindMapView.offsetX,
+        startOffsetY: mindMapView.offsetY,
+        moved: false
+      };
+      setIsMindMapPanning(true);
+    },
+    [mindMapView.offsetX, mindMapView.offsetY]
+  );
 
-  const onMindMapWheel = (e: WheelEvent<HTMLDivElement>) => {
-    const viewport = mindMapViewportRef.current;
-    if (!viewport || !conceptMapLayout) return;
+  const onMindMapViewportPointerDown = (
+    e: PointerEvent<HTMLDivElement>
+  ) => {
+    const shouldStartPan =
+      e.button === 1 || (e.button === 0 && isMindMapSpacePressed);
+    if (!shouldStartPan) return;
 
     e.preventDefault();
-    const rect = viewport.getBoundingClientRect();
-    const pointerX = e.clientX - rect.left;
-    const pointerY = e.clientY - rect.top;
-    const currentZoom = mindMapZoom;
-    const direction = e.deltaY < 0 ? 1 : -1;
-    const nextZoom = Math.min(
-      2.1,
-      Math.max(0.55, Number((currentZoom + direction * 0.08).toFixed(3)))
-    );
-    if (nextZoom === currentZoom) return;
+    e.stopPropagation();
 
-    const contentX = viewport.scrollLeft + pointerX;
-    const contentY = viewport.scrollTop + pointerY;
-    const worldX = contentX / currentZoom;
-    const worldY = contentY / currentZoom;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore browsers that do not support pointer capture for this target.
+    }
 
-    setMindMapZoom(nextZoom);
-
-    requestAnimationFrame(() => {
-      const targetX = worldX * nextZoom - pointerX;
-      const targetY = worldY * nextZoom - pointerY;
-      viewport.scrollLeft = Math.max(0, targetX);
-      viewport.scrollTop = Math.max(0, targetY);
-    });
+    startMindMapPan(e.pointerId, e.clientX, e.clientY);
   };
 
-  useEffect(() => {
-    const onWindowMouseMove = (e: globalThis.MouseEvent) => {
+  const onMindMapNodePointerDown = (
+    e: PointerEvent<HTMLButtonElement>,
+    nodeId: string
+  ) => {
+    if (e.button !== 0) return;
+
+    if (isMindMapSpacePressed) {
+      e.preventDefault();
+      e.stopPropagation();
       const viewport = mindMapViewportRef.current;
-      const dragState = mindMapDragRef.current;
-      if (!viewport || !dragState.active) return;
+      if (!viewport) return;
+      try {
+        viewport.setPointerCapture(e.pointerId);
+      } catch {
+        // Ignore browsers that do not support pointer capture for this target.
+      }
+      startMindMapPan(e.pointerId, e.clientX, e.clientY);
+      return;
+    }
 
-      const deltaX = e.clientX - dragState.startX;
-      const deltaY = e.clientY - dragState.startY;
-      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) dragState.moved = true;
+    const node = positionedMindMapNodeById.get(nodeId);
+    if (!node) return;
 
-      viewport.scrollLeft = dragState.scrollLeft - deltaX;
-      viewport.scrollTop = dragState.scrollTop - deltaY;
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedConceptMapNodeId(nodeId);
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore browsers that do not support pointer capture for this target.
+    }
+
+    mindMapInteractionRef.current = {
+      mode: "node-drag",
+      pointerId: e.pointerId,
+      nodeId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startNodeX: node.x,
+      startNodeY: node.y,
+      moved: false
+    };
+    setIsMindMapNodeDragging(true);
+  };
+
+  const zoomMindMapFromPointer = useCallback(
+    (targetZoom: number, pointerX: number, pointerY: number) => {
+      setMindMapView((prev) =>
+        zoomMindMapAroundPoint({
+          view: prev,
+          targetZoom,
+          anchorX: pointerX,
+          anchorY: pointerY
+        })
+      );
+    },
+    []
+  );
+
+  const onMindMapWheel = useCallback(
+    (e: globalThis.WheelEvent) => {
+      const viewport = mindMapViewportRef.current;
+      if (!viewport || !conceptMapLayout) return;
+
+      e.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left;
+      const pointerY = e.clientY - rect.top;
+
+      if (e.ctrlKey || e.metaKey) {
+        const deltaFactor = Math.exp(-e.deltaY * 0.002);
+        const nextZoom = clampMindMapZoom(mindMapView.zoom * deltaFactor);
+        zoomMindMapFromPointer(nextZoom, pointerX, pointerY);
+        return;
+      }
+
+      const deltaMultiplier =
+        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewport.clientHeight : 1;
+      setMindMapView((prev) => ({
+        ...prev,
+        offsetX: prev.offsetX - e.deltaX * deltaMultiplier,
+        offsetY: prev.offsetY - e.deltaY * deltaMultiplier
+      }));
+    },
+    [conceptMapLayout, mindMapView.zoom, zoomMindMapFromPointer]
+  );
+
+  const updateMindMapZoomFromButtons = useCallback(
+    (delta: number) => {
+      const viewport = mindMapViewportRef.current;
+      if (!viewport) return;
+      const nextZoom = clampMindMapZoom(mindMapView.zoom + delta);
+      zoomMindMapFromPointer(
+        nextZoom,
+        viewport.clientWidth / 2,
+        viewport.clientHeight / 2
+      );
+    },
+    [mindMapView.zoom, zoomMindMapFromPointer]
+  );
+
+  useEffect(() => {
+    const viewport = mindMapViewportRef.current;
+    if (!viewport || !isConceptMapDialogOpen) return;
+
+    viewport.addEventListener("wheel", onMindMapWheel, { passive: false });
+    return () => {
+      viewport.removeEventListener("wheel", onMindMapWheel);
+    };
+  }, [isConceptMapDialogOpen, onMindMapWheel]);
+
+  useEffect(() => {
+    if (!isConceptMapDialogOpen) return;
+
+    const onWindowKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return;
+      if (isEditableEventTarget(e.target)) return;
+      e.preventDefault();
+      setIsMindMapSpacePressed(true);
     };
 
-    const onWindowMouseUp = () => {
-      const dragState = mindMapDragRef.current;
-      if (!dragState.active) return;
+    const onWindowKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      setIsMindMapSpacePressed(false);
+    };
 
-      dragState.active = false;
-      setIsMindMapDragging(false);
+    const onWindowBlur = () => {
+      setIsMindMapSpacePressed(false);
+    };
 
-      if (dragState.moved) {
-        mindMapSuppressNodeClickRef.current = true;
-        mindMapSuppressTimerRef.current = window.setTimeout(() => {
-          mindMapSuppressNodeClickRef.current = false;
-          mindMapSuppressTimerRef.current = null;
-        }, 120);
+    window.addEventListener("keydown", onWindowKeyDown);
+    window.addEventListener("keyup", onWindowKeyUp);
+    window.addEventListener("blur", onWindowBlur);
+
+    return () => {
+      window.removeEventListener("keydown", onWindowKeyDown);
+      window.removeEventListener("keyup", onWindowKeyUp);
+      window.removeEventListener("blur", onWindowBlur);
+    };
+  }, [isConceptMapDialogOpen]);
+
+  useEffect(() => {
+    const onWindowPointerMove = (e: globalThis.PointerEvent) => {
+      const interaction = mindMapInteractionRef.current;
+      if (!interaction || interaction.pointerId !== e.pointerId) return;
+
+      e.preventDefault();
+      const deltaX = e.clientX - interaction.startClientX;
+      const deltaY = e.clientY - interaction.startClientY;
+      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) interaction.moved = true;
+
+      if (interaction.mode === "pan") {
+        setMindMapView((prev) => ({
+          ...prev,
+          offsetX: interaction.startOffsetX + deltaX,
+          offsetY: interaction.startOffsetY + deltaY
+        }));
+        return;
+      }
+
+      setMindMapNodePositions((prev) => ({
+        ...prev,
+        [interaction.nodeId]: {
+          x: interaction.startNodeX + deltaX / mindMapView.zoom,
+          y: interaction.startNodeY + deltaY / mindMapView.zoom
+        }
+      }));
+    };
+
+    const onWindowPointerUp = (e: globalThis.PointerEvent) => {
+      const interaction = mindMapInteractionRef.current;
+      if (!interaction || interaction.pointerId !== e.pointerId) return;
+
+      if (interaction.moved) triggerMindMapClickSuppression();
+      mindMapInteractionRef.current = null;
+      setIsMindMapPanning(false);
+      setIsMindMapNodeDragging(false);
+    };
+
+    window.addEventListener("pointermove", onWindowPointerMove, { passive: false });
+    window.addEventListener("pointerup", onWindowPointerUp);
+    window.addEventListener("pointercancel", onWindowPointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", onWindowPointerMove);
+      window.removeEventListener("pointerup", onWindowPointerUp);
+      window.removeEventListener("pointercancel", onWindowPointerUp);
+      if (mindMapSuppressTimerRef.current) {
+        window.clearTimeout(mindMapSuppressTimerRef.current);
+        mindMapSuppressTimerRef.current = null;
       }
     };
+  }, [mindMapView.zoom, triggerMindMapClickSuppression]);
 
-    window.addEventListener("mousemove", onWindowMouseMove);
-    window.addEventListener("mouseup", onWindowMouseUp);
+  useEffect(() => {
     return () => {
-      window.removeEventListener("mousemove", onWindowMouseMove);
-      window.removeEventListener("mouseup", onWindowMouseUp);
       if (mindMapSuppressTimerRef.current) {
         window.clearTimeout(mindMapSuppressTimerRef.current);
         mindMapSuppressTimerRef.current = null;
@@ -1526,7 +1810,7 @@ const AssistantIA = () => {
     if (!isConceptMapDialogOpen || !selectedConceptMapNodeId || !conceptMapLayout)
       return;
     const timeoutId = window.setTimeout(() => {
-      centerMindMapNode(selectedConceptMapNodeId, "auto");
+      centerMindMapNode(selectedConceptMapNodeId);
     }, 80);
     return () => window.clearTimeout(timeoutId);
   }, [
@@ -1623,6 +1907,9 @@ const AssistantIA = () => {
           })
         );
       }
+      await queryClient.invalidateQueries({
+        queryKey: assistantQueryKeys.messages(conversationId)
+      });
 
       if (shouldRenameConversation) {
         const newTitle = truncateTitle(texto, 48);
@@ -1638,6 +1925,9 @@ const AssistantIA = () => {
               conv.id === conversationId ? { ...conv, title: newTitle } : conv
             )
           );
+          await queryClient.invalidateQueries({
+            queryKey: assistantQueryKeys.conversations(currentUserId)
+          });
         }
       }
 
@@ -1683,6 +1973,23 @@ const AssistantIA = () => {
         usage.limit > 0
       )
         setDailyRequestLimit(Math.floor(usage.limit));
+      if (
+        typeof usage.used === "number" &&
+        Number.isFinite(usage.used) &&
+        typeof usage.limit === "number" &&
+        Number.isFinite(usage.limit) &&
+        usage.limit > 0
+      ) {
+        const normalizedUsed = Math.max(0, Math.floor(usage.used));
+        const normalizedLimit = Math.floor(usage.limit);
+        queryClient.setQueryData(assistantQueryKeys.dailyQuota(currentUserId), {
+          day: "",
+          is_paid: false,
+          limit: normalizedLimit,
+          remaining: Math.max(normalizedLimit - normalizedUsed, 0),
+          used: normalizedUsed
+        });
+      }
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -1731,6 +2038,9 @@ const AssistantIA = () => {
           })
         );
       }
+      await queryClient.invalidateQueries({
+        queryKey: assistantQueryKeys.messages(conversationId)
+      });
 
       setMensajes((prev) => [
         ...prev,
@@ -1769,8 +2079,14 @@ const AssistantIA = () => {
     }
   };
 
+  const onInputChatKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    chatFormRef.current?.requestSubmit();
+  };
+
   return (
-    <div className="grid h-[74vh] max-h-[74vh] min-h-0 items-stretch gap-4 lg:grid-cols-[18.5rem_minmax(0,1fr)]">
+    <div className="grid h-[78vh] max-h-[78vh] min-h-0 items-stretch gap-4 lg:grid-cols-[18.5rem_minmax(0,1fr)] [@media(max-height:760px)]:h-[86vh] [@media(max-height:760px)]:max-h-[86vh]">
       <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)]">
         <div className="pointer-events-none absolute -top-14 -left-14 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
         <div className="border-b border-border/70 bg-gradient-to-br from-primary/10 via-background to-background px-4 py-4">
@@ -1815,7 +2131,7 @@ const AssistantIA = () => {
                     >
                       <div className="flex items-center gap-2">
                         <span
-                          className={`h-1.5 w-1.5 rounded-full ${
+                          className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
                             isActive ? "bg-primary" : "bg-muted-foreground/40"
                           }`}
                         />
@@ -1892,60 +2208,58 @@ const AssistantIA = () => {
         </div>
       </aside>
 
-      <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 p-5 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)] md:p-6">
+      <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 p-4 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)] md:p-5 [@media(max-height:760px)]:p-3">
         <div className="pointer-events-none absolute -top-20 -right-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
         <div className="min-w-0 flex-1 min-h-0 flex flex-col">
-          <div className="flex items-start justify-between gap-4 mb-5">
-            <div className="w-full">
-              <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+          <div className="mb-4 flex items-start justify-between gap-4 [@media(max-height:760px)]:mb-2">
+            <div className="min-w-0 flex-1">
+              <p className="mb-1 text-xs font-semibold tracking-widest uppercase text-muted-foreground [@media(max-height:760px)]:hidden">
                 {t("assistant:header.badge")}
               </p>
-              <h1 className="text-2xl font-serif text-foreground">
+              <h1 className="text-2xl font-serif text-foreground [@media(max-height:760px)]:text-xl">
                 {t("assistant:header.title")}
               </h1>
+            </div>
+
+            <div className="flex shrink-0 flex-col items-end">
               <div
-                className={`mt-3 rounded-2xl border px-3 py-2 ${isDailyLimitReached ? "border-destructive/40 bg-destructive/10" : "border-border/70 bg-secondary/40"}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    {t("assistant:header.dailyLimit")}
-                  </p>
-                  <p
-                    className={`text-xs font-semibold ${isDailyLimitReached ? "text-destructive" : "text-foreground"}`}
-                  >
-                    {isLoadingDailyUsage
-                      ? "..."
-                      : `${dailyUsedRequests}/${dailyRequestLimit}`}
-                  </p>
-                </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border/70">
-                  <div
-                    className={`h-full transition-all ${isDailyLimitReached ? "bg-destructive" : "bg-primary"}`}
-                    style={{ width: `${dailyUsagePercent}%` }}
-                  />
-                </div>
-                <p
-                  className={`mt-2 text-[11px] ${isDailyLimitReached ? "text-destructive" : "text-muted-foreground"}`}
-                >
-                  {isLoadingDailyUsage
+                className="relative grid h-16 w-16 place-items-center rounded-full border border-border/70 shadow-sm transition-[background] duration-300 [@media(max-height:760px)]:h-14 [@media(max-height:760px)]:w-14"
+                style={{
+                  background: `conic-gradient(${dailyUsageProgressColor} ${dailyUsageFillPercent}%, hsl(var(--border)) 0%)`
+                }}
+                role="img"
+                aria-label={t("assistant:header.dailyLimit")}
+                title={
+                  isLoadingDailyUsage
                     ? t("assistant:header.checkingUsage")
-                    : isDailyLimitReached
-                      ? t("assistant:header.limitReached")
-                      : t("assistant:header.remaining", {
-                          count: remainingDailyRequests
-                        })}
-                </p>
+                    : `${dailyUsedRequests}/${dailyRequestLimit}`
+                }
+              >
+                <div className="absolute inset-[5px] rounded-full bg-background/95" />
+                <div className="relative flex flex-col items-center leading-none">
+                  <span
+                    className={`text-[11px] font-semibold ${isDailyLimitReached ? "text-destructive" : "text-foreground"}`}
+                  >
+                    {isLoadingDailyUsage ? "..." : dailyUsedRequests}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground">
+                    /{isLoadingDailyUsage ? "..." : dailyRequestLimit}
+                  </span>
+                </div>
               </div>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("assistant:header.dailyLimit")}
+              </p>
             </div>
           </div>
 
           <div
             ref={chatContainerRef}
             onScroll={handleChatScroll}
-            className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl border border-border/70 bg-gradient-to-b from-secondary/30 via-secondary/15 to-background p-4"
+            className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl border border-border/70 bg-gradient-to-b from-secondary/30 via-secondary/15 to-background p-3 md:p-4"
           >
             {isLoadingMessages ? (
-              <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground [@media(max-height:760px)]:min-h-44">
                 {t("assistant:chat.loadingConversation")}
               </div>
             ) : (
@@ -1959,7 +2273,7 @@ const AssistantIA = () => {
                   </div>
                 )}
                 {mensajes.length === 0 && (
-                  <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 text-center">
+                  <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 text-center [@media(max-height:760px)]:min-h-44">
                     <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
@@ -2053,7 +2367,11 @@ const AssistantIA = () => {
             )}
           </div>
 
-          <form onSubmit={onSubmitChat} className="mt-4">
+          <form
+            ref={chatFormRef}
+            onSubmit={onSubmitChat}
+            className="mt-3 [@media(max-height:760px)]:mt-2"
+          >
             <div
               className={`rounded-[1.55rem] border px-4 pt-3 pb-2 shadow-sm ${
                 isDailyLimitReached
@@ -2061,16 +2379,18 @@ const AssistantIA = () => {
                   : "border-border/80 bg-background"
               }`}
             >
-              <CustomInput
+              <Textarea
                 value={inputChat}
                 onChange={(e) => setInputChat(e.target.value)}
+                onKeyDown={onInputChatKeyDown}
                 placeholder={
                   isDailyLimitReached
                     ? t("assistant:input.placeholderLimitReached")
                     : t("assistant:input.placeholder")
                 }
                 disabled={isDailyLimitReached}
-                className="h-auto w-full border-0 bg-transparent px-0 py-2 text-[15px] shadow-none focus:ring-0 focus:ring-offset-0"
+                rows={3}
+                className="min-h-[76px] max-h-44 w-full resize-none overflow-y-auto overflow-x-hidden border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
 
               <div className="mt-3 flex items-center justify-between gap-3">
@@ -2095,9 +2415,12 @@ const AssistantIA = () => {
                           setIsMindMapEnabled(checked === true)
                         }
                         disabled={isDailyLimitReached}
-                        className="transition-colors hover:bg-black/10 data-[highlighted]:bg-black/10 data-[highlighted]:text-foreground focus:bg-black/10 focus:text-foreground"
+                        className="pl-2 transition-colors hover:bg-black/10 data-[highlighted]:bg-black/10 data-[highlighted]:text-foreground focus:bg-black/10 focus:text-foreground"
                       >
-                        {t("assistant:input.mindMap")}
+                        <span className="inline-flex items-center gap-2">
+                          <GitBranch className="h-4 w-4" />
+                          {t("assistant:input.mindMap")}
+                        </span>
                       </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -2155,133 +2478,155 @@ const AssistantIA = () => {
 
               <div className="relative min-h-0 flex-1 overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,hsl(var(--border)/0.45)_1px,transparent_0)] [background-size:18px_18px] opacity-45" />
+                <div className="absolute right-4 top-4 z-20 flex items-center gap-2 rounded-xl border border-border/80 bg-background/90 p-1.5 shadow-sm backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={() => updateMindMapZoomFromButtons(-0.12)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background text-foreground transition hover:bg-secondary/70"
+                    aria-label={t("assistant:chat.zoomOutMindMap")}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[54px] text-center text-xs font-semibold text-muted-foreground">
+                    {Math.round(mindMapView.zoom * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updateMindMapZoomFromButtons(0.12)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background text-foreground transition hover:bg-secondary/70"
+                    aria-label={t("assistant:chat.zoomInMindMap")}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedConceptMapNodeId) return;
+                      centerMindMapNode(selectedConceptMapNodeId);
+                    }}
+                    className="inline-flex h-8 items-center justify-center rounded-md border border-border/70 bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-secondary/70"
+                  >
+                    {t("assistant:chat.centerMindMap")}
+                  </button>
+                </div>
 
                 <div
                   ref={mindMapViewportRef}
-                  className={`relative h-full overflow-auto p-5 select-none ${
-                    isMindMapDragging ? "cursor-grabbing" : "cursor-grab"
+                  className={`relative h-full overflow-hidden p-5 select-none touch-none ${
+                    isMindMapPanning
+                      ? "cursor-grabbing"
+                      : isMindMapSpacePressed
+                        ? "cursor-grab"
+                        : isMindMapNodeDragging
+                          ? "cursor-grabbing"
+                          : "cursor-default"
                   }`}
-                  onMouseDown={onMindMapMouseDown}
-                  onWheel={onMindMapWheel}
+                  onPointerDown={onMindMapViewportPointerDown}
                 >
                   {conceptMapLayout ? (
                     <div
-                      className="relative transition-[width,height] duration-200"
+                      className="absolute left-0 top-0 origin-top-left will-change-transform"
                       style={{
-                        width: `${conceptMapLayout.width * mindMapZoom}px`,
-                        height: `${conceptMapLayout.height * mindMapZoom}px`
+                        width: `${conceptMapLayout.width}px`,
+                        height: `${conceptMapLayout.height}px`,
+                        transform: `translate3d(${mindMapView.offsetX}px, ${mindMapView.offsetY}px, 0) scale(${mindMapView.zoom})`
                       }}
                     >
-                      <div
-                        className="absolute top-0 left-0 origin-top-left"
-                        style={{
-                          width: `${conceptMapLayout.width}px`,
-                          height: `${conceptMapLayout.height}px`,
-                          transform: `scale(${mindMapZoom})`
-                        }}
+                      <svg
+                        className="absolute inset-0"
+                        width={conceptMapLayout.width}
+                        height={conceptMapLayout.height}
+                        viewBox={`0 0 ${conceptMapLayout.width} ${conceptMapLayout.height}`}
+                        fill="none"
                       >
-                        <svg
-                          className="absolute inset-0"
-                          width={conceptMapLayout.width}
-                          height={conceptMapLayout.height}
-                          viewBox={`0 0 ${conceptMapLayout.width} ${conceptMapLayout.height}`}
-                          fill="none"
-                        >
-                          {conceptMapLayout.edges.map((edge) => {
-                            const fromNode = conceptMapLayout.nodeById.get(edge.from);
-                            const toNode = conceptMapLayout.nodeById.get(edge.to);
-                            if (!fromNode || !toNode) return null;
+                        {conceptMapLayout.edges.map((edge) => {
+                          const fromNode = positionedMindMapNodeById.get(edge.from);
+                          const toNode = positionedMindMapNodeById.get(edge.to);
+                          if (!fromNode || !toNode) return null;
 
-                            const isSelectedEdge =
-                              edge.from === selectedConceptMapNodeId ||
-                              edge.to === selectedConceptMapNodeId;
-                            const labelX =
-                              fromNode.x +
-                              fromNode.width +
-                              (toNode.x - (fromNode.x + fromNode.width)) / 2;
-                            const labelY =
-                              (fromNode.y + fromNode.height / 2 + toNode.y + toNode.height / 2) /
-                              2;
-
-                            return (
-                              <g key={edge.key}>
-                                <path
-                                  d={edge.path}
-                                  stroke={
-                                    isSelectedEdge
-                                      ? "hsl(var(--primary) / 0.9)"
-                                      : "hsl(var(--muted-foreground) / 0.42)"
-                                  }
-                                  strokeWidth={isSelectedEdge ? 2.2 : 1.45}
-                                  strokeLinecap="round"
-                                />
-                                {edge.label ? (
-                                  <text
-                                    x={labelX}
-                                    y={labelY - 6}
-                                    textAnchor="middle"
-                                    className="fill-muted-foreground"
-                                    style={{
-                                      fontSize: "10px",
-                                      fontWeight: 600,
-                                      letterSpacing: "0.04em"
-                                    }}
-                                  >
-                                    {edge.label}
-                                  </text>
-                                ) : null}
-                              </g>
-                            );
-                          })}
-                        </svg>
-
-                        {conceptMapLayout.nodes.map((node) => {
-                          const isSelected = node.id === selectedConceptMapNodeId;
-                          const isRelated =
-                            !isSelected &&
-                            selectedMindMapRelatedNodeIds.has(node.id);
-                          const nodeToneClass =
-                            node.level === 0
-                              ? "border-primary/45 bg-primary/12 text-foreground"
-                              : node.level === 1
-                                ? "border-border/80 bg-background/95 text-foreground"
-                                : "border-border/70 bg-background/85 text-foreground";
+                          const isSelectedEdge =
+                            edge.from === selectedConceptMapNodeId ||
+                            edge.to === selectedConceptMapNodeId;
+                          const labelX =
+                            fromNode.x +
+                            fromNode.width +
+                            (toNode.x - (fromNode.x + fromNode.width)) / 2;
+                          const labelY =
+                            (fromNode.y + fromNode.height / 2 + toNode.y + toNode.height / 2) /
+                            2;
 
                           return (
-                            <button
-                              key={node.id}
-                              type="button"
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                onMindMapMouseDown(
-                                  e as unknown as MouseEvent<HTMLDivElement>
-                                );
-                              }}
-                              onClick={() => {
-                                if (mindMapSuppressNodeClickRef.current) return;
-                                setSelectedConceptMapNodeId(node.id);
-                              }}
-                              className={`absolute rounded-2xl border px-3 py-2 text-left shadow-[0_12px_30px_-22px_rgba(0,0,0,0.45)] transition-all ${
-                                isSelected
-                                  ? "scale-[1.02] border-primary bg-primary/15 ring-2 ring-primary/30"
-                                  : isRelated
-                                    ? "border-primary/35 bg-primary/10"
-                                    : nodeToneClass
-                              } hover:-translate-y-[1px] hover:border-primary/35`}
-                              style={{
-                                left: `${node.x}px`,
-                                top: `${node.y}px`,
-                                width: `${node.width}px`,
-                                height: `${node.height}px`
-                              }}
-                            >
-                              <span className="line-clamp-2 text-[12px] font-semibold leading-snug">
-                                {node.label}
-                              </span>
-                            </button>
+                            <g key={edge.key}>
+                              <path
+                                d={buildMindMapEdgePath(fromNode, toNode)}
+                                stroke={
+                                  isSelectedEdge
+                                    ? "hsl(var(--primary) / 0.9)"
+                                    : "hsl(var(--muted-foreground) / 0.42)"
+                                }
+                                strokeWidth={isSelectedEdge ? 2.2 : 1.45}
+                                strokeLinecap="round"
+                              />
+                              {edge.label ? (
+                                <text
+                                  x={labelX}
+                                  y={labelY - 6}
+                                  textAnchor="middle"
+                                  className="fill-muted-foreground"
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: 600,
+                                    letterSpacing: "0.04em"
+                                  }}
+                                >
+                                  {edge.label}
+                                </text>
+                              ) : null}
+                            </g>
                           );
                         })}
-                      </div>
+                      </svg>
+
+                      {positionedMindMapNodes.map((node) => {
+                        const isSelected = node.id === selectedConceptMapNodeId;
+                        const isRelated =
+                          !isSelected && selectedMindMapRelatedNodeIds.has(node.id);
+                        const nodeToneClass =
+                          node.level === 0
+                            ? "border-primary/45 bg-primary/12 text-foreground"
+                            : node.level === 1
+                              ? "border-border/80 bg-background/95 text-foreground"
+                              : "border-border/70 bg-background/85 text-foreground";
+
+                        return (
+                          <button
+                            key={node.id}
+                            type="button"
+                            onPointerDown={(e) => onMindMapNodePointerDown(e, node.id)}
+                            onClick={() => {
+                              if (mindMapSuppressNodeClickRef.current) return;
+                              setSelectedConceptMapNodeId(node.id);
+                            }}
+                            className={`absolute rounded-2xl border px-3 py-2 text-left shadow-[0_12px_30px_-22px_rgba(0,0,0,0.45)] transition-all ${
+                              isSelected
+                                ? "scale-[1.02] border-primary bg-primary/15 ring-2 ring-primary/30"
+                                : isRelated
+                                  ? "border-primary/35 bg-primary/10"
+                                  : nodeToneClass
+                            } hover:-translate-y-[1px] hover:border-primary/35`}
+                            style={{
+                              left: `${node.x}px`,
+                              top: `${node.y}px`,
+                              width: `${node.width}px`,
+                              height: `${node.height}px`
+                            }}
+                          >
+                            <span className="line-clamp-2 text-[12px] font-semibold leading-snug">
+                              {node.label}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-background/70 p-4 text-sm text-muted-foreground">
@@ -2292,6 +2637,33 @@ const AssistantIA = () => {
                     </div>
                   )}
                 </div>
+                <div className="pointer-events-none absolute bottom-4 left-4 z-20 rounded-lg border border-border/70 bg-background/90 px-3 py-2 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
+                  {t("assistant:chat.mindMapPanHint", {
+                    defaultValue:
+                      "Space + arrastrar para panear. Trackpad: dos dedos desplazan. Ctrl/Cmd + rueda para zoom."
+                  })}
+                </div>
+                {selectedMindMapNode ? (
+                  <aside className="pointer-events-none absolute bottom-4 right-4 z-20 max-w-[340px] rounded-xl border border-border/75 bg-background/95 p-3 shadow-lg backdrop-blur">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t("assistant:chat.selectedNode")}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">
+                      {selectedMindMapNode.label}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {t("assistant:chat.selectedNodeLevel", {
+                        level: selectedMindMapNode.level
+                      })}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {t("assistant:chat.incomingRelations")}:{" "}
+                      {selectedMindMapNodeRelations.incoming} ·{" "}
+                      {t("assistant:chat.outgoingRelations")}:{" "}
+                      {selectedMindMapNodeRelations.outgoing}
+                    </p>
+                  </aside>
+                ) : null}
               </div>
             </div>
           )}
