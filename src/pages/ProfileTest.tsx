@@ -1,60 +1,44 @@
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
-import { resolverOposicionPorNombre } from "@/data/oposiciones";
+import { type Oposicion } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { runSingleFlight } from "@/lib/singleFlight";
+import { usePreferredOppositionQuery } from "@/queries/profileQueries";
 import { ArrowRight, FileText, ListChecks } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+const DEFAULT_OPOSICION: Oposicion = {
+  id: "",
+  nombre: "Oposicion",
+  cuerpo: "",
+  temas: [],
+  temasDetalle: []
+};
+
 const ProfileTest = () => {
-  const { t } = useTranslation(["profile", "oppositions"]);
+  const { t, i18n } = useTranslation(["profile"]);
   const { toast } = useToast();
   const { user, isAuthReady } = useAuth();
-  const [oposicionActiva, setOposicionActiva] = useState(() =>
-    resolverOposicionPorNombre(null)
-  );
+  const shouldLoadOpposition = isAuthReady && Boolean(user?.id);
+
+  const { data: preferredOpposition, isLoading: isLoadingOppositionQuery } =
+    usePreferredOppositionQuery({
+      userId: shouldLoadOpposition ? user?.id : null,
+      locale: i18n.resolvedLanguage
+    });
+
+  const oposicionActiva = preferredOpposition ?? DEFAULT_OPOSICION;
+  const isLoadingOpposition =
+    !isAuthReady ||
+    (shouldLoadOpposition && !preferredOpposition && isLoadingOppositionQuery);
   const [temaSeleccionado, setTemaSeleccionado] = useState("");
-  const [isLoadingOpposition, setIsLoadingOpposition] = useState(true);
 
   useEffect(() => {
-    if (!isAuthReady) return;
-    const userId = user?.id;
-
-    if (!userId) {
-      setIsLoadingOpposition(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadPreferredOpposition = async () => {
-      const { data } = await runSingleFlight(
-        `profile-test:preferred-opposition:${userId}`,
-        () =>
-          supabase
-            .from("profiles")
-            .select("preferred_opposition")
-            .eq("user_id", userId)
-            .maybeSingle(),
-        { reuseResultForMs: 1500 }
-      );
-
-      if (!isMounted) return;
-
-      const resolved = resolverOposicionPorNombre(data?.preferred_opposition);
-      setOposicionActiva(resolved);
-      setTemaSeleccionado(resolved.temas[0] ?? "");
-      setIsLoadingOpposition(false);
-    };
-
-    void loadPreferredOpposition();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthReady, user?.id]);
+    setTemaSeleccionado((prev) => {
+      if (prev && oposicionActiva.temas.includes(prev)) return prev;
+      return oposicionActiva.temas[0] ?? "";
+    });
+  }, [oposicionActiva.id, oposicionActiva.temas]);
 
   const iniciarSimulacro = () => {
     toast({

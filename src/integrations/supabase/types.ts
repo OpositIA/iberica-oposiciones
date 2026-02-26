@@ -110,6 +110,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      opposition_topics: {
+        Row: {
+          created_at: string;
+          id: number;
+          opposition_id: string;
+          order_index: number;
+          topic_code: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: number;
+          opposition_id: string;
+          order_index?: number;
+          topic_code: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: number;
+          opposition_id?: string;
+          order_index?: number;
+          topic_code?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      opposition_subtopics: {
+        Row: {
+          created_at: string;
+          id: number;
+          opposition_topic_id: number;
+          order_index: number;
+          subtopic_code: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: number;
+          opposition_topic_id: number;
+          order_index?: number;
+          subtopic_code: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: number;
+          opposition_topic_id?: number;
+          order_index?: number;
+          subtopic_code?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      oppositions: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id: string;
+          is_active?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           age: number | null;
@@ -122,6 +200,7 @@ export type Database = {
           locale: string;
           main_challenge: string | null;
           preferred_opposition: string | null;
+          preferred_opposition_id: string | null;
           tests_per_week: number | null;
           updated_at: string;
           user_id: string;
@@ -139,6 +218,7 @@ export type Database = {
           locale?: string;
           main_challenge?: string | null;
           preferred_opposition?: string | null;
+          preferred_opposition_id?: string | null;
           tests_per_week?: number | null;
           updated_at?: string;
           user_id: string;
@@ -156,6 +236,7 @@ export type Database = {
           locale?: string;
           main_challenge?: string | null;
           preferred_opposition?: string | null;
+          preferred_opposition_id?: string | null;
           tests_per_week?: number | null;
           updated_at?: string;
           user_id?: string;

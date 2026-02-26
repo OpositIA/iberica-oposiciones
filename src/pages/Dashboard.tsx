@@ -1,7 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
-import { supabase } from "@/integrations/supabase/client";
-import { runSingleFlight } from "@/lib/singleFlight";
+import { useProfileBaseQuery } from "@/queries/profileQueries";
 import {
   BarChart3,
   BookOpen,
@@ -15,7 +14,7 @@ import {
   TrendingUp,
   User
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
@@ -34,8 +33,17 @@ type TestItem = {
 
 const Dashboard = () => {
   const { t } = useTranslation("dashboard");
-  const { user, profile } = useAuth();
-  const [weeklyTargetHours, setWeeklyTargetHours] = useState(16);
+  const { user, profile, isAuthReady } = useAuth();
+  const shouldLoadProfileBase = isAuthReady && Boolean(user?.id);
+  const { data: profileBase } = useProfileBaseQuery(
+    shouldLoadProfileBase ? user?.id : null
+  );
+  const weeklyTargetHours = useMemo(() => {
+    const weeklyTarget = Number(profileBase?.weekly_target_hours);
+    if (Number.isFinite(weeklyTarget) && weeklyTarget > 0) return weeklyTarget;
+    return 16;
+  }, [profileBase?.weekly_target_hours]);
+
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${
       profile?.lastName ?? ""
@@ -121,42 +129,6 @@ const Dashboard = () => {
     approved: "bg-sky-500/15 text-sky-700",
     reinforce: "bg-amber-500/15 text-amber-700"
   };
-
-  useEffect(() => {
-    let isMounted = true;
-    const userId = user?.id;
-
-    const loadProfileSnapshot = async () => {
-      if (!userId) {
-        setWeeklyTargetHours(16);
-        return;
-      }
-
-      const { data } = await runSingleFlight(
-        `dashboard:weekly-target:${userId}`,
-        () =>
-          supabase
-            .from("profiles")
-            .select("weekly_target_hours")
-            .eq("user_id", userId)
-            .maybeSingle(),
-        { reuseResultForMs: 1500 }
-      );
-
-      if (!isMounted) return;
-
-      const weeklyTarget = Number(data?.weekly_target_hours);
-      if (Number.isFinite(weeklyTarget) && weeklyTarget > 0)
-        setWeeklyTargetHours(weeklyTarget);
-      else setWeeklyTargetHours(16);
-    };
-
-    void loadProfileSnapshot();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.id]);
 
   return (
     <div className="space-y-6">
