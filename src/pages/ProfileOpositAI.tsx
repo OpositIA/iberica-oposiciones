@@ -1,3 +1,4 @@
+import CustomButton from "@/components/ui/custom-button";
 import { ArrowRight, Brain } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -32,14 +33,13 @@ const ProfileOpositAI = () => {
               {t("opositAI.directAccessDescription")}
             </p>
           </div>
-          <Link
-            to="/asistente-ia"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors shadow-sm"
-          >
-            <Brain className="h-4 w-4" />
-            {t("opositAI.open")}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <CustomButton asChild styleType="primary" className="px-6 py-3">
+            <Link to="/asistente-ia">
+              <Brain className="h-4 w-4" />
+              {t("opositAI.open")}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </CustomButton>
         </div>
       </div>
     </section>

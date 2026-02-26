@@ -1,6 +1,8 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
+import CustomTextarea from "@/components/ui/custom-textarea";
 import { obtenerNombresOposiciones } from "@/data/oposiciones";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -510,7 +512,7 @@ const Register = () => {
                   <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                     {t("auth:register.fields.mainChallenge")}
                   </label>
-                  <textarea
+                  <CustomTextarea
                     value={form.mainChallenge}
                     onChange={(e) =>
                       setForm((prev) => ({
@@ -520,7 +522,8 @@ const Register = () => {
                     }
                     placeholder={t("auth:register.placeholders.mainChallenge")}
                     rows={4}
-                    className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground/50 resize-none"
+                    resize="none"
+                    className="w-full px-4 py-3 placeholder:text-muted-foreground/50"
                   />
                 </div>
 
@@ -550,25 +553,27 @@ const Register = () => {
             )}
 
             <div className="flex items-center justify-between gap-3 pt-2">
-              <button
+              <CustomButton
                 type="button"
                 onClick={previousStep}
                 disabled={step === 1 || isLoading}
-                className="border border-border px-5 py-3 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                styleType="menu"
+                className="px-5 py-3 disabled:opacity-50"
               >
                 {t("auth:register.actions.back")}
-              </button>
-              <button
+              </CustomButton>
+              <CustomButton
                 type="submit"
                 disabled={isLoading}
-                className="bg-primary text-primary-foreground px-6 py-3 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                styleType="primary"
+                className="px-6 py-3"
               >
                 {step < TOTAL_STEPS
                   ? t("auth:register.actions.continue")
                   : isLoading
                     ? t("auth:register.actions.creating")
                     : t("auth:register.actions.create")}
-              </button>
+              </CustomButton>
             </div>
           </form>
 

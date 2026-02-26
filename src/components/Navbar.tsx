@@ -1,6 +1,8 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import { useAuth } from "@/auth/AuthProvider";
+import CustomButton from "@/components/ui/custom-button";
 import UserActionsDropdown from "@/components/UserActionsDropdown";
+import { LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -76,16 +78,17 @@ const Navbar = () => {
             }
           />
         ) : (
-          <Link
-            to="/login"
-            className={`text-xs font-medium tracking-widest uppercase transition-colors ${
-              isScrolled
-                ? "text-muted-foreground hover:text-foreground"
-                : "text-primary-foreground/70 hover:text-primary-foreground"
-            }`}
+          <CustomButton
+            asChild
+            styleType="primary"
+            radius="lg"
+            className="h-10 px-5"
           >
-            {t("landing:navbar.login")}
-          </Link>
+            <Link to="/login">
+              <LogIn className="h-3.5 w-3.5" />
+              {t("landing:navbar.login")}
+            </Link>
+          </CustomButton>
         )}
       </div>
     </nav>

@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import CustomButton from "@/components/ui/custom-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,12 +68,12 @@ const UserActionsDropdown = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <CustomButton
           type="button"
-          className={cn(
-            "h-10 w-10 border border-border bg-background hover:bg-secondary transition-colors inline-flex items-center justify-center rounded-full overflow-hidden",
-            buttonClassName
-          )}
+          styleType="ghost"
+          size="icon"
+          radius="full"
+          className={cn("h-10 w-10 overflow-hidden", buttonClassName)}
           aria-label={t("profile:layout.profileMenuLabel")}
         >
           {avatarUrl ? (
@@ -89,7 +90,7 @@ const UserActionsDropdown = ({
               )}
             />
           )}
-        </button>
+        </CustomButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="pb-1">

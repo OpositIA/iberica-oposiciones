@@ -1,7 +1,15 @@
 import { useAuth } from "@/auth/AuthProvider";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
+import CustomTextarea from "@/components/ui/custom-textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import {
   obtenerNombresOposiciones,
   resolverNombreOposicion
@@ -10,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, Save, User } from "lucide-react";
+import { Camera, Loader2, Pencil, Save, Trash2, User } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -100,35 +108,21 @@ const MiPerfil = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingOpposition, setIsChangingOpposition] = useState(false);
   const [isChangingLocale, setIsChangingLocale] = useState(false);
+  const [isAvatarUpdating, setIsAvatarUpdating] = useState(false);
   const [activeOpposition, setActiveOpposition] = useState("");
   const [isOppositionDialogOpen, setIsOppositionDialogOpen] = useState(false);
-  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
-  const avatarBlobPreviewRef = useRef<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const oppositionOptions = obtenerNombresOposiciones();
-
-  const clearAvatarBlobPreview = () => {
-    if (!avatarBlobPreviewRef.current) return;
-    URL.revokeObjectURL(avatarBlobPreviewRef.current);
-    avatarBlobPreviewRef.current = null;
-  };
-
-  useEffect(() => {
-    return () => {
-      clearAvatarBlobPreview();
-    };
-  }, []);
+  const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
 
   useEffect(() => {
     if (!isAuthReady) return;
     const userId = user?.id;
     const userEmail = user?.email ?? "";
-    const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
 
     if (!userId) {
       setProfile(initialProfile);
-      setPendingAvatarFile(null);
-      clearAvatarBlobPreview();
       setPersistedAvatarUrl("");
       setActiveOpposition("");
       setIsLoadingProfile(false);
@@ -159,70 +153,50 @@ const MiPerfil = () => {
         if (!isMounted) return;
 
         const resolvedOpposition = resolverNombreOposicion(
-          String(
-            data?.preferred_opposition ?? metadata.preferred_opposition ?? ""
-          )
+          String(data?.preferred_opposition ?? "")
         );
 
         const resolvedAvatar = sanitizeAvatarForMetadata(
-          String(data?.avatar_url ?? metadata.avatar_url ?? "")
+          String(data?.avatar_url ?? "")
         );
 
         setProfile({
-          firstName: String(data?.first_name ?? metadata.first_name ?? ""),
-          lastName: String(data?.last_name ?? metadata.last_name ?? ""),
+          firstName: String(data?.first_name ?? ""),
+          lastName: String(data?.last_name ?? ""),
           email: String(data?.email ?? userEmail),
-          age:
-            data?.age != null ? String(data.age) : String(metadata.age ?? ""),
+          age: data?.age != null ? String(data.age) : "",
           preferredOpposition: resolvedOpposition,
           yearsPreparing:
-            data?.years_preparing != null
-              ? String(data.years_preparing)
-              : String(metadata.years_preparing ?? ""),
+            data?.years_preparing != null ? String(data.years_preparing) : "",
           weeklyTargetHours:
             data?.weekly_target_hours != null
               ? String(data.weekly_target_hours)
-              : String(metadata.weekly_target_hours ?? "16"),
+              : "16",
           testsPerWeek:
-            data?.tests_per_week != null
-              ? String(data.tests_per_week)
-              : String(metadata.tests_per_week ?? ""),
-          mainChallenge: String(
-            data?.main_challenge ?? metadata.main_challenge ?? ""
-          ),
+            data?.tests_per_week != null ? String(data.tests_per_week) : "",
+          mainChallenge: String(data?.main_challenge ?? ""),
           avatarUrl: resolvedAvatar
         });
 
         setPersistedAvatarUrl(resolvedAvatar);
-        setPendingAvatarFile(null);
-        clearAvatarBlobPreview();
         setActiveOpposition(resolvedOpposition);
       } catch {
         if (!isMounted) return;
 
-        const fallbackOpposition = resolverNombreOposicion(
-          String(metadata.preferred_opposition ?? "")
-        );
-        const fallbackAvatar = sanitizeAvatarForMetadata(
-          String(metadata.avatar_url ?? "")
-        );
-
         setProfile({
-          firstName: String(metadata.first_name ?? ""),
-          lastName: String(metadata.last_name ?? ""),
+          firstName: "",
+          lastName: "",
           email: String(userEmail),
-          age: String(metadata.age ?? ""),
-          preferredOpposition: fallbackOpposition,
-          yearsPreparing: String(metadata.years_preparing ?? ""),
-          weeklyTargetHours: String(metadata.weekly_target_hours ?? "16"),
-          testsPerWeek: String(metadata.tests_per_week ?? ""),
-          mainChallenge: String(metadata.main_challenge ?? ""),
-          avatarUrl: fallbackAvatar
+          age: "",
+          preferredOpposition: "",
+          yearsPreparing: "",
+          weeklyTargetHours: "16",
+          testsPerWeek: "",
+          mainChallenge: "",
+          avatarUrl: ""
         });
-        setPersistedAvatarUrl(fallbackAvatar);
-        setPendingAvatarFile(null);
-        clearAvatarBlobPreview();
-        setActiveOpposition(fallbackOpposition);
+        setPersistedAvatarUrl("");
+        setActiveOpposition("");
       } finally {
         window.clearTimeout(timeoutId);
         if (isMounted) setIsLoadingProfile(false);
@@ -234,13 +208,15 @@ const MiPerfil = () => {
     return () => {
       isMounted = false;
     };
-  }, [isAuthReady, user?.id, user?.email, user?.user_metadata]);
+  }, [isAuthReady, user?.id, user?.email]);
 
-  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (isAvatarUpdating) return;
 
     if (file.size > MAX_AVATAR_BYTES) {
+      e.target.value = "";
       toast({
         variant: "destructive",
         title: t("profile:myProfile.toasts.imageTooLargeTitle"),
@@ -250,6 +226,7 @@ const MiPerfil = () => {
     }
 
     if (file.type && !ALLOWED_AVATAR_TYPES.has(file.type.toLowerCase())) {
+      e.target.value = "";
       toast({
         variant: "destructive",
         title: t("profile:myProfile.toasts.invalidFormatTitle"),
@@ -258,11 +235,132 @@ const MiPerfil = () => {
       return;
     }
 
-    clearAvatarBlobPreview();
-    const previewUrl = URL.createObjectURL(file);
-    avatarBlobPreviewRef.current = previewUrl;
-    setPendingAvatarFile(file);
-    setProfile((prev) => ({ ...prev, avatarUrl: previewUrl }));
+    if (!user) {
+      e.target.value = "";
+      toast({
+        variant: "destructive",
+        title: t("profile:myProfile.toasts.invalidSessionTitle"),
+        description: t("profile:myProfile.toasts.invalidSessionDescription")
+      });
+      return;
+    }
+
+    setIsAvatarUpdating(true);
+    try {
+      const currentAvatarInProfile = persistedAvatarUrl;
+      const previousAvatarPath = extractAvatarStoragePath(
+        currentAvatarInProfile
+      );
+      const uploadedAvatarPath = buildAvatarStoragePath(user.id, file);
+
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(uploadedAvatarPath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || undefined
+        });
+
+      if (uploadError) {
+        toast({
+          variant: "destructive",
+          title: t("profile:myProfile.toasts.uploadFailedTitle"),
+          description: uploadError.message
+        });
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(AVATAR_BUCKET)
+        .getPublicUrl(uploadedAvatarPath);
+      const nextAvatarUrl = sanitizeAvatarForMetadata(publicUrlData.publicUrl);
+
+      const { error: saveError } = await supabase.from("profiles").upsert(
+        {
+          user_id: user.id,
+          avatar_url: nextAvatarUrl,
+          locale
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (saveError) {
+        await supabase.storage.from(AVATAR_BUCKET).remove([uploadedAvatarPath]);
+        toast({
+          variant: "destructive",
+          title: t("profile:myProfile.toasts.saveFailedTitle"),
+          description: saveError.message
+        });
+        return;
+      }
+
+      if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath)
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
+
+      setPersistedAvatarUrl(nextAvatarUrl);
+      setProfile((prev) => ({ ...prev, avatarUrl: nextAvatarUrl }));
+      await refreshProfile();
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("profile:myProfile.toasts.saveFailedTitle"),
+        description: t("profile:myProfile.toasts.unexpectedErrorDescription")
+      });
+    } finally {
+      setIsAvatarUpdating(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleOpenAvatarFilePicker = () => {
+    if (!avatarInputRef.current || isAvatarUpdating) return;
+    avatarInputRef.current.value = "";
+    avatarInputRef.current.click();
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user || isAvatarUpdating || !hasAvatar) return;
+
+    setIsAvatarUpdating(true);
+    try {
+      const currentAvatarInProfile = persistedAvatarUrl;
+      const previousAvatarPath = extractAvatarStoragePath(
+        currentAvatarInProfile
+      );
+      const { error: saveError } = await supabase.from("profiles").upsert(
+        {
+          user_id: user.id,
+          avatar_url: null,
+          locale
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (saveError) {
+        toast({
+          variant: "destructive",
+          title: t("profile:myProfile.toasts.saveFailedTitle"),
+          description: saveError.message
+        });
+        return;
+      }
+
+      if (previousAvatarPath)
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
+
+      setPersistedAvatarUrl("");
+      setProfile((prev) => ({ ...prev, avatarUrl: "" }));
+      await refreshProfile();
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("profile:myProfile.toasts.saveFailedTitle"),
+        description: t("profile:myProfile.toasts.unexpectedErrorDescription")
+      });
+    } finally {
+      setIsAvatarUpdating(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -287,35 +385,7 @@ const MiPerfil = () => {
     setIsSavingProfile(true);
 
     const currentAvatarInProfile = persistedAvatarUrl;
-    let avatarUrlForProfile =
-      sanitizeAvatarForMetadata(profile.avatarUrl) || currentAvatarInProfile;
-    let uploadedAvatarPath: string | null = null;
-
-    if (pendingAvatarFile) {
-      uploadedAvatarPath = buildAvatarStoragePath(user.id, pendingAvatarFile);
-      const { error: uploadError } = await supabase.storage
-        .from(AVATAR_BUCKET)
-        .upload(uploadedAvatarPath, pendingAvatarFile, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: pendingAvatarFile.type || undefined
-        });
-
-      if (uploadError) {
-        toast({
-          variant: "destructive",
-          title: t("profile:myProfile.toasts.uploadFailedTitle"),
-          description: uploadError.message
-        });
-        setIsSavingProfile(false);
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from(AVATAR_BUCKET)
-        .getPublicUrl(uploadedAvatarPath);
-      avatarUrlForProfile = sanitizeAvatarForMetadata(publicUrlData.publicUrl);
-    }
+    const avatarUrlForProfile = sanitizeAvatarForMetadata(profile.avatarUrl);
 
     const nextWeeklyTargetHours = parseOptionalInteger(
       profile.weeklyTargetHours
@@ -344,9 +414,6 @@ const MiPerfil = () => {
       .upsert(profilePayload, { onConflict: "user_id" });
 
     if (error) {
-      if (uploadedAvatarPath)
-        await supabase.storage.from(AVATAR_BUCKET).remove([uploadedAvatarPath]);
-
       toast({
         variant: "destructive",
         title: t("profile:myProfile.toasts.saveFailedTitle"),
@@ -356,18 +423,12 @@ const MiPerfil = () => {
       return;
     }
 
-    if (pendingAvatarFile) {
-      const previousAvatarPath = extractAvatarStoragePath(
-        currentAvatarInProfile
-      );
-      if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath)
-        await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
+    const previousAvatarPath = extractAvatarStoragePath(currentAvatarInProfile);
+    if (!avatarUrlForProfile && previousAvatarPath)
+      await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
 
-      clearAvatarBlobPreview();
-      setPendingAvatarFile(null);
-      setPersistedAvatarUrl(avatarUrlForProfile);
-      setProfile((prev) => ({ ...prev, avatarUrl: avatarUrlForProfile }));
-    }
+    setPersistedAvatarUrl(avatarUrlForProfile);
+    setProfile((prev) => ({ ...prev, avatarUrl: avatarUrlForProfile }));
 
     toast({
       title: t("profile:myProfile.toasts.updatedTitle"),
@@ -473,18 +534,74 @@ const MiPerfil = () => {
       <section className="border border-border bg-background/95 p-6 md:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="flex items-start gap-4">
-            <div className="relative h-20 w-20 shrink-0 rounded-full border border-border bg-secondary overflow-hidden">
-              {profile.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt={t("profile:myProfile.avatarAlt")}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="h-full w-full inline-flex items-center justify-center">
-                  <User className="h-8 w-8 text-muted-foreground" />
-                </div>
-              )}
+            <div className="shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <CustomButton
+                    type="button"
+                    aria-label={t("profile:myProfile.avatarMenuLabel")}
+                    disabled={isAvatarUpdating}
+                    styleType="unstyled"
+                    size="none"
+                    radius="none"
+                    className="group relative h-20 w-20 overflow-hidden rounded-full border border-border bg-secondary ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-80"
+                  >
+                    {profile.avatarUrl ? (
+                      <img
+                        src={profile.avatarUrl}
+                        alt={t("profile:myProfile.avatarAlt")}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full inline-flex items-center justify-center">
+                        <User className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <span className="pointer-events-none absolute inset-0 bg-background/55 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+                      <span className="inline-flex h-12 w-12 items-center justify-center bg-black/40 rounded-full shadow-sm">
+                        <Pencil className="h-6 w-6 text-foreground" />
+                      </span>
+                    </span>
+                    {isAvatarUpdating ? (
+                      <span className="absolute inset-0 flex items-center justify-center bg-background/70">
+                        <Loader2 className="h-5 w-5 animate-spin text-foreground" />
+                      </span>
+                    ) : null}
+                  </CustomButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  sideOffset={10}
+                  className="w-56"
+                >
+                  <DropdownMenuItem
+                    onSelect={handleOpenAvatarFilePicker}
+                    disabled={isAvatarUpdating}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Camera className="h-4 w-4" />
+                    {t("profile:myProfile.changeImage")}
+                  </DropdownMenuItem>
+                  {hasAvatar ? (
+                    <DropdownMenuItem
+                      onSelect={handleRemoveAvatar}
+                      disabled={isAvatarUpdating}
+                      className="flex items-center gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t("profile:myProfile.removeImage")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
             <div>
               <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
@@ -497,30 +614,20 @@ const MiPerfil = () => {
               <p className="text-sm text-muted-foreground mt-1 max-w-xl">
                 {t("profile:myProfile.description")}
               </p>
-              <label className="mt-3 inline-flex items-center gap-2 border border-border px-3 py-2 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors cursor-pointer">
-                <Camera className="h-3.5 w-3.5" />
-                {t("profile:myProfile.changeImage")}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
-              </label>
             </div>
           </div>
 
-          <button
+          <CustomButton
             type="button"
             onClick={handleSaveProfile}
-            disabled={isSavingProfile}
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={isSavingProfile || isAvatarUpdating}
+            styleType="primary"
           >
             <Save className="h-4 w-4" />
             {isSavingProfile
               ? t("profile:myProfile.saving")
               : t("profile:myProfile.save")}
-          </button>
+          </CustomButton>
         </div>
       </section>
 
@@ -661,13 +768,14 @@ const MiPerfil = () => {
           <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
             {t("profile:myProfile.fields.mainChallenge")}
           </label>
-          <textarea
+          <CustomTextarea
             rows={4}
             value={profile.mainChallenge}
             onChange={(e) =>
               setProfile((prev) => ({ ...prev, mainChallenge: e.target.value }))
             }
-            className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground min-h-min"
+            resize="none"
+            className="min-h-min"
             placeholder={t("profile:myProfile.fields.mainChallengePlaceholder")}
           />
         </div>
@@ -719,16 +827,17 @@ const MiPerfil = () => {
             {t("profile:myProfile.oppositionSection.description")}
           </p>
 
-          <button
+          <CustomButton
             type="button"
             onClick={handleOpenOppositionDialog}
             disabled={isChangingOpposition}
-            className="mt-4 inline-flex items-center gap-2 bg-destructive text-destructive-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:opacity-90 transition-opacity disabled:opacity-60"
+            styleType="destructive"
+            className="mt-4"
           >
             {isChangingOpposition
               ? t("profile:myProfile.oppositionSection.changing")
               : t("profile:myProfile.oppositionSection.change")}
-          </button>
+          </CustomButton>
         </div>
       </section>
 

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
+import CustomButton from "../components/ui/custom-button";
 
 const Plans = () => {
   const { t } = useTranslation("plans");
@@ -110,16 +111,17 @@ const Plans = () => {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/registro"
-                className={`text-center py-3.5 text-xs font-semibold tracking-widest uppercase transition-colors ${
+              <CustomButton
+                asChild
+                styleType={plan.featured ? "primary" : "menu"}
+                className={`w-full py-3.5 ${
                   plan.featured
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "border border-foreground/20 text-foreground hover:border-foreground/50"
+                    ? ""
+                    : "border-foreground/20 text-foreground hover:border-foreground/50"
                 }`}
               >
-                {plan.cta}
-              </Link>
+                <Link to="/registro">{plan.cta}</Link>
+              </CustomButton>
             </div>
           ))}
         </div>

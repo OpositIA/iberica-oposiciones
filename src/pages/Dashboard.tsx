@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import CustomButton from "@/components/ui/custom-button";
 import { supabase } from "@/integrations/supabase/client";
 import { runSingleFlight } from "@/lib/singleFlight";
 import {
@@ -174,27 +175,24 @@ const Dashboard = () => {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link
-              to="/perfil/mi-perfil"
-              className="inline-flex items-center gap-2 border border-border px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors"
-            >
-              <User className="h-4 w-4" />
-              {t("actions.profile")}
-            </Link>
-            <Link
-              to="/perfil/test"
-              className="inline-flex items-center gap-2 border border-border px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors"
-            >
-              <BookOpen className="h-4 w-4" />
-              {t("actions.goToTest")}
-            </Link>
-            <Link
-              to="/perfil/opositAI"
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors"
-            >
-              <Brain className="h-4 w-4" />
-              {t("actions.openIA")}
-            </Link>
+            <CustomButton asChild styleType="menu">
+              <Link to="/perfil/mi-perfil">
+                <User className="h-4 w-4" />
+                {t("actions.profile")}
+              </Link>
+            </CustomButton>
+            <CustomButton asChild styleType="menu">
+              <Link to="/perfil/test">
+                <BookOpen className="h-4 w-4" />
+                {t("actions.goToTest")}
+              </Link>
+            </CustomButton>
+            <CustomButton asChild styleType="primary">
+              <Link to="/perfil/opositAI">
+                <Brain className="h-4 w-4" />
+                {t("actions.openIA")}
+              </Link>
+            </CustomButton>
           </div>
         </div>
       </section>

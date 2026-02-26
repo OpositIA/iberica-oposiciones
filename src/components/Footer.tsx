@@ -1,4 +1,5 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -89,9 +90,14 @@ const Footer = () => {
                 placeholder={t("landing:footer.newsletterPlaceholder")}
                 className="h-auto flex-1 rounded-none border-0 bg-transparent px-4 py-2.5 text-white placeholder:text-white/30 focus:ring-0 focus:ring-offset-0"
               />
-              <button className="px-3 text-primary hover:text-primary/80 transition-colors">
+              <CustomButton
+                styleType="unstyled"
+                size="none"
+                radius="none"
+                className="px-3 text-primary hover:text-primary/80 transition-colors"
+              >
                 →
-              </button>
+              </CustomButton>
             </div>
           </div>
         </div>

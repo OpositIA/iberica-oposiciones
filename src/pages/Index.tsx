@@ -1,5 +1,6 @@
 import heroImage from "@/assets/hero-image.jpg";
 import methodologyImage from "@/assets/methodology-image.jpg";
+import CustomButton from "@/components/ui/custom-button";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -102,18 +103,16 @@ const Index = () => {
               {t("hero.description")}
             </p>
             <div className="flex gap-4">
-              <Link
-                to="/registro"
-                className="bg-primary text-primary-foreground px-8 py-3.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors"
+              <CustomButton asChild styleType="primary" className="px-8 py-3.5">
+                <Link to="/registro">{t("hero.ctaStart")}</Link>
+              </CustomButton>
+              <CustomButton
+                asChild
+                styleType="unstyled"
+                className="border border-primary-foreground/30 text-primary-foreground px-8 py-3.5 hover:bg-primary-foreground/10"
               >
-                {t("hero.ctaStart")}
-              </Link>
-              <Link
-                to="/planes"
-                className="border border-primary-foreground/30 text-primary-foreground px-8 py-3.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary-foreground/10 transition-colors"
-              >
-                {t("hero.ctaPlans")}
-              </Link>
+                <Link to="/planes">{t("hero.ctaPlans")}</Link>
+              </CustomButton>
             </div>
           </div>
         </div>
@@ -294,18 +293,16 @@ const Index = () => {
             {t("cta.description")}
           </p>
           <div className="flex justify-center gap-4">
-            <Link
-              to="/registro"
-              className="bg-primary text-primary-foreground px-8 py-3.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors"
+            <CustomButton asChild styleType="primary" className="px-8 py-3.5">
+              <Link to="/registro">{t("cta.register")}</Link>
+            </CustomButton>
+            <CustomButton
+              asChild
+              styleType="unstyled"
+              className="border border-primary-foreground/30 text-primary-foreground px-8 py-3.5 hover:bg-primary-foreground/10"
             >
-              {t("cta.register")}
-            </Link>
-            <Link
-              to="/planes"
-              className="border border-primary-foreground/30 text-primary-foreground px-8 py-3.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary-foreground/10 transition-colors"
-            >
-              {t("cta.pricing")}
-            </Link>
+              <Link to="/planes">{t("cta.pricing")}</Link>
+            </CustomButton>
           </div>
         </div>
       </section>

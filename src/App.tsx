@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AuthenticatedSidebarLayout from "./components/AuthenticatedSidebarLayout";
+import LandingRouteGuard from "./components/LandingRouteGuard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import AssistantIA from "./pages/AssistantIA";
@@ -32,7 +33,14 @@ const App = () => (
         <AuthProvider>
           <ScrollToTop />
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route
+              path="/"
+              element={
+                <LandingRouteGuard>
+                  <Index />
+                </LandingRouteGuard>
+              }
+            />
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Register />} />
             <Route path="/planes" element={<Plans />} />

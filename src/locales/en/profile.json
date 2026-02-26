@@ -28,6 +28,8 @@
       "darkTitle": "Dark mode"
     },
     "closeSidebar": "Close sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
     "menuGroups": {
       "web": "Website",
       "general": "General",
@@ -59,6 +61,7 @@
       "missingDataDescription": "Complete first and last name to save your profile.",
       "uploadFailedTitle": "Unable to upload image",
       "saveFailedTitle": "Unable to save profile",
+      "unexpectedErrorDescription": "An unexpected error occurred. Please try again.",
       "updatedTitle": "Profile updated",
       "updatedDescription": "Your profile data was saved successfully.",
       "selectOppositionTitle": "Select an exam track",
@@ -78,7 +81,9 @@
     "sectionBadge": "My profile",
     "defaultUser": "User",
     "description": "Manage your personal and study information to tailor the full experience.",
+    "avatarMenuLabel": "Profile photo actions",
     "changeImage": "Change image",
+    "removeImage": "Remove image",
     "save": "Save profile",
     "saving": "Saving...",
     "dataSection": {

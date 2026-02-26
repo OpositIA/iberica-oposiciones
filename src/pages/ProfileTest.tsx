@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import CustomButton from "@/components/ui/custom-button";
 import { resolverOposicionPorNombre } from "@/data/oposiciones";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,13 +114,14 @@ const ProfileTest = () => {
           <p className="text-xs text-muted-foreground">
             {t("test.activeOpposition", { opposition: oposicionActiva.nombre })}
           </p>
-          <button
+          <CustomButton
             type="button"
             onClick={iniciarSimulacro}
-            className="w-full border border-border px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-secondary transition-colors"
+            styleType="menu"
+            className="w-full"
           >
             {t("test.startMock")}
-          </button>
+          </CustomButton>
         </div>
 
         <div className="border border-border bg-background p-5 space-y-4">
@@ -132,15 +134,16 @@ const ProfileTest = () => {
           <p className="text-xs text-muted-foreground">
             {t("test.selectTopicOf", { opposition: oposicionActiva.nombre })}
           </p>
-          <button
+          <CustomButton
             type="button"
             onClick={iniciarTestRapido}
-            className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            styleType="primary"
+            className="w-full"
             disabled={!temaSeleccionado}
           >
             {t("test.launchQuickTest")}
             <ArrowRight className="h-4 w-4" />
-          </button>
+          </CustomButton>
         </div>
       </section>
 
@@ -155,18 +158,20 @@ const ProfileTest = () => {
         </div>
         <div className="flex flex-wrap gap-2">
           {oposicionActiva.temas.map((tema) => (
-            <button
+            <CustomButton
               key={tema}
               type="button"
               onClick={() => setTemaSeleccionado(tema)}
+              styleType={tema === temaSeleccionado ? "primary" : "menu"}
+              size="sm"
               className={`px-3 py-1.5 text-xs border transition-colors ${
                 tema === temaSeleccionado
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border text-muted-foreground hover:bg-secondary"
+                  ? "border-primary"
+                  : "border-border text-muted-foreground"
               }`}
             >
               {tema}
-            </button>
+            </CustomButton>
           ))}
         </div>
       </section>

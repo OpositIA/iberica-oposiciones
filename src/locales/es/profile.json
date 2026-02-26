@@ -28,6 +28,8 @@
       "darkTitle": "Modo oscuro"
     },
     "closeSidebar": "Cerrar sidebar",
+    "collapseSidebar": "Contraer sidebar",
+    "expandSidebar": "Expandir sidebar",
     "menuGroups": {
       "web": "Web",
       "general": "General",
@@ -59,6 +61,7 @@
       "missingDataDescription": "Completa nombre y apellidos para guardar el perfil.",
       "uploadFailedTitle": "No se pudo subir la imagen",
       "saveFailedTitle": "No se pudo guardar el perfil",
+      "unexpectedErrorDescription": "Ha ocurrido un error inesperado. Inténtalo de nuevo.",
       "updatedTitle": "Perfil actualizado",
       "updatedDescription": "Tus datos de perfil se han guardado correctamente.",
       "selectOppositionTitle": "Selecciona una oposición",
@@ -78,7 +81,9 @@
     "sectionBadge": "Mi perfil",
     "defaultUser": "Usuario",
     "description": "Gestiona tu información personal y de preparación para adaptar toda la experiencia.",
+    "avatarMenuLabel": "Acciones de foto de perfil",
     "changeImage": "Cambiar imagen",
+    "removeImage": "Eliminar imagen",
     "save": "Guardar perfil",
     "saving": "Guardando...",
     "dataSection": {

@@ -1,4 +1,5 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -159,13 +160,14 @@ const Login = () => {
               </Link>
             </div>
 
-            <button
+            <CustomButton
               type="submit"
+              styleType="primary"
               disabled={isLoading}
-              className="w-full bg-primary text-primary-foreground py-3.5 text-xs font-semibold tracking-widest uppercase hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full py-3.5"
             >
               {isLoading ? t("auth:login.submitting") : t("auth:login.submit")}
-            </button>
+            </CustomButton>
           </form>
 
           <div className="mt-8 text-center">
