@@ -19,6 +19,7 @@ import ProfileCalendario from "./pages/ProfileCalendario";
 import ProfileTemario from "./pages/ProfileTemario";
 import ProfileTest from "./pages/ProfileTest";
 import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
               }
             />
             <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/registro" element={<Register />} />
             <Route path="/planes" element={<Plans />} />
             <Route
