@@ -43,11 +43,15 @@
       "ia": "AI",
       "test": "Tests",
       "syllabus": "Syllabus",
-      "calendar": "Calendar"
+      "calendar": "Calendar",
+      "study": "Study"
     },
     "myProfile": "My profile",
     "activePlan": "Active plan",
-    "closeSession": "Log out"
+    "closeSession": "Log out",
+    "planSummary": "{{aiLimit}} AI requests per day and quick tests up to {{quickTestLimit}} questions.",
+    "managePlan": "Manage plan",
+    "upgradeToPro": "Upgrade to PRO"
   },
   "myProfile": {
     "toasts": {
@@ -100,7 +104,13 @@
       "testsPerWeek": "Tests per week",
       "mainChallenge": "Main study challenge",
       "mainChallengePlaceholder": "Describe your main current challenge...",
-      "locale": "Language"
+      "locale": "Language",
+      "accentColor": "Primary color"
+    },
+    "colorSection": {
+      "badge": "Theme color",
+      "description": "This color is applied instantly to primary app elements.",
+      "reset": "Reset color"
     },
     "oppositionSection": {
       "badge": "Active exam track",
@@ -125,10 +135,15 @@
     "toasts": {
       "mockReadyTitle": "Mock exam ready",
       "mockReadyDescription": "You are about to start a general mock exam for {{opposition}}.",
-      "selectTopicTitle": "Select a topic",
-      "selectTopicDescription": "Choose a topic before launching the quick test.",
+      "selectTopicTitle": "Select topics",
+      "selectTopicDescription": "Choose at least one topic before launching the quick test.",
       "quickTestReadyTitle": "Quick test ready",
-      "quickTestReadyDescription": "Selected topic: {{topic}}."
+      "quickTestReadyDescription": "Test generated: {{topicCount}} topics - {{questionCount}} questions. ID: {{testId}}.",
+      "selectTopicsDescription": "Select at least one topic or block before launching the quick test.",
+      "quickTestFailedTitle": "Unable to generate quick test",
+      "quickTestFailedDescription": "Quick test generation failed. Please try again in a few seconds.",
+      "missingSessionTitle": "Invalid session",
+      "missingSessionDescription": "Sign in again to generate the quick test."
     },
     "loading": "Loading exam track...",
     "badge": "Tests",
@@ -141,7 +156,27 @@
     "selectTopicOf": "Select a topic from {{opposition}}",
     "launchQuickTest": "Launch quick test",
     "quickTopics": "Quick test topics",
-    "selectTopic": "Select a topic from {{opposition}}"
+    "selectTopic": "Select a topic from {{opposition}}",
+    "quickSelectionSummary": "{{topicCount}} topics selected - {{questionCount}} questions",
+    "planSummary": "Your plan allows up to {{quickTestLimit}} questions per quick test.",
+    "quickDialogTitle": "Configure quick test",
+    "quickDialogDescription": "Choose blocks and topics from {{opposition}} to generate your test.",
+    "quickDialogQuestionsLabel": "Number of questions",
+    "quickDialogQuestionsHint": "You can adjust between 1 and {{planLimit}} questions with your current plan.",
+    "quickDialogBlocksLabel": "Blocks and topics",
+    "quickDialogSelectedCount": "{{count}} topics selected",
+    "quickDialogSelectAll": "Select all",
+    "quickDialogClear": "Clear selection",
+    "quickDialogNoTopics": "There are no topics available for this exam track.",
+    "quickDialogBlockCount": "{{selected}} of {{total}} topics selected",
+    "quickDialogCancel": "Cancel",
+    "quickDialogStart": "Start quick test",
+    "quickDialogGenerating": "Generating test...",
+    "inProgressDialogTitle": "You already have a test in progress",
+    "inProgressDialogDescription": "You have a started quick test with {{answeredCount}} saved answers (last activity: {{lastInteraction}}). If you continue, a new test will be generated.",
+    "inProgressDialogConfirm": "Generate new test",
+    "inProgressDialogCancel": "Cancel",
+    "unknownTestId": "no-id"
   },
   "syllabus": {
     "loading": "Loading syllabus...",
@@ -150,7 +185,12 @@
     "description": "Only the active exam track from your profile is shown.",
     "activeOpposition": "Active exam track",
     "topicsList": "Topic list",
-    "topicItem": "Topic {{index}}. {{topic}}"
+    "topicItem": "Topic {{index}}. {{topic}}",
+    "contentTitle": "Syllabus content",
+    "noContent": "No syllabus content is available yet for this exam track.",
+    "contentLockedTitle": "Content available in Pro",
+    "contentLockedDescription": "With the paid plan you can access the full syllabus content.",
+    "contentLockedCta": "View plans"
   },
   "calendar": {
     "badge": "Calendar",
@@ -182,6 +222,67 @@
     "assistant": "Smart assistant",
     "directAccess": "Direct opositAI access",
     "directAccessDescription": "Open the full experience to work with prompts, study context, and recommendations.",
-    "open": "Open opositAI"
+    "open": "Open opositAI",
+    "planSummary": "Your current plan allows {{aiLimit}} AI requests per day.",
+    "upgrade": "Upgrade to Pro"
+  },
+  "study": {
+    "badge": "Study",
+    "description": "Set a study timer and keep control from any screen.",
+    "durationLabel": "Duration (minutes)",
+    "durationHint": "You can adjust between 1 and 480 minutes.",
+    "remainingLabel": "Time remaining",
+    "statusRunning": "Timer running",
+    "statusPaused": "Timer paused",
+    "statusFinished": "Time finished",
+    "statusIdle": "Ready to start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart",
+    "finishedMessage": "Study block is over. Time for a break.",
+    "readyHint": "Set a duration and press start.",
+    "toasts": {
+      "breakTitle": "Block finished",
+      "breakDescription": "Time to take a break."
+    }
+  },
+  "testSession": {
+    "badge": "Test session",
+    "title": "Generated quick test",
+    "description": "Answer the questions and grade at the end.",
+    "testIdLabel": "ID: {{testId}}",
+    "oppositionLabel": "Exam track: {{opposition}}",
+    "topicsLabel": "Topics: {{count}}",
+    "questionsLabel": "Questions: {{count}}",
+    "missingDataTitle": "Test data not found",
+    "missingDataDescription": "There is no data available for this test in the current session.",
+    "emptyQuestionsTitle": "This test has no questions",
+    "emptyQuestionsDescription": "The backend did not return valid questions for this attempt.",
+    "backToConfig": "Back to setup",
+    "questionLabel": "Question {{index}}",
+    "questionFallback": "Question {{index}}",
+    "navigateHint": "Tap the number to jump directly to a question.",
+    "scoreLabel": "Score: {{score}}/{{total}}",
+    "answeredLabel": "Answered {{answered}} of {{total}}",
+    "submit": "Grade test",
+    "showingResults": "Results shown",
+    "retry": "Reset answers",
+    "finalize": "Finish test",
+    "leaveDialogTitle": "Are you sure you want to leave?",
+    "leaveDialogDescription": "You have a test in progress. If you leave now, you can resume it later from where you left off.",
+    "leaveDialogConfirm": "Leave test",
+    "leaveDialogCancel": "Stay in test",
+    "resultDialogTitle": "Test result",
+    "resultDialogDescription": "You completed the quick test. Here is your final summary.",
+    "correctCountLabel": "Correct",
+    "wrongCountLabel": "Wrong",
+    "goToDashboard": "Go to dashboard",
+    "correctAnswerLabel": "Correct answer: {{option}}",
+    "noCorrectionKeyLabel": "This question has no correction key.",
+    "explanationLabel": "Explanation: {{explanation}}",
+    "noExplanationLabel": "No explanation available for this question.",
+    "sourcesLabel": "References: {{sources}}"
   }
 }

@@ -10,7 +10,15 @@
   "actions": {
     "profile": "My profile",
     "goToTest": "Go to tests",
+    "continueQuickTest": "Continue test",
     "openIA": "Open AI"
+  },
+  "plan": {
+    "badge": "Active plan",
+    "description": "You have {{aiLimit}} AI requests per day and quick tests up to {{quickTestLimit}} questions.",
+    "manage": "Manage plan",
+    "aiUsage": "AI usage today",
+    "quickTestLimit": "Quick-test limit"
   },
   "cards": {
     "completedTests": "Completed tests",
@@ -37,8 +45,13 @@
       "score": "Score",
       "accuracy": "Accuracy",
       "duration": "Duration",
-      "status": "Status"
+      "status": "Status",
+      "open": "Open"
     },
+    "viewTest": "View test",
+    "loadMore": "View more",
+    "loadingMore": "Loading...",
+    "empty": "You still have no completed tests.",
     "status": {
       "excellent": "Excellent",
       "approved": "Passed",

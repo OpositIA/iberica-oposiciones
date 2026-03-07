@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AuthenticatedSidebarLayout from "./components/AuthenticatedSidebarLayout";
 import LandingRouteGuard from "./components/LandingRouteGuard";
+import PlanRequiredRoute from "./components/PlanRequiredRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import AssistantIA from "./pages/AssistantIA";
@@ -14,12 +15,17 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import MiPerfil from "./pages/MiPerfil";
 import NotFound from "./pages/NotFound";
+import PlanSelection from "./pages/PlanSelection";
 import Plans from "./pages/Plans";
+import PublicPlans from "./pages/PublicPlans";
 import ProfileCalendario from "./pages/ProfileCalendario";
+import ProfileQuickTestSession from "./pages/ProfileQuickTestSession";
+import ProfileStudy from "./pages/ProfileStudy";
 import ProfileTemario from "./pages/ProfileTemario";
 import ProfileTest from "./pages/ProfileTest";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
+import { StudyTimerProvider } from "./study/StudyTimerProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,11 +60,31 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/registro" element={<Register />} />
-            <Route path="/planes" element={<Plans />} />
+            <Route path="/planes" element={<PublicPlans />} />
+            <Route
+              path="/seleccion-plan"
+              element={
+                <ProtectedRoute>
+                  <PlanSelection />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/perfil/planes"
+              element={
+                <ProtectedRoute>
+                  <Plans />
+                </ProtectedRoute>
+              }
+            />
             <Route
               element={
                 <ProtectedRoute>
-                  <AuthenticatedSidebarLayout />
+                  <PlanRequiredRoute>
+                    <StudyTimerProvider>
+                      <AuthenticatedSidebarLayout />
+                    </StudyTimerProvider>
+                  </PlanRequiredRoute>
                 </ProtectedRoute>
               }
             >
@@ -73,7 +99,12 @@ const App = () => (
               />
               <Route path="/perfil/opositAI" element={<AssistantIA />} />
               <Route path="/perfil/test" element={<ProfileTest />} />
+              <Route
+                path="/perfil/test/:testId"
+                element={<ProfileQuickTestSession />}
+              />
               <Route path="/perfil/temario" element={<ProfileTemario />} />
+              <Route path="/perfil/a-estudiar" element={<ProfileStudy />} />
               <Route
                 path="/perfil/calendario"
                 element={<ProfileCalendario />}

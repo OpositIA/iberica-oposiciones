@@ -16,6 +16,19 @@ import type { AppLocale } from "@/i18n/locales";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  applyAccentColor,
+  getDefaultAccentColor,
+  getStoredAccentColor
+} from "@/lib/theme";
+import {
+  sanitizeCode,
+  sanitizeEmail,
+  sanitizeInteger,
+  sanitizeMultilineText,
+  sanitizeSingleLineText,
+  sanitizeUrl
+} from "@/lib/inputSanitization";
+import {
   useOppositionOptionsQuery,
   useProfileDetailsQuery,
   useResolvedOppositionQuery
@@ -62,11 +75,7 @@ const ALLOWED_AVATAR_TYPES = new Set([
 ]);
 
 const sanitizeAvatarForMetadata = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const lower = trimmed.toLowerCase();
-  if (lower.startsWith("data:") || lower.startsWith("blob:")) return "";
-  return trimmed;
+  return sanitizeUrl(value);
 };
 
 const extractAvatarStoragePath = (value: string) => {
@@ -81,7 +90,7 @@ const extractAvatarStoragePath = (value: string) => {
 };
 
 const buildAvatarStoragePath = (userId: string, file: File) => {
-  const cleanName = file.name.trim().toLowerCase();
+  const cleanName = sanitizeSingleLineText(file.name, 120).toLowerCase();
   const extensionFromName = cleanName.includes(".")
     ? cleanName.split(".").pop()
     : "";
@@ -90,15 +99,40 @@ const buildAvatarStoragePath = (userId: string, file: File) => {
     : "";
   const extension = extensionFromName || extensionFromType || "jpg";
   const uniqueId = Math.random().toString(36).slice(2, 10);
-  return `${userId}/${Date.now()}-${uniqueId}.${extension}`;
+  return `${sanitizeCode(userId, 120)}/${Date.now()}-${uniqueId}.${sanitizeCode(extension, 12) || "jpg"}`;
 };
 
 const parseOptionalInteger = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isFinite(parsed) ? parsed : null;
+  return sanitizeInteger(value, {
+    min: Number.MIN_SAFE_INTEGER,
+    max: Number.MAX_SAFE_INTEGER
+  });
 };
+
+const sanitizeProfileForm = (profile: ProfileForm): ProfileForm => ({
+  ...profile,
+  firstName: sanitizeSingleLineText(profile.firstName, 80),
+  lastName: sanitizeSingleLineText(profile.lastName, 120),
+  email: sanitizeEmail(profile.email),
+  age:
+    sanitizeInteger(profile.age, { min: 16, max: 75 })?.toString() ??
+    sanitizeSingleLineText(profile.age, 3),
+  preferredOppositionId: sanitizeCode(profile.preferredOppositionId, 120),
+  yearsPreparing:
+    sanitizeInteger(profile.yearsPreparing, { min: 0, max: 40 })?.toString() ??
+    sanitizeSingleLineText(profile.yearsPreparing, 2),
+  weeklyTargetHours:
+    sanitizeInteger(profile.weeklyTargetHours, {
+      min: 1,
+      max: 80,
+      fallback: 16
+    })?.toString() ?? "16",
+  testsPerWeek:
+    sanitizeInteger(profile.testsPerWeek, { min: 1, max: 14 })?.toString() ??
+    sanitizeSingleLineText(profile.testsPerWeek, 2),
+  mainChallenge: sanitizeMultilineText(profile.mainChallenge, 600),
+  avatarUrl: sanitizeAvatarForMetadata(profile.avatarUrl)
+});
 
 const MiPerfil = () => {
   const { t } = useTranslation(["profile", "common"]);
@@ -139,6 +173,7 @@ const MiPerfil = () => {
   const [isAvatarUpdating, setIsAvatarUpdating] = useState(false);
   const [activeOppositionId, setActiveOppositionId] = useState("");
   const [isOppositionDialogOpen, setIsOppositionDialogOpen] = useState(false);
+  const [accentColor, setAccentColor] = useState(() => getStoredAccentColor());
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
@@ -174,36 +209,34 @@ const MiPerfil = () => {
       resolvedOpposition?.id ||
       String(userMetadata.preferred_opposition_id ?? "");
 
-    setProfile({
-      firstName: String(
-        profileDetails?.first_name ?? userMetadata.first_name ?? ""
-      ),
-      lastName: String(
-        profileDetails?.last_name ?? userMetadata.last_name ?? ""
-      ),
-      email: String(profileDetails?.email ?? userEmail),
-      age:
-        profileDetails?.age != null
-          ? String(profileDetails.age)
-          : String(userMetadata.age ?? ""),
-      preferredOppositionId: resolvedOppositionId,
-      yearsPreparing:
-        profileDetails?.years_preparing != null
-          ? String(profileDetails.years_preparing)
-          : String(userMetadata.years_preparing ?? ""),
-      weeklyTargetHours:
-        profileDetails?.weekly_target_hours != null
-          ? String(profileDetails.weekly_target_hours)
-          : String(userMetadata.weekly_target_hours ?? "16"),
-      testsPerWeek:
-        profileDetails?.tests_per_week != null
-          ? String(profileDetails.tests_per_week)
-          : String(userMetadata.tests_per_week ?? ""),
-      mainChallenge: String(
-        profileDetails?.main_challenge ?? userMetadata.main_challenge ?? ""
-      ),
-      avatarUrl: resolvedAvatar
-    });
+    setProfile(
+      sanitizeProfileForm({
+        firstName: String(profileDetails?.first_name ?? userMetadata.first_name ?? ""),
+        lastName: String(profileDetails?.last_name ?? userMetadata.last_name ?? ""),
+        email: String(profileDetails?.email ?? userEmail),
+        age:
+          profileDetails?.age != null
+            ? String(profileDetails.age)
+            : String(userMetadata.age ?? ""),
+        preferredOppositionId: resolvedOppositionId,
+        yearsPreparing:
+          profileDetails?.years_preparing != null
+            ? String(profileDetails.years_preparing)
+            : String(userMetadata.years_preparing ?? ""),
+        weeklyTargetHours:
+          profileDetails?.weekly_target_hours != null
+            ? String(profileDetails.weekly_target_hours)
+            : String(userMetadata.weekly_target_hours ?? "16"),
+        testsPerWeek:
+          profileDetails?.tests_per_week != null
+            ? String(profileDetails.tests_per_week)
+            : String(userMetadata.tests_per_week ?? ""),
+        mainChallenge: String(
+          profileDetails?.main_challenge ?? userMetadata.main_challenge ?? ""
+        ),
+        avatarUrl: resolvedAvatar
+      })
+    );
     setPersistedAvatarUrl(resolvedAvatar);
     setActiveOppositionId(resolvedOppositionId);
     setIsLoadingProfile(false);
@@ -381,7 +414,8 @@ const MiPerfil = () => {
       return;
     }
 
-    if (!profile.firstName.trim() || !profile.lastName.trim()) {
+    const sanitizedProfile = sanitizeProfileForm(profile);
+    if (!sanitizedProfile.firstName || !sanitizedProfile.lastName) {
       toast({
         variant: "destructive",
         title: t("profile:myProfile.toasts.missingDataTitle"),
@@ -391,30 +425,33 @@ const MiPerfil = () => {
     }
 
     setIsSavingProfile(true);
+    setProfile(sanitizedProfile);
 
     const currentAvatarInProfile = persistedAvatarUrl;
-    const avatarUrlForProfile = sanitizeAvatarForMetadata(profile.avatarUrl);
+    const avatarUrlForProfile = sanitizeAvatarForMetadata(
+      sanitizedProfile.avatarUrl
+    );
 
     const nextWeeklyTargetHours = parseOptionalInteger(
-      profile.weeklyTargetHours
+      sanitizedProfile.weeklyTargetHours
     );
-    const selectedOppositionCode = profile.preferredOppositionId || null;
+    const selectedOppositionCode = sanitizedProfile.preferredOppositionId || null;
     const profilePayload = {
       user_id: user.id,
-      email: profile.email.trim() || user.email || null,
-      first_name: profile.firstName.trim(),
-      last_name: profile.lastName.trim(),
+      email: sanitizedProfile.email || user.email || null,
+      first_name: sanitizedProfile.firstName,
+      last_name: sanitizedProfile.lastName,
       full_name:
-        `${profile.firstName.trim()} ${profile.lastName.trim()}`.trim(),
-      age: parseOptionalInteger(profile.age),
-      years_preparing: parseOptionalInteger(profile.yearsPreparing),
+        `${sanitizedProfile.firstName} ${sanitizedProfile.lastName}`.trim(),
+      age: parseOptionalInteger(sanitizedProfile.age),
+      years_preparing: parseOptionalInteger(sanitizedProfile.yearsPreparing),
       weekly_target_hours:
         nextWeeklyTargetHours && nextWeeklyTargetHours > 0
           ? nextWeeklyTargetHours
           : 16,
-      tests_per_week: parseOptionalInteger(profile.testsPerWeek),
-      main_challenge: profile.mainChallenge.trim() || null,
-      preferred_opposition_id: profile.preferredOppositionId || null,
+      tests_per_week: parseOptionalInteger(sanitizedProfile.testsPerWeek),
+      main_challenge: sanitizedProfile.mainChallenge || null,
+      preferred_opposition_id: sanitizedProfile.preferredOppositionId || null,
       preferred_opposition: selectedOppositionCode,
       avatar_url: avatarUrlForProfile || null,
       locale
@@ -451,7 +488,7 @@ const MiPerfil = () => {
   };
 
   const handleOpenOppositionDialog = () => {
-    const nextOppositionId = profile.preferredOppositionId.trim();
+    const nextOppositionId = sanitizeCode(profile.preferredOppositionId, 120);
 
     if (!nextOppositionId) {
       toast({
@@ -476,7 +513,7 @@ const MiPerfil = () => {
   const handleChangeOpposition = async () => {
     if (!user) return;
 
-    const nextOppositionId = profile.preferredOppositionId.trim();
+    const nextOppositionId = sanitizeCode(profile.preferredOppositionId, 120);
     if (!nextOppositionId) return;
     const nextOppositionCode = nextOppositionId || null;
     setIsChangingOpposition(true);
@@ -536,6 +573,18 @@ const MiPerfil = () => {
       title: t("profile:myProfile.toasts.localeUpdatedTitle"),
       description: t("profile:myProfile.toasts.localeUpdatedDescription")
     });
+  };
+
+  const handleAccentColorChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextColor = event.target.value;
+    setAccentColor(nextColor);
+    applyAccentColor(nextColor);
+  };
+
+  const handleResetAccentColor = () => {
+    const defaultColor = getDefaultAccentColor();
+    setAccentColor(defaultColor);
+    applyAccentColor(defaultColor);
   };
 
   if (isLoadingProfile) {
@@ -711,6 +760,41 @@ const MiPerfil = () => {
               <option value="es">{t("common:locale.es")}</option>
               <option value="en">{t("common:locale.en")}</option>
             </CustomSelect>
+          </div>
+          <div className="md:col-span-2 rounded-xl border border-border bg-secondary/20 p-4">
+            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
+              {t("profile:myProfile.colorSection.badge")}
+            </p>
+            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+              {t("profile:myProfile.fields.accentColor")}
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="color"
+                value={accentColor}
+                onChange={handleAccentColorChange}
+                aria-label={t("profile:myProfile.fields.accentColor")}
+                className="h-10 w-16 cursor-pointer rounded border border-border bg-background p-1"
+              />
+              <span
+                className="h-8 w-8 rounded-full border border-border"
+                style={{ backgroundColor: accentColor }}
+              />
+              <span className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
+                {accentColor}
+              </span>
+              <CustomButton
+                type="button"
+                styleType="menu"
+                size="sm"
+                onClick={handleResetAccentColor}
+              >
+                {t("profile:myProfile.colorSection.reset")}
+              </CustomButton>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {t("profile:myProfile.colorSection.description")}
+            </p>
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">

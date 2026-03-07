@@ -2,6 +2,10 @@ import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  containsUnsafeControlChars,
+  sanitizeSingleLineText
+} from "@/lib/inputSanitization";
 import { FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -21,7 +25,10 @@ const getRecoveryLinkErrorFromUrl = () => {
     hashParams.get("error");
 
   if (!encodedError) return null;
-  return decodeURIComponent(encodedError.replace(/\+/g, " "));
+  return sanitizeSingleLineText(
+    decodeURIComponent(encodedError.replace(/\+/g, " ")),
+    200
+  );
 };
 
 const ResetPassword = () => {
@@ -102,6 +109,11 @@ const ResetPassword = () => {
 
   const validateForm = () => {
     if (!password || !confirmPassword)
+      return t("auth:resetPassword.validation.required");
+    if (
+      containsUnsafeControlChars(password) ||
+      containsUnsafeControlChars(confirmPassword)
+    )
       return t("auth:resetPassword.validation.required");
     if (password.length < MIN_PASSWORD_LENGTH) {
       return t("auth:resetPassword.validation.length", {

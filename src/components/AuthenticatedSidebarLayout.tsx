@@ -2,6 +2,8 @@ import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import opositaiLogo from "@/assets/opositai-logo.png";
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
+import { isPaidPlan } from "@/lib/plans";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import UserActionsDropdown from "@/components/UserActionsDropdown";
 import { cn } from "@/lib/utils";
+import { useStudyTimer } from "@/study/StudyTimerProvider";
 import {
   Brain,
   CalendarDays,
@@ -20,7 +23,11 @@ import {
   LayoutDashboard,
   Menu,
   NotebookText,
+  Pause,
+  Play,
   Sparkles,
+  Square,
+  TimerReset,
   X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -33,7 +40,8 @@ const SIDEBAR_COLLAPSE_STORAGE_KEY = "opositai:sidebar-collapsed";
 const AuthenticatedSidebarLayout = () => {
   const location = useLocation();
   const { t } = useTranslation(["profile", "common"]);
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const { status, formattedRemaining, pause, resume, stop } = useStudyTimer();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -48,6 +56,8 @@ const AuthenticatedSidebarLayout = () => {
     }`.trim();
     return fullName || profile?.email || t("profile:layout.defaults.account");
   }, [profile, t]);
+  const { data: planState } = useUserPlanStateQuery(user?.id);
+  const isFreePlan = !isPaidPlan(planState);
 
   const menuGroups = useMemo(
     () => [
@@ -88,6 +98,11 @@ const AuthenticatedSidebarLayout = () => {
             label: t("profile:layout.menuItems.calendar"),
             to: "/perfil/calendario",
             icon: CalendarDays
+          },
+          {
+            label: t("profile:layout.menuItems.study"),
+            to: "/perfil/a-estudiar",
+            icon: TimerReset
           }
         ]
       }
@@ -106,6 +121,8 @@ const AuthenticatedSidebarLayout = () => {
   const handleToggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => !prev);
   };
+  const showHeaderTimer =
+    location.pathname !== "/perfil/a-estudiar" && status !== "idle";
 
   useEffect(() => {
     const updateScrollState = () => {
@@ -171,6 +188,44 @@ const AuthenticatedSidebarLayout = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              {showHeaderTimer && (
+                <div className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 p-1 text-primary">
+                  <span className="px-2 text-[11px] font-semibold tracking-widest uppercase">
+                    {formattedRemaining}
+                  </span>
+                  {status === "running" && (
+                    <button
+                      type="button"
+                      onClick={pause}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-secondary"
+                      aria-label={t("profile:study.pause")}
+                      title={t("profile:study.pause")}
+                    >
+                      <Pause className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {status === "paused" && (
+                    <button
+                      type="button"
+                      onClick={resume}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-secondary"
+                      aria-label={t("profile:study.resume")}
+                      title={t("profile:study.resume")}
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={stop}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-secondary"
+                    aria-label={t("profile:study.stop")}
+                    title={t("profile:study.stop")}
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               <UserActionsDropdown />
             </div>
           </div>
@@ -267,7 +322,7 @@ const AuthenticatedSidebarLayout = () => {
                               "w-full flex items-center overflow-hidden py-2.5 rounded-xl transition-all",
                               "px-3 gap-3",
                               active
-                                ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_rgba(255,119,0,0.9)]"
+                                ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.6)]"
                                 : "text-foreground hover:bg-secondary"
                             )}
                             aria-label={
@@ -346,10 +401,18 @@ const AuthenticatedSidebarLayout = () => {
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
 
-                <div className="mb-3 inline-flex items-center gap-1 rounded-full border border-border px-2 py-1 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
-                  <Sparkles className="h-3 w-3" />
-                  {t("profile:layout.activePlan")}
-                </div>
+                {isFreePlan ? (
+                  <CustomButton
+                    asChild
+                    styleType="ghost"
+                    className="w-full justify-start"
+                  >
+                    <Link to="/perfil/planes" onClick={closeMobileSidebar}>
+                      <Sparkles className="h-4 w-4" />
+                      {t("profile:layout.upgradeToPro")}
+                    </Link>
+                  </CustomButton>
+                ) : null}
               </div>
             </footer>
 

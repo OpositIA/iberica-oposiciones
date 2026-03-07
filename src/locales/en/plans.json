@@ -1,50 +1,195 @@
 {
   "header": {
-    "badge": "Pricing",
-    "title": "Invest in your future.",
-    "description": "Plans designed for every level of ambition. No commitment, cancel anytime."
+    "badge": "Plans",
+    "title": "Same product, different limits.",
+    "description": "The free tier lets users try the full experience. Pro monthly expands AI usage, quick-test size, and leaves the system ready for discounts and future renewals.",
+    "metrics": {
+      "aiLabel": "AI requests / day",
+      "aiDescription": "Free: 3. Pro monthly: 20.",
+      "quickTestsLabel": "Questions per quick test",
+      "quickTestsDescription": "Free up to 20. Pro monthly up to 100.",
+      "billingLabel": "Billing",
+      "billingValue": "Monthly",
+      "billingDescription": "The system is already prepared for annual billing and temporary discounts."
+    }
   },
-  "featured": "Most Popular",
+  "featured": "Recommended",
+  "public": {
+    "badge": "Clear comparison",
+    "title": "Choose the plan that matches your pace",
+    "description": "Both plans keep the same core product. The real difference is usage capacity and study depth.",
+    "bestForLabel": "Best for",
+    "freeBestFor": "People getting started and validating the methodology without commitment.",
+    "proBestFor": "People studying every day who need full continuity in AI and revision.",
+    "includesLabel": "What includes",
+    "planHighlights": {
+      "ai": {
+        "free": "AI with initial capacity for occasional doubts.",
+        "pro": "AI with expanded capacity for intensive usage."
+      },
+      "quickTests": {
+        "free": "Quick tests in short format.",
+        "pro": "Quick tests with higher depth per attempt."
+      },
+      "syllabus": {
+        "free": "Limited syllabus view.",
+        "pro": "Access to full syllabus content."
+      }
+    },
+    "detailsTitle": "What exactly changes",
+    "columnFree": "Free",
+    "columnPro": "Pro monthly",
+    "rows": {
+      "ai": {
+        "label": "AI usage",
+        "free": "Base access for occasional questions and light daily support.",
+        "pro": "Higher daily capacity for intensive sessions and continuous work."
+      },
+      "quickTests": {
+        "label": "Quick tests",
+        "free": "Best for short reviews and progress checks.",
+        "pro": "Higher per-attempt capacity for longer blocks and realistic simulation."
+      },
+      "syllabus": {
+        "label": "Syllabus content",
+        "free": "Limited syllabus view for orientation.",
+        "pro": "Access to full syllabus content."
+      },
+      "pace": {
+        "label": "Preparation pace",
+        "free": "Gradual pace to explore the platform.",
+        "pro": "Daily pace with continuity and less friction."
+      }
+    }
+  },
+  "pricing": {
+    "free": "Free",
+    "perMonth": "/ month"
+  },
+  "actions": {
+    "currentPlan": "Current plan",
+    "goToCheckout": "Go to checkout"
+  },
+  "currentPlan": {
+    "badge": "Your active plan",
+    "description": "Right now you have {{aiLimit}} AI requests per day and quick tests up to {{quickTestLimit}} questions.",
+    "aiUsage": "AI usage today",
+    "quickTestLimit": "Quick-test limit",
+    "billing": "Current price",
+    "discountActive": "Active code {{code}} with {{percent}}% off."
+  },
+  "future": {
+    "badge": "Ready to scale",
+    "title": "Annual plans and timed discounts",
+    "description": "The data layer already supports monthly or yearly plans, percentage discounts, and duration in months or per annual cycle. Only monthly is exposed for now."
+  },
+  "discounts": {
+    "badge": "Discounts",
+    "title": "Apply code",
+    "description": "If you have a valid code, you can attach it to your active subscription. The system supports percentage discounts with limited duration by months or yearly term.",
+    "placeholder": "Enter your code",
+    "cta": "Apply discount",
+    "loginCta": "Sign in to apply a code"
+  },
+  "comparison": {
+    "badge": "Quick summary",
+    "aiLimit": "AI requests / day",
+    "quickTestLimit": "Questions per test",
+    "items": {
+      "sameFeatures": "Both plans share the same core product capabilities.",
+      "aiQuota": "The real difference is the daily AI quota: 3 versus 20.",
+      "quickTestQuota": "The free quick test is capped at 20 questions per topic or block; Pro raises it to 100.",
+      "discounts": "Discounts are applied as percentage reductions with explicit duration."
+    }
+  },
+  "selector": {
+    "badge": "Final step",
+    "title": "Choose your plan before entering.",
+    "description": "Your account is already created. Before accessing the dashboard, pick the plan you want to start with. You can change it later from your account.",
+    "cardsBadge": "Required choice",
+    "cardsTitle": "Activate your experience",
+    "selected": "Selected",
+    "choose": "Choose",
+    "helper": "We need an explicit choice to activate your AI and quick-test limits.",
+    "footer": "The selection is applied immediately. If you choose Pro, the subscription layer is already ready for real billing later.",
+    "cta": "Enter with this plan",
+    "exit": "Sign out",
+    "highlights": {
+      "badge": "What changes",
+      "sameFeatures": "Both plans keep the same core platform features.",
+      "freeLimit": "Free starts with 3 AI requests per day and quick tests up to 20 questions.",
+      "proLimit": "Pro monthly expands usage to 20 daily AI requests and up to 100 questions per quick test."
+    },
+    "toasts": {
+      "savedTitle": "Plan activated",
+      "savedDescription": "Your account is now ready with the {{plan}} plan."
+    }
+  },
+  "upgradeDialog": {
+    "badge": "Unlock Pro",
+    "currentPlan": "Your current plan",
+    "footer": "Switching to Pro monthly expands this feature limit without changing the rest of your setup.",
+    "cancel": "Keep my plan",
+    "cta": "View and change plan",
+    "assistant": {
+      "title": "You used all free-plan AI requests",
+      "description": "The free tier stops at {{currentLimit}} requests per day. Pro monthly expands that to {{targetLimit}} so you can keep using AI today.",
+      "currentValue": "Current limit: {{value}} daily requests.",
+      "targetLabel": "Expanded AI access",
+      "targetValue": "New limit: {{value}} requests per day."
+    },
+    "quick-test": {
+      "title": "This test exceeds your free limit",
+      "description": "With the free tier you can generate quick tests of up to {{currentLimit}} questions. Pro monthly unlocks up to {{targetLimit}} per attempt.",
+      "currentValue": "Current limit: {{value}} questions per test.",
+      "targetLabel": "Longer blocks and deeper revision",
+      "targetValue": "New limit: {{value}} questions per test."
+    }
+  },
+  "toasts": {
+    "planChangedTitle": "Plan updated",
+    "planChangedDescription": "Your account now uses the {{plan}} plan.",
+    "planChangedErrorTitle": "Unable to change plan",
+    "planChangedErrorDescription": "Try again in a few seconds.",
+    "paymentRedirectTitle": "Redirecting to checkout",
+    "paymentRedirectDescription": "Taking you to checkout to complete Pro subscription.",
+    "checkoutStartErrorTitle": "Unable to start checkout",
+    "checkoutStartErrorDescription": "Try again in a few seconds.",
+    "checkoutSuccessTitle": "Subscription confirmed",
+    "checkoutSuccessDescription": "Your plan will refresh in a few seconds.",
+    "checkoutCancelledTitle": "Checkout cancelled",
+    "checkoutCancelledDescription": "No charge was made.",
+    "discountAppliedTitle": "Code applied",
+    "discountAppliedDescription": "The discount is now attached to your active subscription.",
+    "discountAppliedErrorTitle": "Unable to apply code",
+    "discountAppliedErrorDescription": "Review the code and try again."
+  },
   "plans": {
-    "basic": {
-      "name": "Basic",
-      "period": "/ month",
-      "description": "Ideal for exploring the platform and starting your preparation.",
+    "free": {
+      "eyebrow": "Base access",
+      "name": "Free",
+      "description": "Best for getting started, validating the product, and keeping a light routine with no monthly cost.",
+      "ctaGuest": "Create free account",
+      "ctaAuthenticated": "Switch to Free",
       "features": [
-        "500 multiple-choice questions",
-        "1 specialization area",
-        "Basic statistics",
-        "Web access"
-      ],
-      "cta": "Start free"
+        "Same core features as Pro.",
+        "{{aiLimit}} AI requests per day.",
+        "Quick tests up to {{quickTestLimit}} questions.",
+        "Ideal for exploring the platform before scaling up."
+      ]
     },
     "pro": {
-      "name": "Professional",
-      "period": "/ month",
-      "description": "For committed candidates seeking real results.",
+      "eyebrow": "More daily headroom",
+      "name": "Pro monthly",
+      "description": "Built for users already relying on the product every day and needing more continuity with AI and deeper quick-test sessions.",
+      "ctaGuest": "Join Pro",
+      "ctaAuthenticated": "Switch to Pro monthly",
       "features": [
-        "Unlimited questions",
-        "All areas",
-        "Predictive analytics",
-        "Mobile access",
-        "Downloadable outlines",
-        "Official mock exams"
-      ],
-      "cta": "Start now"
-    },
-    "elite": {
-      "name": "Elite",
-      "period": "/ month",
-      "description": "Full access with virtual coach and priority support.",
-      "features": [
-        "Everything in Professional",
-        "Personal AI coach",
-        "24/7 priority support",
-        "Exam correction",
-        "Real-time legislation",
-        "Exclusive group"
-      ],
-      "cta": "Contact sales"
+        "All free-plan capabilities with no extra cuts.",
+        "{{aiLimit}} AI requests per day.",
+        "Quick tests up to {{quickTestLimit}} questions.",
+        "Compatible with percentage discounts for months or yearly term."
+      ]
     }
   }
 }

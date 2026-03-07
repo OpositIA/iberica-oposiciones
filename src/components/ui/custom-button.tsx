@@ -10,7 +10,7 @@ const customButtonVariants = cva(
     variants: {
       styleType: {
         primary:
-          "border border-primary bg-primary text-primary-foreground shadow-[0_14px_30px_-20px_rgba(255,119,0,0.95)] hover:bg-primary/90",
+          "border border-primary bg-primary text-primary-foreground shadow-[0_14px_30px_-20px_hsl(var(--primary)/0.65)] hover:bg-primary/90",
         menu: "border border-border bg-background text-foreground hover:bg-secondary",
         destructive:
           "border border-destructive bg-destructive text-destructive-foreground hover:opacity-90",

@@ -1,5 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import CustomButton from "@/components/ui/custom-button";
 import {
   Dialog,
@@ -21,11 +22,17 @@ import { normalizeLocale, toIntlLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import {
+  sanitizeCode,
+  sanitizeMultilineText,
+  sanitizeSingleLineText
+} from "@/lib/inputSanitization";
+import {
   buildMindMapEdgePath,
   clampMindMapZoom,
   zoomMindMapAroundPoint,
   type MindMapViewportState
 } from "@/lib/mindMapInteractions";
+import { getPlanKey, isPaidPlan } from "@/lib/plans";
 import { AuthSessionError, secureApiFetch } from "@/lib/secureFetch";
 import {
   assistantQueryConfig,
@@ -35,10 +42,13 @@ import {
   fetchAssistantMessages,
   type AssistantConversationRow
 } from "@/queries/assistantQueries";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BookOpen,
+  ChevronDown,
+  ChevronRight,
   Ellipsis,
   ExternalLink,
   GitBranch,
@@ -139,6 +149,12 @@ type MindMapNodePosition = {
 const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
 const MESSAGES_PAGE_SIZE = 8;
 const CONCEPT_MAP_STORAGE_PREFIX = "__CONCEPT_MAP__:";
+const ASK_ENDPOINT = `${
+  import.meta.env.VITE_SUPABASE_URL ??
+  "https://hxvckhyxfmfvdipahobv.supabase.co"
+}/functions/v1/ask`;
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -178,12 +194,13 @@ const normalizeConceptMapData = (input: unknown): ConceptMapData | null => {
   rawNodes.forEach((rawNode) => {
     if (!isRecord(rawNode)) return;
 
-    const id = typeof rawNode.id === "string" ? rawNode.id.trim() : "";
+    const id = sanitizeCode(rawNode.id, 120);
     if (!id || nodeMap.has(id)) return;
 
     const label =
-      typeof rawNode.label === "string" && rawNode.label.trim()
-        ? rawNode.label.trim()
+      typeof rawNode.label === "string" &&
+      sanitizeSingleLineText(rawNode.label, 160)
+        ? sanitizeSingleLineText(rawNode.label, 160)
         : humanizeNodeId(id);
 
     const rawLevel = rawNode.level;
@@ -206,12 +223,12 @@ const normalizeConceptMapData = (input: unknown): ConceptMapData | null => {
   rawEdges.forEach((rawEdge) => {
     if (!isRecord(rawEdge)) return;
 
-    const from = typeof rawEdge.from === "string" ? rawEdge.from.trim() : "";
-    const to = typeof rawEdge.to === "string" ? rawEdge.to.trim() : "";
+    const from = sanitizeCode(rawEdge.from, 120);
+    const to = sanitizeCode(rawEdge.to, 120);
     if (!from || !to) return;
     if (!nodeMap.has(from) || !nodeMap.has(to)) return;
 
-    const label = typeof rawEdge.label === "string" ? rawEdge.label.trim() : "";
+    const label = sanitizeSingleLineText(rawEdge.label, 160);
     const edgeKey = `${from}->${to}|${label}`;
     if (seenEdgeKeys.has(edgeKey)) return;
     seenEdgeKeys.add(edgeKey);
@@ -223,8 +240,8 @@ const normalizeConceptMapData = (input: unknown): ConceptMapData | null => {
   );
 
   const title =
-    typeof input.title === "string" && input.title.trim()
-      ? input.title.trim()
+    typeof input.title === "string" && sanitizeSingleLineText(input.title, 160)
+      ? sanitizeSingleLineText(input.title, 160)
       : rootNode.label || "Mapa mental";
 
   return {
@@ -330,7 +347,7 @@ const mapDbMessageToChatMessage = (
   const parsedAssistantContent =
     row.role === "assistant"
       ? parseAssistantContentFromStorage(row.content)
-      : { text: row.content, conceptMap: null };
+      : { text: sanitizeMultilineText(row.content, 4000), conceptMap: null };
 
   return {
     id: `db-${row.id}`,
@@ -346,7 +363,7 @@ const mapDbMessageToChatMessage = (
 };
 
 const AssistantIA = () => {
-  const { t, i18n } = useTranslation(["assistant"]);
+  const { t, i18n } = useTranslation(["assistant", "plans"]);
   const { toast } = useToast();
   const { user, isAuthReady, session } = useAuth();
   const queryClient = useQueryClient();
@@ -365,6 +382,7 @@ const AssistantIA = () => {
   const [conversationPendingDelete, setConversationPendingDelete] =
     useState<ConversationItem | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { data: planState } = useUserPlanStateQuery(user?.id);
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
   >(null);
@@ -384,6 +402,9 @@ const AssistantIA = () => {
   const [selectedConceptMapNodeId, setSelectedConceptMapNodeId] = useState<
     string | null
   >(null);
+  const [expandedConceptMapNodeIds, setExpandedConceptMapNodeIds] = useState<
+    string[]
+  >([]);
   const [mindMapView, setMindMapView] = useState<MindMapViewportState>({
     zoom: 1,
     offsetX: 0,
@@ -395,6 +416,7 @@ const AssistantIA = () => {
   const [isMindMapPanning, setIsMindMapPanning] = useState(false);
   const [isMindMapNodeDragging, setIsMindMapNodeDragging] = useState(false);
   const [isMindMapSpacePressed, setIsMindMapSpacePressed] = useState(false);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const mindMapViewportRef = useRef<HTMLDivElement | null>(null);
   const mindMapInteractionRef = useRef<
     | {
@@ -429,6 +451,11 @@ const AssistantIA = () => {
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const intlLocale = toIntlLocale(locale);
+  const currentPlanKey = getPlanKey({
+    code: planState?.plan_code,
+    tier: planState?.tier
+  });
+  const isCurrentPlanPaid = isPaidPlan(planState);
   const estadosEscrituraIA = useMemo(
     () => t("assistant:typingStates", { returnObjects: true }) as string[],
     [t]
@@ -473,7 +500,7 @@ const AssistantIA = () => {
 
   const truncateTitle = useCallback(
     (value: string, max = 42) => {
-      const clean = value.replace(/\s+/g, " ").trim();
+      const clean = sanitizeSingleLineText(value, max * 2);
       if (!clean) return t("assistant:newChat");
       return clean.length > max ? `${clean.slice(0, max)}...` : clean;
     },
@@ -632,7 +659,7 @@ const AssistantIA = () => {
       setDailyUsedRequests(nextUsed);
       queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
         day: String(row.day ?? ""),
-        is_paid: false,
+        is_paid: Boolean(planState?.is_paid),
         limit: nextLimit,
         remaining: nextRemaining,
         used: nextUsed
@@ -645,7 +672,7 @@ const AssistantIA = () => {
         remaining: nextRemaining
       };
     },
-    [queryClient, t, toast]
+    [planState?.is_paid, queryClient, t, toast]
   );
 
   const loadMessages = useCallback(
@@ -884,7 +911,8 @@ const AssistantIA = () => {
     const stringFields = ["message", "reply", "response", "text", "content"];
     for (const field of stringFields) {
       const value = data[field];
-      if (typeof value === "string" && value.trim()) return value.trim();
+      const sanitized = sanitizeMultilineText(value, 4000);
+      if (sanitized) return sanitized;
     }
 
     const choices = data.choices;
@@ -892,10 +920,14 @@ const AssistantIA = () => {
       const firstChoice = choices[0] as
         | { message?: { content?: unknown }; text?: unknown }
         | undefined;
-      if (typeof firstChoice?.message?.content === "string")
-        return firstChoice.message.content.trim();
+      const messageContent = sanitizeMultilineText(
+        firstChoice?.message?.content,
+        4000
+      );
+      if (messageContent) return messageContent;
 
-      if (typeof firstChoice?.text === "string") return firstChoice.text.trim();
+      const choiceText = sanitizeMultilineText(firstChoice?.text, 4000);
+      if (choiceText) return choiceText;
     }
 
     return "";
@@ -925,6 +957,7 @@ const AssistantIA = () => {
     const lines = content.split(/\r?\n/);
     const blocks: JSX.Element[] = [];
     let bulletItems: string[] = [];
+    let tableLines: string[] = [];
 
     const flushBulletItems = (lineIndex: number) => {
       if (bulletItems.length === 0) return;
@@ -950,13 +983,117 @@ const AssistantIA = () => {
       bulletItems = [];
     };
 
+    const isTableCandidateLine = (line: string) => {
+      if (!line.includes("|")) return false;
+      const rawCells = line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim());
+      return rawCells.length >= 2;
+    };
+
+    const parseTableCells = (line: string) =>
+      line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim());
+
+    const isMarkdownSeparatorRow = (row: string[]) =>
+      row.length > 0 &&
+      row.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
+
+    const flushTableLines = (lineIndex: number) => {
+      if (tableLines.length === 0) return;
+
+      const rows = tableLines
+        .map(parseTableCells)
+        .filter((row) => row.length > 0);
+      tableLines = [];
+      if (rows.length === 0) return;
+
+      const hasHeaderSeparator =
+        rows.length > 1 && isMarkdownSeparatorRow(rows[1]);
+      const headerRow = hasHeaderSeparator ? rows[0] : null;
+      const bodyRows = hasHeaderSeparator ? rows.slice(2) : rows;
+      const totalColumns = Math.max(
+        headerRow?.length ?? 0,
+        ...bodyRows.map((row) => row.length),
+        0
+      );
+
+      if (totalColumns === 0) return;
+
+      const normalizeRow = (row: string[]) =>
+        Array.from({ length: totalColumns }, (_, idx) => row[idx] ?? "");
+
+      blocks.push(
+        <div
+          key={`${keyPrefix}-table-wrap-${lineIndex}`}
+          className="overflow-x-auto rounded-lg border border-border/70"
+        >
+          <table className="min-w-full border-collapse text-sm">
+            {headerRow ? (
+              <thead className="bg-secondary/40">
+                <tr>
+                  {normalizeRow(headerRow).map((cell, cellIndex) => (
+                    <th
+                      key={`${keyPrefix}-th-${lineIndex}-${cellIndex}`}
+                      className="border-b border-border/70 px-3 py-2 text-left font-semibold"
+                    >
+                      {renderInlineMarkdown(
+                        cell,
+                        `${keyPrefix}-th-content-${lineIndex}-${cellIndex}`
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            ) : null}
+            <tbody>
+              {bodyRows.map((row, rowIndex) => (
+                <tr
+                  key={`${keyPrefix}-tr-${lineIndex}-${rowIndex}`}
+                  className="odd:bg-background even:bg-secondary/15"
+                >
+                  {normalizeRow(row).map((cell, cellIndex) => (
+                    <td
+                      key={`${keyPrefix}-td-${lineIndex}-${rowIndex}-${cellIndex}`}
+                      className="border-t border-border/60 px-3 py-2 align-top"
+                    >
+                      {renderInlineMarkdown(
+                        cell,
+                        `${keyPrefix}-td-content-${lineIndex}-${rowIndex}-${cellIndex}`
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    };
+
     lines.forEach((rawLine, lineIndex) => {
       const line = rawLine.trim();
 
       if (!line) {
         flushBulletItems(lineIndex);
+        flushTableLines(lineIndex);
         return;
       }
+
+      if (isTableCandidateLine(line)) {
+        flushBulletItems(lineIndex);
+        tableLines.push(line);
+        return;
+      }
+
+      flushTableLines(lineIndex);
 
       const bulletMatch = line.match(/^[-*]\s+(.+)$/);
       if (bulletMatch) {
@@ -1009,6 +1146,7 @@ const AssistantIA = () => {
     });
 
     flushBulletItems(lines.length + 1);
+    flushTableLines(lines.length + 1);
 
     if (blocks.length === 0) {
       return (
@@ -1301,11 +1439,61 @@ const AssistantIA = () => {
     return [];
   }, [conceptMapDialogData, conceptMapGraph]);
 
+  const expandedConceptMapNodeIdSet = useMemo(
+    () => new Set(expandedConceptMapNodeIds),
+    [expandedConceptMapNodeIds]
+  );
+
+  const visibleConceptMapNodeIdSet = useMemo(() => {
+    if (!conceptMapGraph || conceptMapRootNodeIds.length === 0)
+      return new Set<string>();
+
+    const visible = new Set<string>();
+    const queue = [...conceptMapRootNodeIds];
+
+    while (queue.length > 0) {
+      const nodeId = queue.shift();
+      if (!nodeId || visible.has(nodeId)) continue;
+      if (!conceptMapGraph.nodeById.has(nodeId)) continue;
+
+      visible.add(nodeId);
+      if (!expandedConceptMapNodeIdSet.has(nodeId)) continue;
+
+      (conceptMapGraph.childrenById.get(nodeId) ?? []).forEach((edge) => {
+        if (!visible.has(edge.to)) queue.push(edge.to);
+      });
+    }
+
+    return visible;
+  }, [conceptMapGraph, conceptMapRootNodeIds, expandedConceptMapNodeIdSet]);
+
+  const conceptMapChildCountByNodeId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!conceptMapGraph) return map;
+
+    conceptMapGraph.nodeById.forEach((_value, nodeId) => {
+      map.set(nodeId, (conceptMapGraph.childrenById.get(nodeId) ?? []).length);
+    });
+
+    return map;
+  }, [conceptMapGraph]);
+
+  const toggleMindMapNodeExpansion = useCallback((nodeId: string) => {
+    setExpandedConceptMapNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return Array.from(next);
+    });
+  }, []);
+
   const conceptMapLayout = useMemo(() => {
     if (!conceptMapDialogData || !conceptMapGraph) return null;
 
-    const validNodes = conceptMapDialogData.nodes.filter((node) =>
-      conceptMapGraph.nodeById.has(node.id)
+    const validNodes = conceptMapDialogData.nodes.filter(
+      (node) =>
+        conceptMapGraph.nodeById.has(node.id) &&
+        visibleConceptMapNodeIdSet.has(node.id)
     );
     if (validNodes.length === 0) return null;
 
@@ -1429,7 +1617,12 @@ const AssistantIA = () => {
       edges,
       nodeById: layoutNodes
     };
-  }, [conceptMapDialogData, conceptMapGraph, locale]);
+  }, [
+    conceptMapDialogData,
+    conceptMapGraph,
+    locale,
+    visibleConceptMapNodeIdSet
+  ]);
 
   const selectedMindMapRelatedNodeIds = useMemo(() => {
     const selectedNodeId = selectedConceptMapNodeId;
@@ -1504,14 +1697,20 @@ const AssistantIA = () => {
     const incomingNodes = new Set<string>();
     conceptMap.edges.forEach((edge) => incomingNodes.add(edge.to));
 
+    const rootNodeIds = conceptMap.nodes
+      .filter((node) => !incomingNodes.has(node.id))
+      .map((node) => node.id);
     const rootNode =
-      conceptMap.nodes.find((node) => !incomingNodes.has(node.id)) ??
+      conceptMap.nodes.find((node) => rootNodeIds.includes(node.id)) ??
       conceptMap.nodes.reduce((current, candidate) =>
         candidate.level < current.level ? candidate : current
       );
 
     setMindMapView({ zoom: 1, offsetX: 0, offsetY: 0 });
     setSelectedConceptMapNodeId(rootNode.id);
+    setExpandedConceptMapNodeIds(
+      rootNodeIds.length > 0 ? rootNodeIds : [rootNode.id]
+    );
     setConceptMapDialogMessageId(message.id);
   }, []);
 
@@ -1519,6 +1718,7 @@ const AssistantIA = () => {
     if (open) return;
     setConceptMapDialogMessageId(null);
     setSelectedConceptMapNodeId(null);
+    setExpandedConceptMapNodeIds([]);
     setMindMapView({ zoom: 1, offsetX: 0, offsetY: 0 });
     setMindMapNodePositions({});
     setIsMindMapPanning(false);
@@ -1537,6 +1737,7 @@ const AssistantIA = () => {
     if (!messageStillExists) {
       setConceptMapDialogMessageId(null);
       setSelectedConceptMapNodeId(null);
+      setExpandedConceptMapNodeIds([]);
       setMindMapView({ zoom: 1, offsetX: 0, offsetY: 0 });
       setMindMapNodePositions({});
     }
@@ -1551,14 +1752,26 @@ const AssistantIA = () => {
 
     if (
       !selectedConceptMapNodeId ||
-      !conceptMapGraph.nodeById.has(selectedConceptMapNodeId)
+      !conceptMapGraph.nodeById.has(selectedConceptMapNodeId) ||
+      !visibleConceptMapNodeIdSet.has(selectedConceptMapNodeId)
     )
       setSelectedConceptMapNodeId(fallbackNodeId);
   }, [
     conceptMapDialogData,
     conceptMapGraph,
     conceptMapRootNodeIds,
-    selectedConceptMapNodeId
+    selectedConceptMapNodeId,
+    visibleConceptMapNodeIdSet
+  ]);
+
+  useEffect(() => {
+    if (!conceptMapGraph || conceptMapRootNodeIds.length === 0) return;
+    if (expandedConceptMapNodeIds.length > 0) return;
+    setExpandedConceptMapNodeIds(conceptMapRootNodeIds);
+  }, [
+    conceptMapGraph,
+    conceptMapRootNodeIds,
+    expandedConceptMapNodeIds.length
   ]);
 
   const centerMindMapNode = useCallback(
@@ -1626,7 +1839,7 @@ const AssistantIA = () => {
   };
 
   const onMindMapNodePointerDown = (
-    e: PointerEvent<HTMLButtonElement>,
+    e: PointerEvent<HTMLDivElement>,
     nodeId: string
   ) => {
     if (e.button !== 0) return;
@@ -1853,10 +2066,15 @@ const AssistantIA = () => {
   const onSubmitChat = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const texto = inputChat.trim();
+    const texto = sanitizeMultilineText(inputChat, 4000);
     const shouldRequestMindMap = isMindMapEnabled;
     if (!texto || isSendingChat || !currentUserId) return;
     if (isDailyLimitReached) {
+      if (!isCurrentPlanPaid) {
+        setIsUpgradeDialogOpen(true);
+        return;
+      }
+
       toast({
         variant: "destructive",
         title: t("assistant:toasts.dailyLimitReachedTitle"),
@@ -1871,6 +2089,11 @@ const AssistantIA = () => {
     const quota = await consumeDailyQuota(currentUserId);
     if (!quota) return;
     if (!quota.allowed) {
+      if (!isCurrentPlanPaid) {
+        setIsUpgradeDialogOpen(true);
+        return;
+      }
+
       toast({
         variant: "destructive",
         title: t("assistant:toasts.dailyLimitReachedTitle"),
@@ -1974,21 +2197,20 @@ const AssistantIA = () => {
       if (!accessToken)
         throw new AuthSessionError("Sesion expirada. Vuelve a iniciar sesion.");
 
-      const response = await secureApiFetch(
-        "http://localhost:3001/api/gemini-chat",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-          },
-          body: JSON.stringify({
-            message: texto,
-            history,
-            ...(shouldRequestMindMap ? { mindMap: true } : {})
-          })
-        }
-      );
+      const response = await secureApiFetch(ASK_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          message: texto,
+          history,
+          debug: true,
+          ...(shouldRequestMindMap ? { mindMap: true } : {})
+        })
+      });
 
       const payload = await response.json().catch(() => ({}));
       const assistantText = extraerTextoRespuesta(payload);
@@ -2162,7 +2384,7 @@ const AssistantIA = () => {
                   }}
                   className={`group w-full rounded-xl border px-3 py-2.5 text-left transition-all ${
                     isActive
-                      ? "border-primary/50 bg-primary/10 text-foreground shadow-[0_10px_30px_-25px_rgba(255,119,0,0.95)]"
+                      ? "border-primary/50 bg-primary/10 text-foreground shadow-[0_10px_30px_-25px_hsl(var(--primary)/0.65)]"
                       : "border-border/80 bg-background/90 text-foreground hover:-translate-y-[1px] hover:border-primary/30 hover:bg-secondary"
                   } ${isSendingChat ? "cursor-default opacity-70" : "cursor-pointer"}`}
                 >
@@ -2267,6 +2489,14 @@ const AssistantIA = () => {
               <h1 className="text-2xl font-serif text-foreground [@media(max-height:760px)]:text-xl">
                 {t("assistant:header.title")}
               </h1>
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                <span>{t(`plans:plans.${currentPlanKey}.name`)}</span>
+                <span className="text-foreground/70">
+                  {t("assistant:header.planSummary", {
+                    limit: dailyRequestLimit || planState?.ai_daily_limit || 3
+                  })}
+                </span>
+              </div>
             </div>
 
             <div className="flex shrink-0 flex-col items-end">
@@ -2339,7 +2569,7 @@ const AssistantIA = () => {
                     className={`max-w-[88%] rounded-2xl p-3 ${
                       m.role === "assistant"
                         ? "border border-border/70 bg-background text-foreground shadow-sm"
-                        : "ml-auto bg-primary text-primary-foreground shadow-[0_12px_24px_-18px_rgba(255,119,0,0.95)]"
+                        : "ml-auto bg-primary text-primary-foreground shadow-[0_12px_24px_-18px_hsl(var(--primary)/0.65)]"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
@@ -2435,7 +2665,9 @@ const AssistantIA = () => {
             >
               <Textarea
                 value={inputChat}
-                onChange={(e) => setInputChat(e.target.value)}
+                onChange={(e) =>
+                  setInputChat(sanitizeMultilineText(e.target.value, 4000))
+                }
                 onKeyDown={onInputChatKeyDown}
                 placeholder={
                   isDailyLimitReached
@@ -2495,7 +2727,19 @@ const AssistantIA = () => {
 
                 <div className="ml-auto flex items-center gap-2">
                   {isDailyLimitReached && (
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-destructive" />
+                      {!isCurrentPlanPaid && (
+                        <CustomButton
+                          type="button"
+                          styleType="ghost"
+                          size="sm"
+                          onClick={() => setIsUpgradeDialogOpen(true)}
+                        >
+                          {t("assistant:input.upgrade")}
+                        </CustomButton>
+                      )}
+                    </>
                   )}
                   <CustomButton
                     type="submit"
@@ -2519,6 +2763,15 @@ const AssistantIA = () => {
           </form>
         </div>
       </section>
+
+      <PlanUpgradeDialog
+        open={isUpgradeDialogOpen}
+        onOpenChange={setIsUpgradeDialogOpen}
+        feature="assistant"
+        currentPlanName={t(`plans:plans.${currentPlanKey}.name`)}
+        currentLimit={planState?.ai_daily_limit ?? dailyRequestLimit ?? 3}
+        targetLimit={20}
+      />
 
       <Dialog
         open={isConceptMapDialogOpen}
@@ -2663,6 +2916,12 @@ const AssistantIA = () => {
                         const isRelated =
                           !isSelected &&
                           selectedMindMapRelatedNodeIds.has(node.id);
+                        const childrenCount =
+                          conceptMapChildCountByNodeId.get(node.id) ?? 0;
+                        const hasChildren = childrenCount > 0;
+                        const isExpanded = expandedConceptMapNodeIdSet.has(
+                          node.id
+                        );
                         const nodeToneClass =
                           node.level === 0
                             ? "border-primary/45 bg-primary/12 text-foreground"
@@ -2671,9 +2930,8 @@ const AssistantIA = () => {
                               : "border-border/70 bg-background/85 text-foreground";
 
                         return (
-                          <button
+                          <div
                             key={node.id}
-                            type="button"
                             onPointerDown={(e) =>
                               onMindMapNodePointerDown(e, node.id)
                             }
@@ -2695,10 +2953,53 @@ const AssistantIA = () => {
                               height: `${node.height}px`
                             }}
                           >
-                            <span className="line-clamp-2 text-[12px] font-semibold leading-snug">
+                            <span className="line-clamp-2 pr-7 text-[12px] font-semibold leading-snug">
                               {node.label}
                             </span>
-                          </button>
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onPointerDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleMindMapNodeExpansion(node.id);
+                                }}
+                                className={`absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-md border text-[10px] transition ${
+                                  isExpanded
+                                    ? "border-primary/45 bg-primary/15 text-primary"
+                                    : "border-border/70 bg-background/85 text-muted-foreground"
+                                }`}
+                                aria-label={
+                                  isExpanded
+                                    ? t("assistant:chat.collapseBranch", {
+                                        defaultValue: "Ocultar siguiente nivel"
+                                      })
+                                    : t("assistant:chat.expandBranch", {
+                                        defaultValue: "Mostrar siguiente nivel"
+                                      })
+                                }
+                                title={
+                                  isExpanded
+                                    ? t("assistant:chat.collapseBranch", {
+                                        defaultValue: "Ocultar siguiente nivel"
+                                      })
+                                    : t("assistant:chat.expandBranch", {
+                                        defaultValue: "Mostrar siguiente nivel"
+                                      })
+                                }
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </button>
+                            ) : null}
+                          </div>
                         );
                       })}
                     </div>

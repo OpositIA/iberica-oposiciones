@@ -22,7 +22,7 @@
     "dailyLimitReached": "You reached your daily AI request limit. Come back tomorrow.",
     "assistantResponseFailed": "Unable to get assistant response.",
     "invalidSession": "Expired or invalid session. Please sign in again.",
-    "connection": "Connection error with endpoint http://localhost:3001/api/gemini-chat",
+    "connection": "Connection error with endpoint https://hxvckhyxfmfvdipahobv.supabase.co/functions/v1/ask",
     "responseFormat": "I could not parse the server response. Check endpoint format.",
     "prefix": "Error: {{message}}"
   },
@@ -39,7 +39,8 @@
     "dailyLimit": "Daily limit",
     "checkingUsage": "Checking today's requests...",
     "limitReached": "You reached the daily limit. Come back tomorrow.",
-    "remaining": "You have {{count}} requests left today."
+    "remaining": "You have {{count}} requests left today.",
+    "planSummary": "{{limit}} AI requests per day with your current plan."
   },
   "chat": {
     "loadingConversation": "Loading conversation...",
@@ -50,7 +51,7 @@
     "writing": "Typing",
     "conceptMapResponse": "I prepared the mind map: {{title}}",
     "conceptMapReady": "Mind map ready to explore.",
-    "conceptMapStats": "{{nodes}} nodes \u00b7 {{edges}} key connections",
+    "conceptMapStats": "{{nodes}} nodes · {{edges}} key connections",
     "viewConceptMap": "View mind map",
     "conceptMapGeneratingTitle": "Generating mind map",
     "conceptMapGeneratingDescription": "I am organizing key nodes and connections so you can explore them in an interactive diagram.",
@@ -73,6 +74,7 @@
     "quickActions": "Quick actions",
     "mindMap": "Mind map",
     "send": "Send",
-    "waiting": "Waiting..."
+    "waiting": "Waiting...",
+    "upgrade": "Upgrade to Pro"
   }
 }

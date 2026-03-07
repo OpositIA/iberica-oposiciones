@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as RechartsPrimitive from "recharts";
 
+import { sanitizeSingleLineText } from "@/lib/inputSanitization";
 import { cn } from "@/lib/utils";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -22,6 +23,19 @@ type ChartContextProps = {
 
 const ChartContext = React.createContext<ChartContextProps | null>(null);
 
+const sanitizeChartToken = (value: string) =>
+  sanitizeSingleLineText(value, 80).replace(/[^A-Za-z0-9_-]/g, "");
+
+const sanitizeChartColor = (value: string | undefined) => {
+  const sanitized = sanitizeSingleLineText(value, 64);
+  if (!sanitized) return "";
+  return /^(#[0-9a-fA-F]{3,8}|(?:rgb|hsl)a?\([^)]+\)|var\(--[A-Za-z0-9_-]+\))$/.test(
+    sanitized
+  )
+    ? sanitized
+    : "";
+};
+
 function useChart() {
   const context = React.useContext(ChartContext);
 
@@ -41,7 +55,8 @@ const ChartContainer = React.forwardRef<
   }
 >(({ id, className, children, config, ...props }, ref) => {
   const uniqueId = React.useId();
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`;
+  const safeToken = sanitizeChartToken(id || uniqueId.replace(/:/g, ""));
+  const chartId = `chart-${safeToken || uniqueId.replace(/:/g, "")}`;
 
   return (
     <ChartContext.Provider value={{ config }}>
@@ -78,12 +93,14 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
           .map(
             ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
-${colorConfig
+                ${colorConfig
   .map(([key, itemConfig]) => {
-    const color =
+    const color = sanitizeChartColor(
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+        itemConfig.color
+    );
+    const token = sanitizeChartToken(key);
+    return color && token ? `  --color-${token}: ${color};` : null;
   })
   .join("\n")}
 }
