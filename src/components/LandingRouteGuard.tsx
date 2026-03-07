@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
@@ -9,9 +10,10 @@ type LandingRouteGuardProps = {
 
 const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
   const { t } = useTranslation("common");
-  const { isAuthReady, isAuthenticated } = useAuth();
+  const { isAuthReady, isAuthenticated, user } = useAuth();
+  const { data: planState, isLoading } = useUserPlanStateQuery(user?.id);
 
-  if (!isAuthReady) {
+  if (!isAuthReady || (isAuthenticated && isLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-sm text-muted-foreground">
@@ -21,7 +23,10 @@ const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
     );
   }
 
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated)
+    {return (
+      <Navigate to={planState ? "/dashboard" : "/seleccion-plan"} replace />
+    );}
 
   return <>{children}</>;
 };

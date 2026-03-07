@@ -1,0 +1,266 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { sanitizeCode } from "@/lib/inputSanitization";
+import { useQuery } from "@tanstack/react-query";
+
+const SUBSCRIPTION_QUERY_STALE_MS = 60 * 1000;
+const SUBSCRIPTION_QUERY_GC_MS = 15 * 60 * 1000;
+const FALLBACK_TIMEZONE = "Europe/Madrid";
+
+const resolveTimezone = () => {
+  if (typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function")
+    return FALLBACK_TIMEZONE;
+
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return typeof timezone === "string" && timezone.trim().length > 0
+    ? timezone
+    : FALLBACK_TIMEZONE;
+};
+
+const normalizeInt = (value: unknown, fallback = 0) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : fallback;
+
+export const subscriptionQueryConfig = {
+  staleTime: SUBSCRIPTION_QUERY_STALE_MS,
+  gcTime: SUBSCRIPTION_QUERY_GC_MS
+};
+
+export const subscriptionQueryKeys = {
+  publicPlans: ["subscriptions", "public-plans"] as const,
+  userPlan: (userId: string) => ["subscriptions", "user-plan", userId] as const
+};
+
+export type PublicSubscriptionPlanRow = Pick<
+  Tables<"subscription_plans">,
+  | "code"
+  | "name"
+  | "tier"
+  | "billing_interval"
+  | "price_cents"
+  | "currency"
+  | "description"
+  | "ai_daily_limit"
+  | "quick_test_question_limit"
+  | "sort_order"
+>;
+
+export type UserPlanStateRow = {
+  plan_code: string;
+  plan_name: string;
+  tier: string;
+  billing_interval: string;
+  subscription_status: string;
+  is_paid: boolean;
+  ai_daily_limit: number;
+  quick_test_question_limit: number;
+  ai_used: number;
+  ai_remaining: number;
+  day: string;
+  price_cents: number;
+  effective_price_cents: number;
+  currency: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  discount_code: string | null;
+  discount_percent: number | null;
+  discount_ends_at: string | null;
+};
+
+type CheckoutSessionResponse = {
+  checkout_url?: string;
+  session_id?: string;
+  error?: string;
+};
+
+const normalizePlanStateRow = (row: Record<string, unknown>): UserPlanStateRow => ({
+  plan_code: sanitizeCode(row.plan_code, 60) || "free-monthly",
+  plan_name:
+    typeof row.plan_name === "string" && row.plan_name.trim().length > 0
+      ? row.plan_name.trim()
+      : "Gratis",
+  tier:
+    typeof row.tier === "string" && row.tier.trim().length > 0
+      ? row.tier.trim()
+      : "free",
+  billing_interval:
+    typeof row.billing_interval === "string" &&
+    row.billing_interval.trim().length > 0
+      ? row.billing_interval.trim()
+      : "monthly",
+  subscription_status:
+    typeof row.subscription_status === "string" &&
+    row.subscription_status.trim().length > 0
+      ? row.subscription_status.trim()
+      : "active",
+  is_paid: Boolean(row.is_paid),
+  ai_daily_limit: normalizeInt(row.ai_daily_limit, 3),
+  quick_test_question_limit: normalizeInt(row.quick_test_question_limit, 20),
+  ai_used: normalizeInt(row.ai_used, 0),
+  ai_remaining: normalizeInt(row.ai_remaining, 0),
+  day:
+    typeof row.day === "string" && row.day.trim().length > 0
+      ? row.day.trim()
+      : "",
+  price_cents: normalizeInt(row.price_cents, 0),
+  effective_price_cents: normalizeInt(
+    row.effective_price_cents,
+    normalizeInt(row.price_cents, 0)
+  ),
+  currency:
+    typeof row.currency === "string" && row.currency.trim().length > 0
+      ? row.currency.trim()
+      : "EUR",
+  current_period_end:
+    typeof row.current_period_end === "string" &&
+    row.current_period_end.trim().length > 0
+      ? row.current_period_end.trim()
+      : null,
+  cancel_at_period_end: Boolean(row.cancel_at_period_end),
+  discount_code:
+    typeof row.discount_code === "string" && row.discount_code.trim().length > 0
+      ? row.discount_code.trim()
+      : null,
+  discount_percent:
+    typeof row.discount_percent === "number" &&
+    Number.isFinite(row.discount_percent)
+      ? Math.max(0, Math.floor(row.discount_percent))
+      : null,
+  discount_ends_at:
+    typeof row.discount_ends_at === "string" &&
+    row.discount_ends_at.trim().length > 0
+      ? row.discount_ends_at.trim()
+      : null
+});
+
+export const fetchPublicSubscriptionPlans = async (): Promise<
+  PublicSubscriptionPlanRow[]
+> => {
+  const { data, error } = await supabase
+    .from("subscription_plans")
+    .select(
+      "code, name, tier, billing_interval, price_cents, currency, description, ai_daily_limit, quick_test_question_limit, sort_order"
+    )
+    .eq("is_active", true)
+    .eq("is_public", true)
+    .order("sort_order", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as PublicSubscriptionPlanRow[];
+};
+
+export const fetchUserPlanState = async (
+  userId: string,
+  timezone = resolveTimezone()
+): Promise<UserPlanStateRow | null> => {
+  const { data, error } = await supabase.rpc("get_user_plan_state", {
+    p_user_id: userId,
+    p_tz: timezone
+  });
+
+  if (error) throw error;
+  const row = data?.[0];
+  if (!row || typeof row !== "object") return null;
+  return normalizePlanStateRow(row as Record<string, unknown>);
+};
+
+export const changeUserSubscriptionPlan = async (
+  planCode: string,
+  timezone = resolveTimezone()
+): Promise<UserPlanStateRow> => {
+  const { data, error } = await supabase.rpc("change_user_subscription_plan", {
+    p_plan_code: sanitizeCode(planCode, 60),
+    p_tz: timezone
+  });
+
+  if (error) throw error;
+  const row = data?.[0];
+  if (!row || typeof row !== "object")
+    throw new Error("No se pudo cambiar el plan.");
+  return normalizePlanStateRow(row as Record<string, unknown>);
+};
+
+export const applyUserDiscountCode = async (
+  code: string,
+  timezone = resolveTimezone()
+): Promise<UserPlanStateRow> => {
+  const { data, error } = await supabase.rpc("apply_discount_code", {
+    p_code: sanitizeCode(code, 80),
+    p_tz: timezone
+  });
+
+  if (error) throw error;
+  const row = data?.[0];
+  if (!row || typeof row !== "object")
+    throw new Error("No se pudo aplicar el codigo de descuento.");
+  return normalizePlanStateRow(row as Record<string, unknown>);
+};
+
+export const createStripeCheckoutSession = async ({
+  planCode,
+  source
+}: {
+  planCode: string;
+  source: "app_plans" | "plan_selection";
+}): Promise<{ checkoutUrl: string; sessionId: string }> => {
+  const { data, error } = await supabase.functions.invoke<CheckoutSessionResponse>(
+    "create-checkout-session",
+    {
+      body: {
+        plan_code: sanitizeCode(planCode, 60),
+        source: sanitizeCode(source, 60)
+      }
+    }
+  );
+
+  if (error) {
+    let message = "No se pudo iniciar la pasarela de pago.";
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const parsed = (await context.json()) as { error?: unknown };
+        if (typeof parsed?.error === "string" && parsed.error.trim().length > 0)
+          message = parsed.error.trim();
+      } catch {
+        message = error.message || message;
+      }
+    } else if (error.message) {
+      message = error.message;
+    }
+
+    throw new Error(message);
+  }
+
+  const checkoutUrl =
+    typeof data?.checkout_url === "string" ? data.checkout_url.trim() : "";
+  const sessionId = typeof data?.session_id === "string" ? data.session_id.trim() : "";
+
+  if (!checkoutUrl)
+    throw new Error("La pasarela de pago no devolvio una URL valida.");
+
+  return {
+    checkoutUrl,
+    sessionId
+  };
+};
+
+export const usePublicSubscriptionPlansQuery = () =>
+  useQuery({
+    queryKey: subscriptionQueryKeys.publicPlans,
+    queryFn: fetchPublicSubscriptionPlans,
+    ...subscriptionQueryConfig
+  });
+
+export const useUserPlanStateQuery = (
+  userId: string | null | undefined,
+  timezone?: string
+) =>
+  useQuery({
+    queryKey: userId
+      ? subscriptionQueryKeys.userPlan(userId)
+      : ["subscriptions", "user-plan", "guest"],
+    queryFn: () => fetchUserPlanState(userId as string, timezone),
+    enabled: Boolean(userId),
+    ...subscriptionQueryConfig
+  });

@@ -5,6 +5,10 @@ import {
   clearSupabaseAuthStorage,
   resetAuthFailureGuard
 } from "@/lib/secureFetch";
+import {
+  sanitizeSingleLineText,
+  sanitizeUrl
+} from "@/lib/inputSanitization";
 import { isSessionExpired } from "@/lib/session";
 import { runSingleFlight } from "@/lib/singleFlight";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
@@ -47,17 +51,6 @@ const authLog = (...args: unknown[]) => {
   if (!isDev) return;
 };
 
-const sanitizeString = (value: unknown) =>
-  typeof value === "string" ? value.trim() : "";
-
-const sanitizeAvatarForRender = (value: string) => {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const lower = trimmed.toLowerCase();
-  if (lower.startsWith("data:") || lower.startsWith("blob:")) return "";
-  return trimmed;
-};
-
 const buildProfileSnapshot = (
   data:
     | {
@@ -71,10 +64,10 @@ const buildProfileSnapshot = (
   authUser: User
 ): UserProfileSnapshot => {
   return {
-    firstName: sanitizeString(data?.first_name),
-    lastName: sanitizeString(data?.last_name),
-    email: sanitizeString(data?.email ?? authUser.email),
-    avatarUrl: sanitizeAvatarForRender(sanitizeString(data?.avatar_url))
+    firstName: sanitizeSingleLineText(data?.first_name, 80),
+    lastName: sanitizeSingleLineText(data?.last_name, 120),
+    email: sanitizeSingleLineText(data?.email ?? authUser.email, 254),
+    avatarUrl: sanitizeUrl(data?.avatar_url)
   };
 };
 
@@ -271,20 +264,40 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           if (!isMounted) return;
           setSession(nextSession);
           setUser(nextSession.user ?? null);
+          setProfile(buildProfileSnapshot(null, nextSession.user));
           resetAuthFailureGuard();
+          setIsAuthReady(true);
+          hydratedSessionFingerprintRef.current = fingerprint;
 
-          const [loadedLocale, loadedProfile] = await Promise.all([
-            loadUserLocale(nextSession.user.id),
-            loadUserProfile(nextSession.user)
-          ]);
+          let loadedLocale = DEFAULT_LOCALE;
+          let loadedProfile = buildProfileSnapshot(null, nextSession.user);
+          try {
+            const [resolvedLocale, resolvedProfile] = await Promise.all([
+              loadUserLocale(nextSession.user.id),
+              loadUserProfile(nextSession.user)
+            ]);
+            loadedLocale = resolvedLocale;
+            loadedProfile = resolvedProfile;
+          } catch (error) {
+            authLog("No se pudo hidratar locale/profile tras sesion valida", {
+              userId: nextSession.user.id,
+              error
+            });
+          }
+
           if (!isMounted) return;
 
           setProfile(loadedProfile);
-          await applyLocale(loadedLocale);
+          try {
+            await applyLocale(loadedLocale);
+          } catch (error) {
+            authLog("No se pudo aplicar locale tras sesion valida", {
+              userId: nextSession.user.id,
+              locale: loadedLocale,
+              error
+            });
+          }
           if (!isMounted) return;
-
-          setIsAuthReady(true);
-          hydratedSessionFingerprintRef.current = fingerprint;
         },
         { reuseResultForMs: 1500 }
       );

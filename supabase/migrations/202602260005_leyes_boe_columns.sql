@@ -1,0 +1,4 @@
+ALTER TABLE leyes_boe
+ADD COLUMN IF NOT EXISTS eli TEXT,
+ADD COLUMN IF NOT EXISTS fecha_vigencia DATE,
+ADD COLUMN IF NOT EXISTS fecha_publicacion DATE;

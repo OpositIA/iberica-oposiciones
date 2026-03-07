@@ -1,6 +1,6 @@
 {
   "typingStates": [
-    "Buscando información relevante...",
+    "Buscando informacion relevante...",
     "Organizando el contenido por bloques...",
     "Redactando una respuesta clara...",
     "Comprobando detalles finales..."
@@ -9,20 +9,20 @@
   "toasts": {
     "loadHistoryFailedTitle": "No se pudo cargar el historial",
     "createChatFailedTitle": "No se pudo crear el chat",
-    "createChatFailedDescription": "Error inesperado al crear una conversación.",
-    "validateDailyLimitFailedTitle": "No se pudo validar el límite diario",
+    "createChatFailedDescription": "Error inesperado al crear una conversacion.",
+    "validateDailyLimitFailedTitle": "No se pudo validar el limite diario",
     "validateDailyLimitFailedDescription": "No se pudo comprobar la cuota de IA.",
-    "loadConversationFailedTitle": "No se pudo cargar la conversación",
-    "dailyLimitReachedTitle": "Límite diario alcanzado",
+    "loadConversationFailedTitle": "No se pudo cargar la conversacion",
+    "dailyLimitReachedTitle": "Limite diario alcanzado",
     "dailyLimitReachedDescription": "Ya has usado {{used}}/{{limit}} peticiones hoy."
   },
   "errors": {
     "saveUserMessageFailed": "No se pudo guardar tu mensaje: {{message}}",
     "saveAssistantMessageFailed": "No se pudo guardar la respuesta de la IA: {{message}}",
-    "dailyLimitReached": "Has alcanzado tu límite diario de peticiones IA. Vuelve mañana.",
+    "dailyLimitReached": "Has alcanzado tu limite diario de peticiones IA. Vuelve manana.",
     "assistantResponseFailed": "No se pudo obtener respuesta del asistente.",
-    "invalidSession": "Sesión expirada o inválida. Debes iniciar sesión de nuevo.",
-    "connection": "Error de conexión con el endpoint http://localhost:3001/api/gemini-chat",
+    "invalidSession": "Sesion expirada o invalida. Debes iniciar sesion de nuevo.",
+    "connection": "Error de conexion con el endpoint https://hxvckhyxfmfvdipahobv.supabase.co/functions/v1/ask",
     "responseFormat": "No he podido interpretar la respuesta del servidor. Revisa el formato del endpoint.",
     "prefix": "Error: {{message}}"
   },
@@ -30,27 +30,28 @@
     "history": "Historial",
     "conversations": "Tus conversaciones",
     "loadingChats": "Cargando chats...",
-    "emptyChats": "No hay conversaciones todavía.",
+    "emptyChats": "No hay conversaciones todavia.",
     "newChat": "Nuevo chat"
   },
   "header": {
     "badge": "Chat IA",
     "title": "Asistente de estudio",
-    "dailyLimit": "Límite diario",
+    "dailyLimit": "Limite diario",
     "checkingUsage": "Comprobando peticiones de hoy...",
-    "limitReached": "Has alcanzado el límite diario. Vuelve mañana.",
-    "remaining": "Te quedan {{count}} peticiones hoy."
+    "limitReached": "Has alcanzado el limite diario. Vuelve manana.",
+    "remaining": "Te quedan {{count}} peticiones hoy.",
+    "planSummary": "Acceso IA disponible segun tu plan actual."
   },
   "chat": {
-    "loadingConversation": "Cargando conversación...",
-    "emptyTitle": "¿En qué podemos ayudarte hoy?",
-    "emptyDescription": "Pide un plan de estudio, un repaso rápido o ayuda para un tema concreto.",
+    "loadingConversation": "Cargando conversacion...",
+    "emptyTitle": "En que podemos ayudarte hoy?",
+    "emptyDescription": "Pide un plan de estudio, un repaso rapido o ayuda para un tema concreto.",
     "assistantLabel": "IA",
-    "userLabel": "Tú",
+    "userLabel": "Tu",
     "writing": "Escribiendo",
     "conceptMapResponse": "He preparado el mapa mental: {{title}}",
     "conceptMapReady": "Mapa mental listo para explorar.",
-    "conceptMapStats": "{{nodes}} nodos \u00b7 {{edges}} conexiones principales",
+    "conceptMapStats": "{{nodes}} nodos · {{edges}} conexiones principales",
     "viewConceptMap": "Ver mapa mental",
     "conceptMapGeneratingTitle": "Generando mapa mental",
     "conceptMapGeneratingDescription": "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo.",
@@ -68,11 +69,12 @@
     "selectNodeHint": "Selecciona un nodo del arbol para ver sus detalles."
   },
   "input": {
-    "placeholderLimitReached": "Límite diario alcanzado. Vuelve mañana.",
+    "placeholderLimitReached": "Limite diario alcanzado. Vuelve manana.",
     "placeholder": "Escribe tu pregunta para la IA...",
     "quickActions": "Acciones rapidas",
     "mindMap": "Mapa mental",
     "send": "Enviar",
-    "waiting": "Esperando..."
+    "waiting": "Esperando...",
+    "upgrade": "Subir a Pro"
   }
 }

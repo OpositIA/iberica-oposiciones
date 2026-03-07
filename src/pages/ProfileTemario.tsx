@@ -6,15 +6,20 @@ import {
   AccordionTrigger
 } from "@/components/ui/accordion";
 import { type Oposicion } from "@/data/oposicionesDb";
+import CustomButton from "@/components/ui/custom-button";
+import { isPaidPlan } from "@/lib/plans";
 import { usePreferredOppositionQuery } from "@/queries/profileQueries";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 const DEFAULT_OPOSICION: Oposicion = {
   id: "",
   nombre: "Oposicion",
   cuerpo: "",
+  temarioContenido: null,
   temas: [],
   temasDetalle: []
 };
@@ -29,6 +34,8 @@ const ProfileTemario = () => {
       userId: shouldLoadOpposition ? user?.id : null,
       locale: i18n.resolvedLanguage
     });
+  const { data: planState } = useUserPlanStateQuery(user?.id);
+  const isCurrentPlanPaid = isPaidPlan(planState);
 
   const oposicionActiva = preferredOpposition ?? DEFAULT_OPOSICION;
   const isLoadingOpposition =
@@ -41,6 +48,8 @@ const ProfileTemario = () => {
     return oposicionActiva.temas.map((tema, index) => ({
       code: `topic-${index + 1}`,
       title: tema,
+      displayTitle: tema,
+      sectionTitle: null,
       subtopics: []
     }));
   }, [oposicionActiva.temas, oposicionActiva.temasDetalle]);
@@ -79,17 +88,23 @@ const ProfileTemario = () => {
 
         {temasDetalle.length > 0 ? (
           <Accordion type="single" collapsible className="w-full space-y-2">
-            {temasDetalle.map((tema, index) => (
+            {temasDetalle.map((tema) => (
               <AccordionItem
                 key={tema.code}
                 value={tema.code}
                 className="rounded-lg border border-border bg-secondary/25 px-3"
               >
                 <AccordionTrigger className="text-left text-sm hover:no-underline">
-                  {t("syllabus.topicItem", {
-                    index: index + 1,
-                    topic: tema.title
-                  })}
+                  <span className="pr-4">
+                    <span className="font-semibold text-foreground">
+                      {tema.title}
+                    </span>
+                    {tema.sectionTitle ? (
+                      <span className="text-muted-foreground">
+                        {`. ${tema.sectionTitle}`}
+                      </span>
+                    ) : null}
+                  </span>
                 </AccordionTrigger>
                 <AccordionContent>
                   {tema.subtopics.length > 0 ? (
@@ -120,6 +135,39 @@ const ProfileTemario = () => {
             {t("syllabus.noTopics", {
               defaultValue: "Esta oposicion todavia no tiene temas cargados."
             })}
+          </div>
+        )}
+      </section>
+
+      <section className="border border-border bg-background p-5 md:p-6">
+        <div className="mb-3 flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-primary" />
+          <h3 className="text-lg font-serif text-foreground">
+            {t("syllabus.contentTitle")}
+          </h3>
+        </div>
+
+        {isCurrentPlanPaid ? (
+          oposicionActiva.temarioContenido ? (
+            <article className="rounded-xl border border-border/70 bg-secondary/15 p-4 text-sm leading-relaxed text-foreground whitespace-pre-line">
+              {oposicionActiva.temarioContenido}
+            </article>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("syllabus.noContent")}
+            </p>
+          )
+        ) : (
+          <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4">
+            <p className="text-sm font-semibold text-foreground">
+              {t("syllabus.contentLockedTitle")}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("syllabus.contentLockedDescription")}
+            </p>
+            <CustomButton asChild className="mt-4">
+              <Link to="/perfil/planes">{t("syllabus.contentLockedCta")}</Link>
+            </CustomButton>
           </div>
         )}
       </section>

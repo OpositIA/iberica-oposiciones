@@ -11,6 +11,10 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  containsUnsafeControlChars,
+  sanitizeEmail
+} from "@/lib/inputSanitization";
 import { isSessionExpired } from "@/lib/session";
 import { runSingleFlight } from "@/lib/singleFlight";
 import { FormEvent, useEffect, useState } from "react";
@@ -111,7 +115,7 @@ const Login = () => {
   };
 
   const openForgotPasswordModal = () => {
-    setForgotPasswordEmail(email.trim());
+    setForgotPasswordEmail(sanitizeEmail(email));
     setForgotPasswordMessage(null);
     setIsForgotPasswordOpen(true);
   };
@@ -123,7 +127,7 @@ const Login = () => {
 
   const handleForgotPasswordSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const trimmedEmail = forgotPasswordEmail.trim();
+    const trimmedEmail = sanitizeEmail(forgotPasswordEmail);
 
     if (!trimmedEmail) {
       setForgotPasswordMessage({
@@ -176,8 +180,17 @@ const Login = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const normalizedEmail = sanitizeEmail(email);
 
-    if (!email.trim() || !password) {
+    if (!normalizedEmail || !password) {
+      toast({
+        variant: "destructive",
+        title: t("auth:login.errors.incompleteCredentialsTitle"),
+        description: t("auth:login.errors.incompleteCredentialsDescription")
+      });
+      return;
+    }
+    if (containsUnsafeControlChars(password)) {
       toast({
         variant: "destructive",
         title: t("auth:login.errors.incompleteCredentialsTitle"),
@@ -189,7 +202,7 @@ const Login = () => {
     setIsLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password
     });
 

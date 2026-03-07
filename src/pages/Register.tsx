@@ -10,9 +10,17 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  containsUnsafeControlChars,
+  sanitizeCode,
+  sanitizeEmail,
+  sanitizeInteger,
+  sanitizeMultilineText,
+  sanitizeSingleLineText
+} from "@/lib/inputSanitization";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 type RegisterForm = {
   name: string;
@@ -46,12 +54,42 @@ const initialForm: RegisterForm = {
   acceptedTerms: false
 };
 
+const sanitizeRegisterForm = (form: RegisterForm): RegisterForm => ({
+  ...form,
+  name: sanitizeSingleLineText(form.name, 80),
+  lastName: sanitizeSingleLineText(form.lastName, 120),
+  email: sanitizeEmail(form.email),
+  age:
+    sanitizeInteger(form.age, { min: 16, max: 75 })?.toString() ??
+    sanitizeSingleLineText(form.age, 3),
+  preferredOpposition: sanitizeCode(form.preferredOpposition, 120),
+  yearsPreparing:
+    sanitizeInteger(form.yearsPreparing, { min: 0, max: 40 })?.toString() ??
+    sanitizeSingleLineText(form.yearsPreparing, 2),
+  weeklyTargetHours:
+    sanitizeInteger(form.weeklyTargetHours, {
+      min: 1,
+      max: 80,
+      fallback: 16
+    })?.toString() ?? "16",
+  testsPerWeek:
+    sanitizeInteger(form.testsPerWeek, { min: 1, max: 14 })?.toString() ??
+    sanitizeSingleLineText(form.testsPerWeek, 2),
+  mainChallenge: sanitizeMultilineText(form.mainChallenge, 600),
+  password: form.password,
+  confirmPassword: form.confirmPassword
+});
+
 const Register = () => {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation(["auth", "common"]);
+  const [searchParams] = useSearchParams();
+  const { t, i18n } = useTranslation(["auth", "common", "plans"]);
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const requestedPlanCode = useMemo(() => {
+    return sanitizeCode(searchParams.get("plan"), 60);
+  }, [searchParams]);
   const [form, setForm] = useState<RegisterForm>(initialForm);
   const [oppositionOptions, setOppositionOptions] = useState<
     OppositionOption[]
@@ -89,30 +127,36 @@ const Register = () => {
   );
 
   const validateStep = (targetStep: number): string | null => {
-    const isEmailValid = /\S+@\S+\.\S+/.test(form.email);
-    const age = Number(form.age);
-    const yearsPreparing = Number(form.yearsPreparing);
-    const weeklyTargetHours = Number(form.weeklyTargetHours);
-    const testsPerWeek = Number(form.testsPerWeek);
+    const sanitizedForm = sanitizeRegisterForm(form);
+    const isEmailValid = /\S+@\S+\.\S+/.test(sanitizedForm.email);
+    const age = Number(sanitizedForm.age);
+    const yearsPreparing = Number(sanitizedForm.yearsPreparing);
+    const weeklyTargetHours = Number(sanitizedForm.weeklyTargetHours);
+    const testsPerWeek = Number(sanitizedForm.testsPerWeek);
 
     if (targetStep === 1) {
-      if (!form.name.trim() || !form.lastName.trim())
+      if (!sanitizedForm.name || !sanitizedForm.lastName)
         return t("auth:register.validation.nameRequired");
       if (!isEmailValid) return t("auth:register.validation.invalidEmail");
-      if (form.password.length < 8)
+      if (
+        containsUnsafeControlChars(sanitizedForm.password) ||
+        containsUnsafeControlChars(sanitizedForm.confirmPassword)
+      )
         return t("auth:register.validation.passwordLength");
-      if (form.password !== form.confirmPassword)
+      if (sanitizedForm.password.length < 8)
+        return t("auth:register.validation.passwordLength");
+      if (sanitizedForm.password !== sanitizedForm.confirmPassword)
         return t("auth:register.validation.passwordMatch");
     }
 
     if (targetStep === 2) {
-      if (!form.age || Number.isNaN(age) || age < 16 || age > 75)
+      if (!sanitizedForm.age || Number.isNaN(age) || age < 16 || age > 75)
         return t("auth:register.validation.invalidAge");
 
-      if (!form.preferredOpposition)
+      if (!sanitizedForm.preferredOpposition)
         return t("auth:register.validation.preferredOppositionRequired");
       if (
-        !form.yearsPreparing ||
+        !sanitizedForm.yearsPreparing ||
         Number.isNaN(yearsPreparing) ||
         yearsPreparing < 0 ||
         yearsPreparing > 40
@@ -122,7 +166,7 @@ const Register = () => {
 
     if (targetStep === 3) {
       if (
-        !form.weeklyTargetHours ||
+        !sanitizedForm.weeklyTargetHours ||
         Number.isNaN(weeklyTargetHours) ||
         weeklyTargetHours < 1 ||
         weeklyTargetHours > 80
@@ -130,7 +174,7 @@ const Register = () => {
         return t("auth:register.validation.invalidWeeklyHours");
 
       if (
-        !form.testsPerWeek ||
+        !sanitizedForm.testsPerWeek ||
         Number.isNaN(testsPerWeek) ||
         testsPerWeek < 1 ||
         testsPerWeek > 14
@@ -139,10 +183,10 @@ const Register = () => {
     }
 
     if (targetStep === 4) {
-      if (form.mainChallenge.trim().length < 12)
+      if (sanitizedForm.mainChallenge.length < 12)
         return t("auth:register.validation.mainChallengeLength");
 
-      if (!form.acceptedTerms)
+      if (!sanitizedForm.acceptedTerms)
         return t("auth:register.validation.termsRequired");
     }
 
@@ -185,23 +229,28 @@ const Register = () => {
       return;
     }
 
+    const sanitizedForm = sanitizeRegisterForm(form);
+    setForm(sanitizedForm);
     setIsLoading(true);
+    const planSelectionPath = requestedPlanCode
+      ? `/seleccion-plan?plan=${encodeURIComponent(requestedPlanCode)}`
+      : "/seleccion-plan";
     const { data, error } = await supabase.auth.signUp({
-      email: form.email.trim(),
-      password: form.password,
+      email: sanitizedForm.email,
+      password: sanitizedForm.password,
       options: {
         data: {
-          first_name: form.name.trim(),
-          last_name: form.lastName.trim(),
-          full_name: `${form.name.trim()} ${form.lastName.trim()}`.trim(),
-          age: Number(form.age),
-          preferred_opposition_id: form.preferredOpposition,
-          preferred_opposition: form.preferredOpposition || null,
-          years_preparing: Number(form.yearsPreparing),
-          weekly_target_hours: Number(form.weeklyTargetHours),
-          tests_per_week: Number(form.testsPerWeek),
-          main_challenge: form.mainChallenge.trim(),
-          locale: "es"
+          first_name: sanitizedForm.name,
+          last_name: sanitizedForm.lastName,
+          full_name: `${sanitizedForm.name} ${sanitizedForm.lastName}`.trim(),
+          age: Number(sanitizedForm.age),
+          preferred_opposition_id: sanitizedForm.preferredOpposition,
+          preferred_opposition: sanitizedForm.preferredOpposition || null,
+          years_preparing: Number(sanitizedForm.yearsPreparing),
+          weekly_target_hours: Number(sanitizedForm.weeklyTargetHours),
+          tests_per_week: Number(sanitizedForm.testsPerWeek),
+          main_challenge: sanitizedForm.mainChallenge,
+          locale
         }
       }
     });
@@ -221,7 +270,7 @@ const Register = () => {
         title: t("auth:register.toasts.createdTitle"),
         description: t("auth:register.toasts.createdDescription")
       });
-      navigate("/dashboard", { replace: true });
+      navigate(planSelectionPath, { replace: true });
       setIsLoading(false);
       return;
     }

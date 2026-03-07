@@ -2,6 +2,11 @@ import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
 import { useProfileBaseQuery } from "@/queries/profileQueries";
 import {
+  fetchQuickTestsDashboardBundle,
+  type QuickTestHistoryRecord
+} from "@/queries/testQueries";
+import { useQuery } from "@tanstack/react-query";
+import {
   BarChart3,
   BookOpen,
   Brain,
@@ -9,35 +14,40 @@ import {
   CheckCircle2,
   Clock3,
   Minus,
+  RotateCcw,
   Target,
   TrendingDown,
   TrendingUp,
   User
 } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 type TestStatus = "excellent" | "approved" | "reinforce";
-
-type TestItem = {
-  id: number;
-  nombre: string;
-  fecha: string;
-  nota: number;
-  precision: number;
-  duracion: string;
-  tendencia: "up" | "down" | "flat";
-  estado: TestStatus;
-};
+type TestTrend = "up" | "down" | "flat";
+type DashboardHistoryRow = QuickTestHistoryRecord & { trend: TestTrend };
+const HISTORY_PAGE_SIZE = 10;
 
 const Dashboard = () => {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation(["dashboard"]);
   const { user, profile, isAuthReady } = useAuth();
   const shouldLoadProfileBase = isAuthReady && Boolean(user?.id);
   const { data: profileBase } = useProfileBaseQuery(
     shouldLoadProfileBase ? user?.id : null
   );
+  const [visibleHistoryCount, setVisibleHistoryCount] =
+    useState(HISTORY_PAGE_SIZE);
+  const { data: dashboardBundle, isLoading: isHistoryLoading } = useQuery({
+    queryKey: user?.id
+      ? ["quick-tests", "dashboard-bundle", user.id]
+      : ["quick-tests", "dashboard-bundle", "guest"],
+    queryFn: () => fetchQuickTestsDashboardBundle(user?.id as string),
+    enabled: Boolean(user?.id),
+    staleTime: 30_000
+  });
+  const quickTestStats = dashboardBundle?.stats;
+  const inProgressQuickTest = dashboardBundle?.inProgress ?? null;
   const weeklyTargetHours = useMemo(() => {
     const weeklyTarget = Number(profileBase?.weekly_target_hours);
     if (Number.isFinite(weeklyTarget) && weeklyTarget > 0) return weeklyTarget;
@@ -51,51 +61,34 @@ const Dashboard = () => {
     return fullName || profile?.email || t("defaults.user");
   }, [profile, t]);
 
-  const historialTests = useMemo<TestItem[]>(
-    () => [
-      {
-        id: 1,
-        nombre: t("history.items.mock42.name"),
-        fecha: t("history.items.mock42.date"),
-        nota: 8.7,
-        precision: 89,
-        duracion: t("history.items.mock42.duration"),
-        tendencia: "up",
-        estado: "excellent"
-      },
-      {
-        id: 2,
-        nombre: t("history.items.constitutional.name"),
-        fecha: t("history.items.constitutional.date"),
-        nota: 7.4,
-        precision: 77,
-        duracion: t("history.items.constitutional.duration"),
-        tendencia: "up",
-        estado: "approved"
-      },
-      {
-        id: 3,
-        nombre: t("history.items.administrativeProcedure.name"),
-        fecha: t("history.items.administrativeProcedure.date"),
-        nota: 6.1,
-        precision: 68,
-        duracion: t("history.items.administrativeProcedure.duration"),
-        tendencia: "down",
-        estado: "reinforce"
-      },
-      {
-        id: 4,
-        nombre: t("history.items.organicLaw.name"),
-        fecha: t("history.items.organicLaw.date"),
-        nota: 7.9,
-        precision: 81,
-        duracion: t("history.items.organicLaw.duration"),
-        tendencia: "flat",
-        estado: "approved"
-      }
-    ],
-    [t]
+  const historyItems = dashboardBundle?.historyItems ?? [];
+  const historialTests = useMemo<DashboardHistoryRow[]>(
+    () =>
+      historyItems.map((item, idx) => {
+        const previousItem = historyItems[idx + 1];
+        const trend: TestTrend = !previousItem
+          ? "flat"
+          : item.accuracy > previousItem.accuracy
+            ? "up"
+            : item.accuracy < previousItem.accuracy
+              ? "down"
+              : "flat";
+        return {
+          ...item,
+          trend
+        };
+      }),
+    [historyItems]
   );
+  const visibleHistoryItems = useMemo(
+    () => historialTests.slice(0, visibleHistoryCount),
+    [historialTests, visibleHistoryCount]
+  );
+  const canLoadMoreHistory = visibleHistoryCount < historialTests.length;
+
+  useEffect(() => {
+    setVisibleHistoryCount(HISTORY_PAGE_SIZE);
+  }, [user?.id, historialTests.length]);
 
   const horasEstudio = Math.max(
     1,
@@ -106,23 +99,9 @@ const Dashboard = () => {
     Math.round((horasEstudio / weeklyTargetHours) * 100)
   );
 
-  const mediaNota = useMemo(
-    () =>
-      (
-        historialTests.reduce((acc, test) => acc + test.nota, 0) /
-        historialTests.length
-      ).toFixed(1),
-    [historialTests]
-  );
-
-  const precisionMedia = useMemo(
-    () =>
-      Math.round(
-        historialTests.reduce((acc, test) => acc + test.precision, 0) /
-          historialTests.length
-      ),
-    [historialTests]
-  );
+  const mediaNota = quickTestStats?.averageScore ?? 0;
+  const precisionMedia = quickTestStats?.averageAccuracy ?? 0;
+  const completedTestsCount = quickTestStats?.completedTests ?? 0;
 
   const statusClass: Record<TestStatus, string> = {
     excellent: "bg-emerald-500/15 text-emerald-700",
@@ -153,12 +132,24 @@ const Dashboard = () => {
                 {t("actions.profile")}
               </Link>
             </CustomButton>
-            <CustomButton asChild styleType="menu">
-              <Link to="/perfil/test">
-                <BookOpen className="h-4 w-4" />
-                {t("actions.goToTest")}
-              </Link>
-            </CustomButton>
+            {!inProgressQuickTest && (
+              <CustomButton asChild styleType="menu">
+                <Link to="/perfil/test">
+                  <BookOpen className="h-4 w-4" />
+                  {t("actions.goToTest")}
+                </Link>
+              </CustomButton>
+            )}
+            {inProgressQuickTest && (
+              <CustomButton asChild styleType="menu">
+                <Link
+                  to={`/perfil/test/${encodeURIComponent(inProgressQuickTest.testId)}`}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {t("actions.continueQuickTest")}
+                </Link>
+              </CustomButton>
+            )}
             <CustomButton asChild styleType="primary">
               <Link to="/perfil/opositAI">
                 <Brain className="h-4 w-4" />
@@ -177,7 +168,9 @@ const Dashboard = () => {
               {t("cards.completedTests")}
             </p>
           </div>
-          <p className="text-2xl font-serif text-foreground">148</p>
+          <p className="text-2xl font-serif text-foreground">
+            {completedTestsCount}
+          </p>
         </div>
 
         <div className="border border-border bg-background p-5">
@@ -187,7 +180,9 @@ const Dashboard = () => {
               {t("cards.globalAverage")}
             </p>
           </div>
-          <p className="text-2xl font-serif text-foreground">{mediaNota}/10</p>
+          <p className="text-2xl font-serif text-foreground">
+            {mediaNota.toFixed(1)}/10
+          </p>
         </div>
 
         <div className="border border-border bg-background p-5">
@@ -299,55 +294,92 @@ const Dashboard = () => {
                 <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
                   {t("history.columns.status")}
                 </th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
+                  {t("history.columns.open")}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {historialTests.map((test) => (
-                <tr key={test.id} className="border-t border-border">
+              {visibleHistoryItems.map((test) => (
+                <tr key={test.testId} className="border-t border-border">
                   <td className="px-4 py-3 text-sm text-foreground">
-                    {test.nombre}
+                    {`${test.oppositionName} - #${test.testId.slice(0, 8)}`}
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <CalendarDays className="h-3.5 w-3.5" />
-                      {test.fecha}
+                      {new Date(test.finishedAt).toLocaleDateString(
+                        i18n.resolvedLanguage ?? "es"
+                      )}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm font-semibold text-foreground">
-                    {test.nota}
+                    {test.score.toFixed(1)}
                   </td>
                   <td className="px-4 py-3 text-sm text-foreground">
                     <span className="inline-flex items-center gap-1">
-                      {test.tendencia === "up" && (
+                      {test.trend === "up" && (
                         <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
                       )}
-                      {test.tendencia === "down" && (
+                      {test.trend === "down" && (
                         <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
                       )}
-                      {test.tendencia === "flat" && (
+                      {test.trend === "flat" && (
                         <Minus className="h-3.5 w-3.5 text-amber-600" />
                       )}
-                      {test.precision}%
+                      {Math.round(test.accuracy)}%
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {test.duracion}
+                    {`${test.durationMinutes} min`}
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold ${statusClass[test.estado]}`}
+                      className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold ${statusClass[test.status]}`}
                     >
-                      {test.estado === "excellent" && (
+                      {test.status === "excellent" && (
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       )}
-                      {t(`history.status.${test.estado}`)}
+                      {t(`history.status.${test.status}`)}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <CustomButton asChild size="sm" styleType="menu">
+                      <Link
+                        to={`/perfil/test/${encodeURIComponent(test.testId)}`}
+                      >
+                        {t("history.viewTest")}
+                      </Link>
+                    </CustomButton>
                   </td>
                 </tr>
               ))}
+              {!isHistoryLoading && visibleHistoryItems.length === 0 && (
+                <tr className="border-t border-border">
+                  <td
+                    colSpan={7}
+                    className="px-4 py-6 text-sm text-muted-foreground text-center"
+                  >
+                    {t("history.empty")}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        {canLoadMoreHistory && (
+          <div className="mt-4 flex justify-center">
+            <CustomButton
+              type="button"
+              styleType="menu"
+              onClick={() =>
+                setVisibleHistoryCount((prev) => prev + HISTORY_PAGE_SIZE)
+              }
+            >
+              {t("history.loadMore")}
+            </CustomButton>
+          </div>
+        )}
       </section>
     </div>
   );

@@ -21,7 +21,8 @@ import {
   Moon,
   NotebookText,
   Sparkles,
-  Sun
+  Sun,
+  TimerReset
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -111,7 +112,7 @@ const UserActionsDropdown = ({
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/planes" className="flex items-center gap-2">
+          <Link to="/perfil/planes" className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
             {t("profile:layout.menuItems.plans")}
           </Link>
@@ -155,6 +156,12 @@ const UserActionsDropdown = ({
           <Link to="/perfil/calendario" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             {t("profile:layout.menuItems.calendar")}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className={dropdownActionClassName}>
+          <Link to="/perfil/a-estudiar" className="flex items-center gap-2">
+            <TimerReset className="h-4 w-4" />
+            {t("profile:layout.menuItems.study")}
           </Link>
         </DropdownMenuItem>
 

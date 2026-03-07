@@ -1,50 +1,195 @@
 {
   "header": {
-    "badge": "Tarifas",
-    "title": "Invierte en tu futuro.",
-    "description": "Planes diseñados para cada nivel de ambición. Sin compromisos, cancela cuando quieras."
+    "badge": "Planes",
+    "title": "Mismo producto, limites distintos.",
+    "description": "El plan gratuito te deja probar toda la experiencia. El plan Pro mensual amplia consultas de IA, preguntas por test y deja el sistema listo para descuentos y futuras renovaciones.",
+    "metrics": {
+      "aiLabel": "Consultas IA / dia",
+      "aiDescription": "Consulta el detalle de acceso en tu plan activo.",
+      "quickTestsLabel": "Preguntas por test rapido",
+      "quickTestsDescription": "Consulta el detalle de test rapido en tu plan activo.",
+      "billingLabel": "Facturacion",
+      "billingValue": "Mensual",
+      "billingDescription": "La base ya soporta anual y descuentos temporales."
+    }
   },
-  "featured": "Más Popular",
+  "featured": "Recomendado",
+  "public": {
+    "badge": "Comparativa clara",
+    "title": "Elige el plan que encaja con tu ritmo",
+    "description": "Ambos planes mantienen la misma base de producto. La diferencia real esta en la capacidad de uso y en la profundidad de estudio.",
+    "bestForLabel": "Ideal para",
+    "freeBestFor": "Quien empieza y quiere validar la metodologia sin compromiso.",
+    "proBestFor": "Quien estudia cada dia y necesita continuidad total en IA y repasos.",
+    "includesLabel": "Que incluye",
+    "planHighlights": {
+      "ai": {
+        "free": "IA con capacidad inicial para dudas puntuales.",
+        "pro": "IA con capacidad ampliada para uso intensivo."
+      },
+      "quickTests": {
+        "free": "Tests rapidos en formato breve.",
+        "pro": "Tests rapidos con mayor amplitud por intento."
+      },
+      "syllabus": {
+        "free": "Vista limitada del temario.",
+        "pro": "Acceso al contenido completo del temario."
+      }
+    },
+    "detailsTitle": "Que cambia exactamente",
+    "columnFree": "Gratis",
+    "columnPro": "Pro mensual",
+    "rows": {
+      "ai": {
+        "label": "Uso de IA",
+        "free": "Acceso base para consultas puntuales y apoyo diario ligero.",
+        "pro": "Mayor capacidad diaria para sesiones intensivas y resolucion continua."
+      },
+      "quickTests": {
+        "label": "Tests rapidos",
+        "free": "Enfocado a repasos cortos y validacion de avances.",
+        "pro": "Mas capacidad por intento para bloques largos y simulacion real."
+      },
+      "syllabus": {
+        "label": "Contenido de temario",
+        "free": "Vista limitada del temario para orientarte.",
+        "pro": "Acceso al contenido completo del temario."
+      },
+      "pace": {
+        "label": "Ritmo de preparacion",
+        "free": "Ritmo gradual para explorar la plataforma.",
+        "pro": "Ritmo diario con continuidad y menos friccion."
+      }
+    }
+  },
+  "pricing": {
+    "free": "Gratis",
+    "perMonth": "/ mes"
+  },
+  "actions": {
+    "currentPlan": "Plan actual",
+    "goToCheckout": "Ir a pasarela de pago"
+  },
+  "currentPlan": {
+    "badge": "Tu plan activo",
+    "description": "Tu plan actual incluye acceso a IA y tests rapidos.",
+    "aiUsage": "Uso IA hoy",
+    "quickTestLimit": "Limite test rapido",
+    "billing": "Precio actual",
+    "discountActive": "Codigo activo {{code}} con {{percent}}% de descuento."
+  },
+  "future": {
+    "badge": "Preparado para crecer",
+    "title": "Anual y descuentos temporales",
+    "description": "La capa de datos ya soporta planes mensuales o anuales, descuentos por porcentaje y duracion por meses o por anualidad. Hoy solo se publica el mensual."
+  },
+  "discounts": {
+    "badge": "Descuentos",
+    "title": "Aplicar codigo",
+    "description": "Si tienes un codigo valido, puedes vincularlo a tu suscripcion activa. El sistema admite porcentaje y duracion limitada por meses o por anualidad.",
+    "placeholder": "Introduce tu codigo",
+    "cta": "Aplicar descuento",
+    "loginCta": "Inicia sesion para aplicar un codigo"
+  },
+  "comparison": {
+    "badge": "Resumen rapido",
+    "aiLimit": "Consultas IA / dia",
+    "quickTestLimit": "Preguntas por test",
+    "items": {
+      "sameFeatures": "Ambos planes comparten las mismas funciones base de la plataforma.",
+      "aiQuota": "La diferencia real esta en la capacidad de uso diario de IA.",
+      "quickTestQuota": "La diferencia real tambien aplica a la capacidad de test rapido.",
+      "discounts": "Los descuentos se aplican como porcentaje y por una duracion concreta."
+    }
+  },
+  "selector": {
+    "badge": "Ultimo paso",
+    "title": "Elige tu plan antes de entrar.",
+    "description": "Tu cuenta ya esta creada. Antes de acceder al dashboard, selecciona el plan con el que quieres empezar. Podras cambiarlo mas adelante desde tu cuenta.",
+    "cardsBadge": "Seleccion obligatoria",
+    "cardsTitle": "Activa tu experiencia",
+    "selected": "Seleccionado",
+    "choose": "Elegir",
+    "helper": "Necesitamos una eleccion explicita para activar tu plan.",
+    "footer": "La seleccion se aplica al momento. Si eliges Pro, la capa de suscripcion ya queda lista para conectar cobro real mas adelante.",
+    "cta": "Entrar con este plan",
+    "exit": "Salir",
+    "highlights": {
+      "badge": "Lo que cambia",
+      "sameFeatures": "Los dos planes comparten las mismas funcionalidades base de la plataforma.",
+      "freeLimit": "Gratis arranca con acceso base a IA y test rapido.",
+      "proLimit": "Pro mensual amplia la capacidad de uso en IA y test rapido."
+    },
+    "toasts": {
+      "savedTitle": "Plan activado",
+      "savedDescription": "Tu cuenta ya esta preparada con el plan {{plan}}."
+    }
+  },
+  "upgradeDialog": {
+    "badge": "Desbloquear Pro",
+    "currentPlan": "Tu plan actual",
+    "footer": "Cambiar a Pro mensual amplia el limite de esta funcionalidad sin tocar el resto de tu configuracion.",
+    "cancel": "Seguir con mi plan",
+    "cta": "Ver y cambiar plan",
+    "assistant": {
+      "title": "Has agotado las consultas del plan gratuito",
+      "description": "Has alcanzado el uso incluido en tu plan actual. Pro mensual amplia este acceso para que puedas seguir usando la IA hoy.",
+      "currentValue": "Uso actual: has alcanzado el limite de tu plan.",
+      "targetLabel": "Acceso ampliado a la IA",
+      "targetValue": "Con Pro dispones de mayor capacidad diaria."
+    },
+    "quick-test": {
+      "title": "Este test supera tu limite gratuito",
+      "description": "El test que intentas generar supera la capacidad incluida en tu plan actual. Pro mensual amplia este acceso por intento.",
+      "currentValue": "Uso actual: has alcanzado el limite de tu plan para test rapido.",
+      "targetLabel": "Bloques largos y repaso completo",
+      "targetValue": "Con Pro dispones de mayor capacidad por test."
+    }
+  },
+  "toasts": {
+    "planChangedTitle": "Plan actualizado",
+    "planChangedDescription": "Tu cuenta ya usa el plan {{plan}}.",
+    "planChangedErrorTitle": "No se pudo cambiar el plan",
+    "planChangedErrorDescription": "Intentalo de nuevo en unos segundos.",
+    "paymentRedirectTitle": "Redirigiendo a la pasarela",
+    "paymentRedirectDescription": "Te llevamos a la pasarela para completar la suscripcion Pro.",
+    "checkoutStartErrorTitle": "No se pudo iniciar el pago",
+    "checkoutStartErrorDescription": "Intentalo de nuevo en unos segundos.",
+    "checkoutSuccessTitle": "Suscripcion confirmada",
+    "checkoutSuccessDescription": "Tu plan se actualizara en unos segundos.",
+    "checkoutCancelledTitle": "Pago cancelado",
+    "checkoutCancelledDescription": "No se ha realizado ningun cobro.",
+    "discountAppliedTitle": "Codigo aplicado",
+    "discountAppliedDescription": "El descuento se ha vinculado a tu suscripcion activa.",
+    "discountAppliedErrorTitle": "No se pudo aplicar el codigo",
+    "discountAppliedErrorDescription": "Revisa el codigo e intentalo de nuevo."
+  },
   "plans": {
-    "basic": {
-      "name": "Básico",
-      "period": "/ mes",
-      "description": "Ideal para explorar la plataforma y comenzar tu preparación.",
+    "free": {
+      "eyebrow": "Acceso base",
+      "name": "Gratis",
+      "description": "Perfecto para empezar, validar el producto y mantener una rutina ligera sin coste mensual.",
+      "ctaGuest": "Crear cuenta gratis",
+      "ctaAuthenticated": "Cambiar a Gratis",
       "features": [
-        "500 preguntas tipo test",
-        "1 área de especialización",
-        "Estadísticas básicas",
-        "Acceso web"
-      ],
-      "cta": "Comenzar gratis"
+        "Mismas funcionalidades principales que Pro.",
+        "Acceso base a IA.",
+        "Acceso base a tests rapidos.",
+        "Ideal para explorar la plataforma antes de escalar."
+      ]
     },
     "pro": {
-      "name": "Profesional",
-      "period": "/ mes",
-      "description": "Para el opositor comprometido que busca resultados reales.",
+      "eyebrow": "Mas margen diario",
+      "name": "Pro mensual",
+      "description": "Pensado para quien ya usa la plataforma a diario y necesita mas continuidad con la IA y mas profundidad en test rapido.",
+      "ctaGuest": "Registrarme en Pro",
+      "ctaAuthenticated": "Cambiar a Pro mensual",
       "features": [
-        "Preguntas ilimitadas",
-        "Todas las áreas",
-        "Analítica predictiva",
-        "Acceso móvil",
-        "Esquemas descargables",
-        "Simulacros oficiales"
-      ],
-      "cta": "Empezar ahora"
-    },
-    "elite": {
-      "name": "Élite",
-      "period": "/ mes",
-      "description": "Acceso total con preparador virtual y soporte prioritario.",
-      "features": [
-        "Todo en Profesional",
-        "Preparador IA personal",
-        "Soporte prioritario 24/7",
-        "Corrección de exámenes",
-        "Legislación en tiempo real",
-        "Grupo exclusivo"
-      ],
-      "cta": "Contactar ventas"
+        "Todas las funciones del plan gratuito sin recortes extra.",
+        "Mayor capacidad de uso en IA.",
+        "Mayor capacidad por test rapido.",
+        "Compatible con descuentos porcentuales por meses o por anualidad."
+      ]
     }
   }
 }

@@ -7,9 +7,12 @@ export type Oposicion = {
   nombre: string;
   cuerpo: string;
   temas: string[];
+  temarioContenido?: string | null;
   temasDetalle: {
     code: string;
     title: string;
+    displayTitle: string;
+    sectionTitle: string | null;
     subtopics: string[];
   }[];
 };
@@ -126,9 +129,10 @@ export const fetchOppositionById = async (
   if (!normalizedId) return null;
 
   const locale = normalizeLocale(localeValue);
+  const untypedSupabase = supabase as any;
   await ensureOppositionNamespace();
 
-  const { data: oppositionRow, error: oppositionError } = await supabase
+  const { data: oppositionRow, error: oppositionError } = await untypedSupabase
     .from("oppositions")
     .select("id")
     .eq("id", normalizedId)
@@ -137,12 +141,26 @@ export const fetchOppositionById = async (
 
   if (oppositionError || !oppositionRow) return null;
 
-  const { data: topicRows } = await supabase
-    .from("opposition_topics")
-    .select("id, topic_code, order_index")
+  const { data: currentSyllabusRow } = await untypedSupabase
+    .from("opposition_syllabi")
+    .select("id")
     .eq("opposition_id", normalizedId)
-    .order("order_index", { ascending: true })
-    .order("id", { ascending: true });
+    .eq("is_current", true)
+    .maybeSingle();
+
+  const { data: topicRows } = currentSyllabusRow
+    ? await untypedSupabase
+        .from("opposition_topics")
+        .select("id, topic_code, topic_title, order_index")
+        .eq("syllabus_id", currentSyllabusRow.id)
+        .order("order_index", { ascending: true })
+        .order("id", { ascending: true })
+    : await untypedSupabase
+        .from("opposition_topics")
+        .select("id, topic_code, topic_title, order_index")
+        .eq("opposition_id", normalizedId)
+        .order("order_index", { ascending: true })
+        .order("id", { ascending: true });
 
   const topicIds = (topicRows ?? []).map((row) => row.id);
   const topicCodeById = new Map(
@@ -150,9 +168,13 @@ export const fetchOppositionById = async (
   );
   const { data: subtopicRows } =
     topicIds.length > 0
-      ? await supabase
+      ? await untypedSupabase
+          // Supabase generated TS types are stale versus the real schema.
+          // Use the runtime columns already verified in the database.
           .from("opposition_subtopics")
-          .select("opposition_topic_id, subtopic_code, order_index")
+          .select(
+            "opposition_topic_id, subtopic_code, subtopic_title, section_title, order_index"
+          )
           .in("opposition_topic_id", topicIds)
           .order("order_index", { ascending: true })
           .order("id", { ascending: true })
@@ -160,36 +182,65 @@ export const fetchOppositionById = async (
           data: [] as Array<{
             opposition_topic_id: number;
             subtopic_code: string;
+            subtopic_title: string | null;
+            section_title: string | null;
             order_index: number;
           }>
         };
 
+  const { data: paidSyllabusContentRows } = await untypedSupabase.rpc(
+    "get_current_paid_syllabus_content",
+    {
+      p_opposition_id: normalizedId
+    }
+  );
+
+  const paidSyllabusContent = String(
+    paidSyllabusContentRows?.[0]?.raw_text ?? ""
+  ).trim();
+
   const subtopicsByTopicId = new Map<number, string[]>();
+  const sectionTitleByTopicId = new Map<number, string>();
   (subtopicRows ?? []).forEach((row) => {
+    const sectionTitle = String(row.section_title ?? "").trim();
+    if (sectionTitle && !sectionTitleByTopicId.has(row.opposition_topic_id)) 
+      sectionTitleByTopicId.set(row.opposition_topic_id, sectionTitle);
+    
     if (!subtopicsByTopicId.has(row.opposition_topic_id))
       subtopicsByTopicId.set(row.opposition_topic_id, []);
     subtopicsByTopicId
       .get(row.opposition_topic_id)
       ?.push(
-        translateSubtopic(
-          locale,
-          oppositionRow.id,
-          topicCodeById.get(row.opposition_topic_id) ?? "",
-          row.subtopic_code
-        )
+        String(row.subtopic_title ?? "").trim() ||
+          translateSubtopic(
+            locale,
+            oppositionRow.id,
+            String(topicCodeById.get(row.opposition_topic_id) ?? ""),
+            String(row.subtopic_code ?? "")
+          )
       );
   });
 
   const temasDetalle = (topicRows ?? []).map((row) => ({
     code: row.topic_code,
-    title: translateTopic(locale, oppositionRow.id, row.topic_code),
+    title:
+      String(row.topic_title ?? "").trim() ||
+      translateTopic(locale, oppositionRow.id, row.topic_code),
+    displayTitle: "",
+    sectionTitle: sectionTitleByTopicId.get(row.id) ?? null,
     subtopics: subtopicsByTopicId.get(row.id) ?? []
+  })).map((topic) => ({
+    ...topic,
+    displayTitle: topic.sectionTitle
+      ? `${topic.title}. ${topic.sectionTitle}`
+      : topic.title
   }));
 
   return {
     id: oppositionRow.id,
     nombre: translateOppositionName(locale, oppositionRow.id),
     cuerpo: translateOppositionBody(locale, oppositionRow.id),
+    temarioContenido: paidSyllabusContent || null,
     temas: temasDetalle
       .flatMap((topic) =>
         topic.subtopics.length > 0 ? topic.subtopics : [topic.title]
@@ -223,6 +274,7 @@ export const resolveOppositionFromProfile = async ({
     id: normalizeId(preferredOppositionId),
     nombre: fallbackName || fallbackUnknownOpposition(resolvedLocale),
     cuerpo: "",
+    temarioContenido: null,
     temas: [],
     temasDetalle: []
   };

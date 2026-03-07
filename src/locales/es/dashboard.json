@@ -5,40 +5,53 @@
   "header": {
     "badge": "Dashboard",
     "greeting": "Hola, {{name}}",
-    "description": "Aquí tienes una vista completa de rendimiento: progreso, métricas clave y tus últimos tests."
+    "description": "Aqui tienes una vista completa de rendimiento: progreso, metricas clave y tus ultimos tests."
   },
   "actions": {
     "profile": "Mi perfil",
     "goToTest": "Ir a test",
+    "continueQuickTest": "Continuar test",
     "openIA": "Abrir IA"
+  },
+  "plan": {
+    "badge": "Plan activo",
+    "description": "Tu plan incluye acceso a IA y tests rapidos.",
+    "manage": "Gestionar plan",
+    "aiUsage": "Uso IA hoy",
+    "quickTestLimit": "Limite test rapido"
   },
   "cards": {
     "completedTests": "Tests completados",
     "globalAverage": "Media global",
-    "averageAccuracy": "Precisión media",
+    "averageAccuracy": "Precision media",
     "hoursThisWeek": "Horas esta semana",
     "progress": "Progreso"
   },
   "insights": {
     "trend": "Tendencia",
-    "trendValue": "Positiva en las últimas 2 semanas",
+    "trendValue": "Positiva en las ultimas 2 semanas",
     "focus": "Foco",
     "focusValue": "Reforzar procedimiento administrativo",
     "averageTime": "Tiempo medio",
     "averageTimeValue": "32 min por test"
   },
   "history": {
-    "badge": "Histórico test",
-    "title": "Últimos resultados",
+    "badge": "Historico test",
+    "title": "Ultimos resultados",
     "performance": "Rendimiento",
     "columns": {
       "test": "Test",
       "date": "Fecha",
       "score": "Nota",
-      "accuracy": "Precisión",
-      "duration": "Duración",
-      "status": "Estado"
+      "accuracy": "Precision",
+      "duration": "Duracion",
+      "status": "Estado",
+      "open": "Abrir"
     },
+    "viewTest": "Ver test",
+    "loadMore": "Ver mas",
+    "loadingMore": "Cargando...",
+    "empty": "Aun no tienes tests finalizados.",
     "status": {
       "excellent": "Excelente",
       "approved": "Aprobado",
@@ -61,7 +74,7 @@
         "duration": "35 min"
       },
       "organicLaw": {
-        "name": "Ley Orgánica y Recursos",
+        "name": "Ley Organica y Recursos",
         "date": "12 Feb 2026",
         "duration": "31 min"
       }
