@@ -397,6 +397,110 @@ function normalizeOptions(raw: unknown): NormalizedOption[] | null {
   return null;
 }
 
+function normalizeForMatch(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function extractOptionIdFromString(raw: string): OptionId | null {
+  const folded = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+  if (!folded) return null;
+
+  const ids: OptionId[] = ["A", "B", "C", "D"];
+  if (ids.includes(folded as OptionId)) return folded as OptionId;
+
+  const keywordMatch = folded.match(
+    /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/,
+  );
+  if (keywordMatch?.[1] && ids.includes(keywordMatch[1] as OptionId))
+    return keywordMatch[1] as OptionId;
+
+  const compactMatch = folded.match(/(?:^|[^A-Z])([ABCD])\s*[).:-]?\s*$/);
+  if (compactMatch?.[1] && ids.includes(compactMatch[1] as OptionId))
+    return compactMatch[1] as OptionId;
+
+  const isolatedMatch = folded.match(/\b([ABCD])\b/);
+  if (isolatedMatch?.[1] && ids.includes(isolatedMatch[1] as OptionId))
+    return isolatedMatch[1] as OptionId;
+
+  return null;
+}
+
+function normalizeCorrectOptionId(raw: unknown, options: NormalizedOption[]): OptionId {
+  const ids: OptionId[] = ["A", "B", "C", "D"];
+  if (typeof raw === "string") {
+    const parsedId = extractOptionIdFromString(raw);
+    if (parsedId) return parsedId;
+
+    const value = raw.trim();
+    const idx = options.findIndex(
+      (option) => normalizeForMatch(option.text) === normalizeForMatch(value),
+    );
+    if (idx >= 0) return ids[idx];
+  }
+
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const idx = Math.floor(raw);
+    if (idx >= 0 && idx <= 3) return ids[idx];
+    if (idx >= 1 && idx <= 4) return ids[idx - 1];
+  }
+
+  return "A";
+}
+
+function inferCorrectOptionFromExplanation(
+  explanation: string,
+  options: NormalizedOption[],
+): OptionId | null {
+  const normalizedExplanation = normalizeForMatch(explanation);
+  if (!normalizedExplanation) return null;
+
+  const explanationTokens = new Set(
+    normalizedExplanation
+      .split(" ")
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 4),
+  );
+
+  const scored = options
+    .map((option) => {
+      const normalizedOption = normalizeForMatch(option.text);
+      if (!normalizedOption) return { id: option.id, score: 0 };
+
+      if (
+        normalizedOption.length >= 8 &&
+        normalizedExplanation.includes(normalizedOption)
+      ) 
+        return { id: option.id, score: 1.5 };
+      
+
+      const optionTokens = normalizedOption
+        .split(" ")
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 4);
+      if (!optionTokens.length) return { id: option.id, score: 0 };
+
+      const shared = optionTokens.filter((token) => explanationTokens.has(token))
+        .length;
+      return { id: option.id, score: shared / optionTokens.length };
+    })
+    .sort((left, right) => right.score - left.score);
+
+  const best = scored[0];
+  const second = scored[1];
+  if (!best || best.score < 0.7) return null;
+  if (second && best.score - second.score < 0.15) return null;
+  return best.id;
+}
+
 function normalizeQuestion(raw: unknown, chunksById: Map<string, Chunk>, fallbackChunk: Chunk, target: Target): Question | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
@@ -404,9 +508,20 @@ function normalizeQuestion(raw: unknown, chunksById: Map<string, Chunk>, fallbac
   if (question.length < 12) return null;
   const options = normalizeOptions(record.options ?? record.choices ?? record.answers ?? record.alternatives);
   if (!options) return null;
-  const correctRaw = s(record.correctOptionId ?? record.correct_option_id ?? record.correct ?? record.correctAnswer ?? record.correct_answer).toUpperCase();
-  const correctOptionId: OptionId = ["A", "B", "C", "D"].includes(correctRaw) ? (correctRaw as OptionId) : "A";
   const explanation = s(record.explanation ?? record.explicacion ?? record.justification) || "Respuesta basada en el texto legal citado.";
+  const parsedCorrectOptionId = normalizeCorrectOptionId(
+    record.correctOptionId ??
+      record.correct_option_id ??
+      record.correct ??
+      record.correctAnswer ??
+      record.correct_answer,
+    options,
+  );
+  const inferredCorrectOptionId = inferCorrectOptionFromExplanation(
+    explanation,
+    options,
+  );
+  const correctOptionId = inferredCorrectOptionId ?? parsedCorrectOptionId;
   const citationsRaw = Array.isArray(record.citations) ? record.citations : [];
   const citations = citationsRaw.map((item) => {
     const chunkId = s((item as any)?.chunkId ?? (item as any)?.chunk_id ?? item);

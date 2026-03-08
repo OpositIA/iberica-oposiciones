@@ -84,7 +84,11 @@ const normalizeQuickTestSessionPayload = (
     ? value.selectedTopics
         .map((topic) => ({
           id: sanitizeCode(topic?.id, 120),
-          label: sanitizeSingleLineText(topic?.label, 160)
+          label: sanitizeSingleLineText(topic?.label, 160),
+          scope:
+            topic?.scope === "block" || topic?.scope === "topic"
+              ? topic.scope
+              : undefined
         }))
         .filter((topic) => topic.id && topic.label)
     : [];

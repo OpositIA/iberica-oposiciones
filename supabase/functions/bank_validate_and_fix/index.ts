@@ -150,6 +150,88 @@ function normalizeOptionText(input: unknown): string {
   ).trim();
 }
 
+function normalizeForMatch(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function extractOptionIdFromString(raw: string): QuestionOptionId | null {
+  const folded = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+  if (!folded) return null;
+
+  const ids: QuestionOptionId[] = ["A", "B", "C", "D"];
+  if (ids.includes(folded as QuestionOptionId)) return folded as QuestionOptionId;
+
+  const keywordMatch = folded.match(
+    /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/,
+  );
+  if (keywordMatch?.[1] && ids.includes(keywordMatch[1] as QuestionOptionId))
+    return keywordMatch[1] as QuestionOptionId;
+
+  const compactMatch = folded.match(/(?:^|[^A-Z])([ABCD])\s*[).:-]?\s*$/);
+  if (compactMatch?.[1] && ids.includes(compactMatch[1] as QuestionOptionId))
+    return compactMatch[1] as QuestionOptionId;
+
+  const isolatedMatch = folded.match(/\b([ABCD])\b/);
+  if (isolatedMatch?.[1] && ids.includes(isolatedMatch[1] as QuestionOptionId))
+    return isolatedMatch[1] as QuestionOptionId;
+
+  return null;
+}
+
+function inferCorrectOptionFromExplanation(
+  explanation: string,
+  options: NormalizedOption[],
+): QuestionOptionId | null {
+  const normalizedExplanation = normalizeForMatch(explanation);
+  if (!normalizedExplanation) return null;
+
+  const explanationTokens = new Set(
+    normalizedExplanation
+      .split(" ")
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 4),
+  );
+
+  const scored = options
+    .map((option) => {
+      const normalizedOption = normalizeForMatch(option.text);
+      if (!normalizedOption) return { id: option.id, score: 0 };
+
+      if (
+        normalizedOption.length >= 8 &&
+        normalizedExplanation.includes(normalizedOption)
+      ) 
+        return { id: option.id, score: 1.5 };
+      
+
+      const optionTokens = normalizedOption
+        .split(" ")
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 4);
+      if (!optionTokens.length) return { id: option.id, score: 0 };
+
+      const shared = optionTokens.filter((token) => explanationTokens.has(token))
+        .length;
+      return { id: option.id, score: shared / optionTokens.length };
+    })
+    .sort((left, right) => right.score - left.score);
+
+  const best = scored[0];
+  const second = scored[1];
+  if (!best || best.score < 0.7) return null;
+  if (second && best.score - second.score < 0.15) return null;
+  return best.id;
+}
+
 function standardizeOptions(input: unknown): NormalizedOption[] | null {
   const ids: QuestionOptionId[] = ["A", "B", "C", "D"];
   let options = input;
@@ -178,9 +260,13 @@ function standardizeOptions(input: unknown): NormalizedOption[] | null {
 function normalizeCorrectOptionId(raw: unknown, options: NormalizedOption[]): QuestionOptionId {
   const ids: QuestionOptionId[] = ["A", "B", "C", "D"];
   if (typeof raw === "string") {
-    const value = raw.trim().toUpperCase();
-    if (ids.includes(value as QuestionOptionId)) return value as QuestionOptionId;
-    const idx = options.findIndex((option) => option.text.toLowerCase() === value.toLowerCase());
+    const parsedId = extractOptionIdFromString(raw);
+    if (parsedId) return parsedId;
+
+    const value = raw.trim();
+    const idx = options.findIndex(
+      (option) => normalizeForMatch(option.text) === normalizeForMatch(value),
+    );
     if (idx >= 0) return ids[idx];
   }
   if (typeof raw === "number" && Number.isFinite(raw)) {
@@ -258,23 +344,31 @@ function normalizeQuestion(
     });
   }
 
+  const explanation =
+    String(question.explanation ?? question.explicacion ?? question.justification ?? "")
+      .trim() || "Respuesta basada en el texto legal citado.";
+
+  const parsedCorrectOptionId = normalizeCorrectOptionId(
+    question.correctOptionId ??
+      question.correct_option_id ??
+      question.correct ??
+      question.correctAnswer ??
+      question.correct_answer,
+    options,
+  );
+  const inferredCorrectOptionId = inferCorrectOptionFromExplanation(
+    explanation,
+    options,
+  );
+
   return {
     topicId: String(question.topicId ?? question.topic_id ?? fallbackTopicId).trim() || fallbackTopicId,
     topicLabel:
       String(question.topicLabel ?? question.topic_label ?? fallbackTopicLabel).trim() || fallbackTopicLabel,
     question: statement,
     options,
-    correctOptionId: normalizeCorrectOptionId(
-      question.correctOptionId ??
-        question.correct_option_id ??
-        question.correct ??
-        question.correctAnswer ??
-        question.correct_answer,
-      options,
-    ),
-    explanation:
-      String(question.explanation ?? question.explicacion ?? question.justification ?? "").trim() ||
-      "Respuesta basada en el texto legal citado.",
+    correctOptionId: inferredCorrectOptionId ?? parsedCorrectOptionId,
+    explanation,
     citations,
   };
 }
@@ -357,6 +451,17 @@ function mergeValidationResult(
     .map((citation: unknown) => normalizeCitation(citation, sourceByChunkId))
     .filter((citation: Citation | null): citation is Citation => Boolean(citation));
 
+  const explanation =
+    String(parsed?.explanation ?? original.explanation).trim() || original.explanation;
+  const parsedCorrectOptionId = normalizeCorrectOptionId(
+    parsed?.correctOptionId,
+    options,
+  );
+  const inferredCorrectOptionId = inferCorrectOptionFromExplanation(
+    explanation,
+    options,
+  );
+
   return {
     verdict:
       parsed?.verdict === "ok" || parsed?.verdict === "fixed" || parsed?.verdict === "rejected"
@@ -366,8 +471,8 @@ function mergeValidationResult(
     issues: Array.isArray(parsed?.issues) ? parsed.issues.map((issue) => String(issue)) : [],
     question: String(parsed?.question ?? original.question).trim() || original.question,
     options,
-    correctOptionId: normalizeCorrectOptionId(parsed?.correctOptionId, options),
-    explanation: String(parsed?.explanation ?? original.explanation).trim() || original.explanation,
+    correctOptionId: inferredCorrectOptionId ?? parsedCorrectOptionId,
+    explanation,
     citations: citations.length ? citations : original.citations,
   };
 }

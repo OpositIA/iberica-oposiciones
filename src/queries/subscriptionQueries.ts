@@ -204,12 +204,23 @@ export const createStripeCheckoutSession = async ({
   planCode: string;
   source: "app_plans" | "plan_selection";
 }): Promise<{ checkoutUrl: string; sessionId: string }> => {
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+
+  const accessToken = sessionData.session?.access_token?.trim() ?? "";
+  if (!accessToken)
+    throw new Error("Debes iniciar sesion para iniciar la pasarela de pago.");
+
   const { data, error } = await supabase.functions.invoke<CheckoutSessionResponse>(
     "create-checkout-session",
     {
       body: {
         plan_code: sanitizeCode(planCode, 60),
         source: sanitizeCode(source, 60)
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`
       }
     }
   );
@@ -225,9 +236,9 @@ export const createStripeCheckoutSession = async ({
       } catch {
         message = error.message || message;
       }
-    } else if (error.message) {
+    } else if (error.message) 
       message = error.message;
-    }
+    
 
     throw new Error(message);
   }
