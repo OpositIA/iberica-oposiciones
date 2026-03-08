@@ -29,6 +29,7 @@ import {
 } from "@/queries/testQueries";
 import { ArrowLeft, CheckCircle2, CircleHelp, RotateCcw } from "lucide-react";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   UNSAFE_NavigationContext,
@@ -281,6 +282,7 @@ const ProfileQuickTestSession = () => {
   const { testId: routeTestId = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const ensuredAttemptForTestRef = useRef<string | null>(null);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedSignatureRef = useRef<string | null>(null);
@@ -742,7 +744,17 @@ const ProfileQuickTestSession = () => {
 
   const handleResultDialogOpenChange = (open: boolean) => {
     setIsResultDialogOpen(open);
-    if (!open) navigate("/dashboard");
+    if (!open) {
+      setIsInternalNavigation(true);
+      void (async () => {
+        if (user?.id) {
+          await queryClient.invalidateQueries({
+            queryKey: ["quick-tests", "dashboard-bundle", user.id]
+          });
+        }
+        navigate("/dashboard");
+      })();
+    }
   };
 
   if (!payload && isLoadingPayload) {
@@ -888,14 +900,14 @@ const ProfileQuickTestSession = () => {
               <div className="space-y-2">
                 {question.options.map((option, optionIdx) => {
                   const isSelected = userAnswer === optionIdx;
+                  const isCorrectOption =
+                    hasAnswer &&
+                    question.correctIndex !== null &&
+                    question.correctIndex === optionIdx;
                   const isSelectedWrong =
                     isSelected &&
                     question.correctIndex !== null &&
                     question.correctIndex !== optionIdx;
-                  const isSelectedCorrect =
-                    isSelected &&
-                    question.correctIndex !== null &&
-                    question.correctIndex === optionIdx;
                   const isSelectedWithoutKey =
                     isSelected && question.correctIndex === null;
 
@@ -915,7 +927,7 @@ const ProfileQuickTestSession = () => {
                         "w-full rounded-md border px-3 py-2 text-left text-sm transition-colors border-border bg-background text-foreground hover:bg-primary/10",
                         isSelectedWithoutKey &&
                           "border-primary bg-primary/15 text-foreground",
-                        isSelectedCorrect && "border-emerald-600 bg-emerald-500/20",
+                        isCorrectOption && "border-emerald-600 bg-emerald-500/20",
                         isSelectedWrong && "border-destructive bg-destructive/10"
                       )}
                     >

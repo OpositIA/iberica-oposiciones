@@ -145,17 +145,35 @@ const normalizeCorrectOptionId = (
   const ids: ("A" | "B" | "C" | "D")[] = ["A", "B", "C", "D"];
 
   if (typeof raw === "string") {
-    const trimmed = raw.trim().toUpperCase();
-    if (ids.includes(trimmed as "A" | "B" | "C" | "D")) 
-      return trimmed as "A" | "B" | "C" | "D";
+    const folded = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .trim();
+    if (ids.includes(folded as "A" | "B" | "C" | "D")) 
+      return folded as "A" | "B" | "C" | "D";
+
+    const keywordMatch = folded.match(
+      /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/,
+    );
+    if (keywordMatch?.[1] && ids.includes(keywordMatch[1] as "A" | "B" | "C" | "D"))
+      return keywordMatch[1] as "A" | "B" | "C" | "D";
+
+    const compactMatch = folded.match(/(?:^|[^A-Z])([ABCD])\s*[).:-]?\s*$/);
+    if (compactMatch?.[1] && ids.includes(compactMatch[1] as "A" | "B" | "C" | "D"))
+      return compactMatch[1] as "A" | "B" | "C" | "D";
+
+    const isolatedMatch = folded.match(/\b([ABCD])\b/);
+    if (isolatedMatch?.[1] && ids.includes(isolatedMatch[1] as "A" | "B" | "C" | "D"))
+      return isolatedMatch[1] as "A" | "B" | "C" | "D";
     
-    const asNum = Number.parseInt(trimmed, 10);
+    const asNum = Number.parseInt(folded, 10);
     if (Number.isFinite(asNum)) {
       if (asNum >= 0 && asNum <= 3) return ids[asNum];
       if (asNum >= 1 && asNum <= 4) return ids[asNum - 1];
     }
     const byTextIdx = options.findIndex(
-      (opt) => opt.text.toLowerCase() === trimmed.toLowerCase(),
+      (opt) => opt.text.toLowerCase() === folded.toLowerCase(),
     );
     if (byTextIdx >= 0) return ids[byTextIdx];
   }

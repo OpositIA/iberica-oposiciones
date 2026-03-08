@@ -189,11 +189,14 @@ const ProfileTest = () => {
       return;
     }
 
+    if (!isCurrentPlanPaid) {
+      setIsUpgradeDialogOpen(true);
+      return;
+    }
+
     if (quickTestQuestionCount > quickTestQuestionLimit) {
-      if (!isCurrentPlanPaid) {
-        setIsUpgradeDialogOpen(true);
-        return;
-      }
+      setQuickTestQuestionCount(quickTestQuestionLimit);
+      return;
     }
 
     if (!forceNew) {
@@ -209,10 +212,31 @@ const ProfileTest = () => {
       }
     }
 
-    const selectedTopicsPayload = selectedTopicIds.map((topicId) => ({
-      id: topicId,
-      label: topicLabelById.get(topicId) ?? topicId
-    }));
+    const selectedTopicIdSetForPayload = new Set(selectedTopicIds);
+    const selectedTopicsPayload = quickBlocks.flatMap((block) => {
+      const blockTopicIds = block.topics.map((topic) => topic.id);
+      const selectedCount = blockTopicIds.filter((topicId) =>
+        selectedTopicIdSetForPayload.has(topicId)
+      ).length;
+
+      if (selectedCount === 0) return [];
+      if (selectedCount === blockTopicIds.length)
+        return [
+          {
+            id: block.code,
+            label: block.displayTitle || block.title,
+            scope: "block" as const
+          }
+        ];
+
+      return block.topics
+        .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
+        .map((topic) => ({
+          id: topic.id,
+          label: topic.label,
+          scope: "topic" as const
+        }));
+    });
 
     setIsGeneratingQuickTest(true);
 
@@ -268,12 +292,16 @@ const ProfileTest = () => {
         isUuid(data.testId.trim())
           ? data.testId.trim()
           : buildClientUuid();
+      const resolvedSelectedTopics =
+        Array.isArray(data?.selectedTopics) && data.selectedTopics.length > 0
+          ? data.selectedTopics
+          : selectedTopicsPayload;
 
       const quickTestPayload: QuickTestSessionPayload = {
         testId: resolvedTestId,
         oppositionName: oposicionActiva.nombre,
         questionCount: generatedQuestionCount,
-        selectedTopics: selectedTopicsPayload,
+        selectedTopics: resolvedSelectedTopics,
         questions: Array.isArray(data?.questions) ? data.questions : []
       };
 
@@ -287,7 +315,7 @@ const ProfileTest = () => {
       toast({
         title: t("test.toasts.quickTestReadyTitle"),
         description: t("test.toasts.quickTestReadyDescription", {
-          topicCount: selectedTopicIds.length,
+          topicCount: resolvedSelectedTopics.length,
           questionCount: generatedQuestionCount,
           testId: resolvedTestId
         })
@@ -301,10 +329,11 @@ const ProfileTest = () => {
     } catch (error) {
       if (
         error instanceof Error &&
-        error.message.includes("quick_test_question_limit_exceeded")
+        (error.message.includes("quick_test_question_limit_exceeded") ||
+          error.message.includes("quick_test_requires_paid_plan"))
       ) {
         setQuickTestQuestionCount(quickTestQuestionLimit);
-        if (!isCurrentPlanPaid) setIsUpgradeDialogOpen(true);
+        setIsUpgradeDialogOpen(true);
       }
 
       toast({

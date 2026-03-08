@@ -144,9 +144,9 @@ serve(async (req) => {
   if (
     currentPaid?.provider_reference
     && sanitizeCode(currentPaid?.plan_code, 60) === requestedPlanCode
-  ) {
+  ) 
     return json({ error: "already_subscribed" }, 409);
-  }
+  
 
   const { data: latestSubscription } = await serviceClient
     .from("user_subscriptions")

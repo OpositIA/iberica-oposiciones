@@ -8,6 +8,7 @@ import {
 export type QuickTestTopicSelection = {
   id: string;
   label: string;
+  scope?: "topic" | "block";
 };
 
 export type GenerateQuickTestPayload = {
@@ -21,6 +22,7 @@ export type GenerateQuickTestPayload = {
 export type GenerateQuickTestResponse = {
   testId?: string;
   questionCount?: number;
+  selectedTopics?: QuickTestTopicSelection[];
   questions?: unknown[];
   used?: number;
   limit?: number;
@@ -122,16 +124,23 @@ const normalizeTopics = (raw: unknown): QuickTestTopicSelection[] => {
       if (!topic || typeof topic !== "object") return null;
       const maybeTopic = topic as Record<string, unknown>;
       const id = sanitizeCode(maybeTopic.id, 120);
-      const label = sanitizeSingleLineText(maybeTopic.label, 160);
+      const label = sanitizeSingleLineText(maybeTopic.label, 220);
       if (!id || !label) return null;
-      return { id, label };
+      const scope =
+        maybeTopic.scope === "block" || maybeTopic.scope === "topic"
+          ? maybeTopic.scope
+          : undefined;
+      return { id, label, scope };
     })
     .filter((topic): topic is QuickTestTopicSelection => Boolean(topic));
 };
 
 const buildTopicsSignature = (topics: QuickTestTopicSelection[]) =>
   topics
-    .map((topic) => `${topic.id.toLowerCase()}::${topic.label.toLowerCase()}`)
+    .map(
+      (topic) =>
+        `${(topic.scope ?? "topic").toLowerCase()}::${topic.id.toLowerCase()}::${topic.label.toLowerCase()}`
+    )
     .sort((a, b) => a.localeCompare(b))
     .join("||");
 
@@ -415,15 +424,41 @@ export const generateQuickTest = async (
     locale: sanitizeCode(payload.locale, 12) || "es",
     selectedTopics: normalizeTopics(payload.selectedTopics)
   };
+
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+
+  const accessToken = sessionData.session?.access_token?.trim() ?? "";
+  if (!accessToken)
+    throw new Error("Debes iniciar sesion para generar un test rapido.");
+
   const { data, error } =
     await supabase.functions.invoke<GenerateQuickTestResponse>(
       "generate-quick-test",
       {
-        body: sanitizedPayload
+        body: sanitizedPayload,
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
       }
     );
 
-  if (error) throw error;
+  if (error) {
+    let message = error.message || "No se pudo generar el test rapido.";
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const parsed = (await context.json()) as { error?: unknown };
+        if (typeof parsed?.error === "string" && parsed.error.trim().length > 0)
+          message = parsed.error.trim();
+      } catch {
+        // keep original message
+      }
+    }
+
+    throw new Error(message);
+  }
   if (!data || typeof data !== "object")
     throw new Error("Invalid response from generate-quick-test.");
 
@@ -544,9 +579,9 @@ export const fetchReusableQuickTestSession = async ({
   );
 
   const reusableRow =
-    matchedRows.find((row) => !attemptedTestIds.has(row.id)) ?? matchedRows[0];
+    matchedRows.find((row) => !attemptedTestIds.has(row.id)) ?? null;
 
-  return mapQuickTestRowToPayload(reusableRow);
+  return reusableRow ? mapQuickTestRowToPayload(reusableRow) : null;
 };
 
 type CloneQuickTestSessionParams = {
