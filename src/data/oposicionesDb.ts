@@ -188,12 +188,14 @@ export const fetchOppositionById = async (
           }>
         };
 
-  const { data: paidSyllabusContentRows } = await untypedSupabase.rpc(
-    "get_current_paid_syllabus_content",
-    {
-      p_opposition_id: normalizedId
-    }
-  );
+  const { data: paidSyllabusContentRows } = await untypedSupabase
+    .from("opposition_syllabi")
+    .select("raw_text")
+    .eq("opposition_id", normalizedId)
+    .eq("is_current", true)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("extracted_at", { ascending: false })
+    .limit(1);
 
   const paidSyllabusContent = String(
     paidSyllabusContentRows?.[0]?.raw_text ?? ""

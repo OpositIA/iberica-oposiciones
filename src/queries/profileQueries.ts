@@ -135,7 +135,7 @@ export const usePreferredOppositionQuery = ({
       ? profileQueryKeys.preferredOpposition(userId, normalizedLocale)
       : ["profiles", "preferred-opposition", "guest", normalizedLocale],
     queryFn: async () => {
-      const base = await queryClient.ensureQueryData({
+      const base = await queryClient.fetchQuery({
         queryKey: profileQueryKeys.base(userId as string),
         queryFn: () => fetchProfileBase(userId as string),
         staleTime: QUERY_STALE_MS
