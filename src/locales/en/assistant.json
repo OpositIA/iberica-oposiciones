@@ -13,6 +13,7 @@
     "validateDailyLimitFailedTitle": "Unable to validate daily limit",
     "validateDailyLimitFailedDescription": "Unable to check AI quota.",
     "loadConversationFailedTitle": "Unable to load conversation",
+    "pinChatFailedTitle": "Unable to update pinned chat",
     "dailyLimitReachedTitle": "Daily limit reached",
     "dailyLimitReachedDescription": "You already used {{used}}/{{limit}} requests today."
   },
@@ -31,7 +32,10 @@
     "conversations": "Your conversations",
     "loadingChats": "Loading chats...",
     "emptyChats": "No conversations yet.",
-    "newChat": "New chat"
+    "newChat": "New chat",
+    "pinChat": "Pin",
+    "unpinChat": "Unpin",
+    "pinnedChat": "Pinned chat"
   },
   "header": {
     "badge": "AI Chat",
@@ -49,6 +53,7 @@
     "assistantLabel": "AI",
     "userLabel": "You",
     "writing": "Typing",
+    "scrollToLatest": "Jump to latest message",
     "conceptMapResponse": "I prepared the mind map: {{title}}",
     "conceptMapReady": "Mind map ready to explore.",
     "conceptMapStats": "{{nodes}} nodes · {{edges}} key connections",

@@ -19,7 +19,7 @@ export const assistantQueryKeys = {
 
 export type AssistantConversationRow = Pick<
   Tables<"ai_conversations">,
-  "id" | "title" | "created_at" | "last_message_at"
+  "id" | "title" | "created_at" | "last_message_at" | "pinned"
 >;
 
 export type AssistantMessageRow = Pick<
@@ -40,9 +40,10 @@ export const fetchAssistantConversations = async (
 ): Promise<AssistantConversationRow[]> => {
   const { data, error } = await supabase
     .from("ai_conversations")
-    .select("id, title, created_at, last_message_at")
+    .select("id, title, created_at, last_message_at, pinned")
     .eq("user_id", userId)
     .eq("archived", false)
+    .order("pinned", { ascending: false })
     .order("last_message_at", { ascending: false });
 
   if (error) throw error;
