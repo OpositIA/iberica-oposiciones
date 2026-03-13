@@ -26,7 +26,8 @@ import {
   isUuid,
   upsertQuickTestSession,
   type InProgressQuickTestSummary,
-  type QuickTestSessionPayload
+  type QuickTestSessionPayload,
+  type QuickTestTopicSelection
 } from "@/queries/testQueries";
 import { ArrowRight, FileText, ListChecks, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -219,31 +220,37 @@ const ProfileTest = () => {
     }
 
     const selectedTopicIdSetForPayload = new Set(selectedTopicIds);
-    const selectedTopicsPayload = quickBlocks.flatMap((block) => {
-      const blockTopicIds = block.topics.map((topic) => topic.id);
-      const selectedCount = blockTopicIds.filter((topicId) =>
-        selectedTopicIdSetForPayload.has(topicId)
-      ).length;
+    const selectedTopicsPayload = quickBlocks.reduce<QuickTestTopicSelection[]>(
+      (acc, block) => {
+        const blockTopicIds = block.topics.map((topic) => topic.id);
+        const selectedCount = blockTopicIds.filter((topicId) =>
+          selectedTopicIdSetForPayload.has(topicId)
+        ).length;
 
-      if (selectedCount === 0) return [];
-      if (selectedCount === blockTopicIds.length) {
-        return [
-          {
+        if (selectedCount === 0) return acc;
+        if (selectedCount === blockTopicIds.length) {
+          acc.push({
             id: block.code,
             label: block.displayTitle || block.title,
             scope: "block" as const
-          }
-        ];
-      }
+          });
+          return acc;
+        }
 
-      return block.topics
-        .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
-        .map((topic) => ({
-          id: topic.id,
-          label: topic.label,
-          scope: "topic" as const
-        }));
-    });
+        acc.push(
+          ...block.topics
+            .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
+            .map((topic) => ({
+              id: topic.id,
+              label: topic.label,
+              scope: "topic" as const
+            }))
+        );
+
+        return acc;
+      },
+      []
+    );
 
     setIsGeneratingQuickTest(true);
 
@@ -469,7 +476,7 @@ const ProfileTest = () => {
             type="button"
             onClick={iniciarSimulacro}
             styleType="menu"
-            className="w-full"
+            className="w-full !mt-[48px]"
           >
             {t("test.startMock")}
           </CustomButton>

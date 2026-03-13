@@ -202,7 +202,13 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
   );
 
   const advancePomodoroPhase = useCallback(
-    (currentPhase: StudyTimerPhase, currentCompletedFocusSessions: number) => {
+    (
+      currentPhase: StudyTimerPhase,
+      currentCompletedFocusSessions: number
+    ): {
+      nextPhase: StudyTimerPhase;
+      nextCompletedFocusSessions: number;
+    } => {
       if (currentPhase === "focus") {
         const nextCompletedFocusSessions = currentCompletedFocusSessions + 1;
         const nextPhase =

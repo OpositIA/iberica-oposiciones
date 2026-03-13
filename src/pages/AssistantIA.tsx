@@ -850,7 +850,7 @@ const AssistantIA = () => {
       setDailyUsedRequests(normalizedQuota.used);
       queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
         day: String(row.day ?? ""),
-        is_paid: Boolean(row.is_paid ?? planState?.is_paid),
+        is_paid: Boolean(planState?.is_paid),
         limit: normalizedQuota.limit,
         remaining: normalizedQuota.remaining,
         used: normalizedQuota.used
