@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import AppLoading from "@/components/AppLoading";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import CustomButton from "@/components/ui/custom-button";
 import {
@@ -9,6 +10,9 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import {
+  isPaidPlan,
+} from "@/lib/plans";
 import {
   clearQuickTestProgress,
   getQuickTestProgress,
@@ -27,6 +31,7 @@ import {
   saveQuickTestAttemptProgress,
   type QuickTestSessionPayload
 } from "@/queries/testQueries";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import { ArrowLeft, CheckCircle2, CircleHelp, RotateCcw } from "lucide-react";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,6 +39,7 @@ import { useTranslation } from "react-i18next";
 import {
   UNSAFE_NavigationContext,
   useBeforeUnload,
+  Link,
   useLocation,
   useNavigate,
   useParams
@@ -277,8 +283,10 @@ const useBrowserNavigationBlocker = (
 };
 
 const ProfileQuickTestSession = () => {
-  const { t } = useTranslation("profile");
+  const { t } = useTranslation(["profile", "plans"]);
   const { user, isAuthReady } = useAuth();
+  const { data: planState } = useUserPlanStateQuery(user?.id);
+  const hasQuickTestsAccess = isPaidPlan(planState);
   const { testId: routeTestId = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -528,7 +536,9 @@ const ProfileQuickTestSession = () => {
       }, 0),
     [gradeableQuestions, selectedAnswers]
   );
+  const isReadOnlyHistoryView = !hasQuickTestsAccess && Boolean(attemptFinishedAt);
   const isMidTest =
+    hasQuickTestsAccess &&
     questions.length > 0 &&
     answeredCount > 0 &&
     answeredCount < questions.length &&
@@ -550,6 +560,7 @@ const ProfileQuickTestSession = () => {
     if (!isAttemptHydrated) return;
     if (!user?.id || !routeTestId || !isUuid(routeTestId)) return;
     if (questions.length === 0) return;
+    if (!hasQuickTestsAccess) return;
 
     const normalizedSelectedAnswers = sanitizeSelectedAnswers(
       selectedAnswers,
@@ -595,6 +606,7 @@ const ProfileQuickTestSession = () => {
     attemptFinishedAt,
     isAttemptHydrated,
     questionById,
+    hasQuickTestsAccess,
     questions,
     routeTestId,
     selectedAnswers,
@@ -623,6 +635,7 @@ const ProfileQuickTestSession = () => {
   const wrongAnswers = Math.max(0, gradeableAnsweredCount - score);
 
   const handleRetry = async () => {
+    if (isReadOnlyHistoryView) return;
     const firstQuestionId = questions[0]?.id ?? null;
     const nowIso = new Date().toISOString();
     const resetInPlace = async () => {
@@ -701,6 +714,7 @@ const ProfileQuickTestSession = () => {
   };
 
   const handleFinalizeTest = async () => {
+    if (isReadOnlyHistoryView) return;
     if (!isAllAnswered || attemptFinishedAt) return;
 
     const finishedAtIso = new Date().toISOString();
@@ -757,12 +771,45 @@ const ProfileQuickTestSession = () => {
     }
   };
 
-  if (!payload && isLoadingPayload) {
+  if (
+    isAuthReady &&
+    user?.id &&
+    !hasQuickTestsAccess &&
+    !isAttemptHydrated &&
+    routeTestId &&
+    isUuid(routeTestId)
+  ) {
+    return <AppLoading label={t("test.loading")} />;
+  }
+
+  if (
+    isAuthReady &&
+    user?.id &&
+    !hasQuickTestsAccess &&
+    !attemptFinishedAt
+  ) {
     return (
-      <section className="border border-border bg-background p-6 space-y-2">
-        <p className="text-sm text-muted-foreground">{t("test.loading")}</p>
-      </section>
+      <div className="border border-border bg-background p-6">
+        <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
+          {t("profile:testSession.badge")}
+        </p>
+        <h1 className="text-xl font-serif text-foreground">
+          {t("testSession.lockedTitle")}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("testSession.lockedDescription")}
+        </p>
+        <div className="mt-4">
+          <CustomButton asChild styleType="primary">
+            <Link to="/perfil/planes">{t("plans:upgradeDialog.cta")}</Link>
+          </CustomButton>
+        </div>
+      </div>
     );
+  }
+
+  if (!payload && isLoadingPayload) {
+    return <AppLoading label={t("test.loading")} />;
   }
 
   if (!payload) {
@@ -816,7 +863,11 @@ const ProfileQuickTestSession = () => {
             {t("testSession.questionsLabel", { count: questions.length })}
           </p>
           {isHydratingAttempt && (
-            <span className="text-xs text-muted-foreground">{t("test.loading")}</span>
+            <AppLoading
+              variant="inline"
+              label={t("test.loading")}
+              className="ml-auto"
+            />
           )}
         </div>
         <p className="text-xs text-muted-foreground">
@@ -870,6 +921,11 @@ const ProfileQuickTestSession = () => {
             {new Date(attemptStartedAt).toLocaleString()}
           </p>
         )}
+        {isReadOnlyHistoryView && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t("testSession.readOnlyHistoryDescription")}
+          </p>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -916,6 +972,7 @@ const ProfileQuickTestSession = () => {
                       key={`${question.id}-${optionIdx}`}
                       type="button"
                       onClick={() => {
+                        if (isReadOnlyHistoryView) return;
                         if (typeof selectedAnswers[question.id] === "number") return;
                         setSelectedAnswers((prev) => ({
                           ...prev,
@@ -998,16 +1055,18 @@ const ProfileQuickTestSession = () => {
           <ArrowLeft className="h-4 w-4" />
           {t("testSession.backToConfig")}
         </CustomButton>
-        <CustomButton
-          type="button"
-          styleType="menu"
-          onClick={handleRetry}
-          disabled={isRetrying}
-        >
-          <RotateCcw className="h-4 w-4" />
-          {t("testSession.retry")}
-        </CustomButton>
-        {isAllAnswered && !attemptFinishedAt && (
+        {!isReadOnlyHistoryView && (
+          <CustomButton
+            type="button"
+            styleType="menu"
+            onClick={handleRetry}
+            disabled={isRetrying}
+          >
+            <RotateCcw className="h-4 w-4" />
+            {t("testSession.retry")}
+          </CustomButton>
+        )}
+        {isAllAnswered && !attemptFinishedAt && !isReadOnlyHistoryView && (
           <CustomButton
             type="button"
             styleType="primary"

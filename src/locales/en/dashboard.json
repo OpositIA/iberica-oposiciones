@@ -15,10 +15,10 @@
   },
   "plan": {
     "badge": "Active plan",
-    "description": "You have {{aiLimit}} AI requests per day and quick tests up to {{quickTestLimit}} questions.",
+    "description": "Your plan defines access to AI and the rest of the Pro features.",
     "manage": "Manage plan",
     "aiUsage": "AI usage today",
-    "quickTestLimit": "Quick-test limit"
+    "quickTestLimit": "Test access"
   },
   "cards": {
     "completedTests": "Completed tests",

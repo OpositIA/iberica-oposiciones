@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import AppLoading from "@/components/AppLoading";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
@@ -15,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
+import { isPaidPlan } from "@/lib/plans";
 import {
   applyAccentColor,
   getDefaultAccentColor,
@@ -29,14 +31,28 @@ import {
   sanitizeUrl
 } from "@/lib/inputSanitization";
 import {
+  createCustomerPortalSession,
+  useUserBillingIssueQuery,
+  useUserPlanStateQuery
+} from "@/queries/subscriptionQueries";
+import {
   useOppositionOptionsQuery,
   useProfileDetailsQuery,
   useResolvedOppositionQuery
 } from "@/queries/profileQueries";
 import { useQueryClient } from "@tanstack/react-query";
-import { Camera, Loader2, Pencil, Save, Trash2, User } from "lucide-react";
+import {
+  Camera,
+  CreditCard,
+  Loader2,
+  Pencil,
+  Save,
+  Trash2,
+  User
+} from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 type ProfileForm = {
   firstName: string;
@@ -164,6 +180,12 @@ const MiPerfil = () => {
       enabled: shouldLoadProfile
     });
   const { data: oppositionOptions = [] } = useOppositionOptionsQuery(locale);
+  const { data: planState } = useUserPlanStateQuery(
+    shouldLoadProfile ? user?.id : null
+  );
+  const { data: billingIssue } = useUserBillingIssueQuery(
+    shouldLoadProfile ? user?.id : null
+  );
   const [profile, setProfile] = useState<ProfileForm>(initialProfile);
   const [persistedAvatarUrl, setPersistedAvatarUrl] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -171,12 +193,14 @@ const MiPerfil = () => {
   const [isChangingOpposition, setIsChangingOpposition] = useState(false);
   const [isChangingLocale, setIsChangingLocale] = useState(false);
   const [isAvatarUpdating, setIsAvatarUpdating] = useState(false);
+  const [isOpeningPaymentPortal, setIsOpeningPaymentPortal] = useState(false);
   const [activeOppositionId, setActiveOppositionId] = useState("");
   const [isOppositionDialogOpen, setIsOppositionDialogOpen] = useState(false);
   const [accentColor, setAccentColor] = useState(() => getStoredAccentColor());
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
+  const hasPaymentMethodManagement = isPaidPlan(planState) || Boolean(billingIssue);
 
   const getOppositionName = (oppositionId: string | null | undefined) =>
     resolveOppositionNameById(oppositionId, oppositionOptions);
@@ -587,14 +611,37 @@ const MiPerfil = () => {
     applyAccentColor(defaultColor);
   };
 
+  const handleOpenPaymentMethodPortal = async () => {
+    if (!hasPaymentMethodManagement) return;
+
+    setIsOpeningPaymentPortal(true);
+    try {
+      const { portalUrl } = await createCustomerPortalSession({
+        returnPath: "/perfil/mi-perfil"
+      });
+
+      toast({
+        title: t("profile:myProfile.toasts.paymentPortalRedirectTitle"),
+        description: t("profile:myProfile.toasts.paymentPortalRedirectDescription")
+      });
+
+      window.location.assign(portalUrl);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: t("profile:myProfile.toasts.paymentPortalRedirectErrorTitle"),
+        description:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : t("profile:myProfile.toasts.paymentPortalRedirectErrorDescription")
+      });
+    } finally {
+      setIsOpeningPaymentPortal(false);
+    }
+  };
+
   if (isLoadingProfile) {
-    return (
-      <div className="border border-border bg-background p-6">
-        <p className="text-sm text-muted-foreground">
-          {t("profile:myProfile.loading")}
-        </p>
-      </div>
-    );
+    return <AppLoading label={t("profile:myProfile.loading")} />;
   }
 
   return (
@@ -761,41 +808,6 @@ const MiPerfil = () => {
               <option value="en">{t("common:locale.en")}</option>
             </CustomSelect>
           </div>
-          <div className="md:col-span-2 rounded-xl border border-border bg-secondary/20 p-4">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
-              {t("profile:myProfile.colorSection.badge")}
-            </p>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              {t("profile:myProfile.fields.accentColor")}
-            </label>
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="color"
-                value={accentColor}
-                onChange={handleAccentColorChange}
-                aria-label={t("profile:myProfile.fields.accentColor")}
-                className="h-10 w-16 cursor-pointer rounded border border-border bg-background p-1"
-              />
-              <span
-                className="h-8 w-8 rounded-full border border-border"
-                style={{ backgroundColor: accentColor }}
-              />
-              <span className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
-                {accentColor}
-              </span>
-              <CustomButton
-                type="button"
-                styleType="menu"
-                size="sm"
-                onClick={handleResetAccentColor}
-              >
-                {t("profile:myProfile.colorSection.reset")}
-              </CustomButton>
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              {t("profile:myProfile.colorSection.description")}
-            </p>
-          </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
               {t("profile:myProfile.fields.age")}
@@ -941,6 +953,93 @@ const MiPerfil = () => {
               ? t("profile:myProfile.oppositionSection.changing")
               : t("profile:myProfile.oppositionSection.change")}
           </CustomButton>
+        </div>
+      </section>
+
+      <section className="border border-border bg-background p-6 md:p-8">
+        <div className="mb-5">
+          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+            {t("profile:myProfile.paymentSection.badge")}
+          </p>
+          <h2 className="text-xl font-serif text-foreground">
+            {t("profile:myProfile.paymentSection.title")}
+          </h2>
+        </div>
+
+        <div className="rounded-xl border border-border bg-secondary/20 p-4">
+          <p className="text-sm text-muted-foreground">
+            {hasPaymentMethodManagement
+              ? t("profile:myProfile.paymentSection.description")
+              : t("profile:myProfile.paymentSection.noSubscriptionDescription")}
+          </p>
+
+          {hasPaymentMethodManagement ? (
+            <CustomButton
+              type="button"
+              styleType="primary"
+              className="mt-4"
+              onClick={() => {
+                void handleOpenPaymentMethodPortal();
+              }}
+              disabled={isOpeningPaymentPortal}
+            >
+              {isOpeningPaymentPortal ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="h-4 w-4" />
+              )}
+              {isOpeningPaymentPortal
+                ? t("profile:myProfile.paymentSection.opening")
+                : t("profile:myProfile.paymentSection.cta")}
+            </CustomButton>
+          ) : (
+            <CustomButton asChild styleType="menu" className="mt-4">
+              <Link to="/perfil/planes">
+                {t("profile:myProfile.paymentSection.managePlansCta")}
+              </Link>
+            </CustomButton>
+          )}
+        </div>
+      </section>
+
+      <section className="border border-border bg-background p-6 md:p-8">
+        <div className="mb-5">
+          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+            {t("profile:myProfile.colorSection.badge")}
+          </p>
+          <h2 className="text-xl font-serif text-foreground">
+            {t("profile:myProfile.fields.accentColor")}
+          </h2>
+        </div>
+
+        <div className="rounded-xl border border-border bg-secondary/20 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="color"
+              value={accentColor}
+              onChange={handleAccentColorChange}
+              aria-label={t("profile:myProfile.fields.accentColor")}
+              className="h-10 w-16 cursor-pointer rounded border border-border bg-background p-1"
+            />
+            <span
+              className="h-8 w-8 rounded-full border border-border"
+              style={{ backgroundColor: accentColor }}
+            />
+            <span className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
+              {accentColor}
+            </span>
+            <CustomButton
+              type="button"
+              styleType="menu"
+              size="sm"
+              onClick={handleResetAccentColor}
+            >
+              {t("profile:myProfile.colorSection.reset")}
+            </CustomButton>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {t("profile:myProfile.colorSection.description")}
+          </p>
         </div>
       </section>
 

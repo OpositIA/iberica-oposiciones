@@ -43,15 +43,15 @@
       "ia": "AI",
       "test": "Tests",
       "syllabus": "Syllabus",
-      "calendar": "Calendar",
       "study": "Study"
     },
     "myProfile": "My profile",
     "activePlan": "Active plan",
     "closeSession": "Log out",
-    "planSummary": "{{aiLimit}} AI requests per day and quick tests up to {{quickTestLimit}} questions.",
+    "planSummary": "Feature access depends on your plan.",
     "managePlan": "Manage plan",
-    "upgradeToPro": "Upgrade to PRO"
+    "upgradeToPro": "Upgrade to PRO",
+    "premiumUntil": "Premium until {{date}}"
   },
   "myProfile": {
     "toasts": {
@@ -78,7 +78,11 @@
       "localeUpdateFailedTitle": "Unable to change language",
       "localeUpdateFailedDescription": "Try again in a few seconds.",
       "localeUpdatedTitle": "Language updated",
-      "localeUpdatedDescription": "Language was applied and saved to your profile."
+      "localeUpdatedDescription": "Language was applied and saved to your profile.",
+      "paymentPortalRedirectTitle": "Opening payment management",
+      "paymentPortalRedirectDescription": "Redirecting you to the secure portal to manage your subscription.",
+      "paymentPortalRedirectErrorTitle": "Unable to open payment management",
+      "paymentPortalRedirectErrorDescription": "Try again in a few seconds."
     },
     "loading": "Loading profile...",
     "avatarAlt": "Profile",
@@ -123,6 +127,15 @@
       "change": "Change",
       "changing": "Changing..."
     },
+    "paymentSection": {
+      "badge": "Billing",
+      "title": "Subscription and billing",
+      "description": "From the secure portal you can update your payment method, review invoices, or cancel your subscription.",
+      "noSubscriptionDescription": "You do not have an active paid subscription right now. Once Premium is active, you can manage your subscription from here.",
+      "cta": "Manage subscription",
+      "opening": "Opening portal...",
+      "managePlansCta": "View plans"
+    },
     "dialog": {
       "title": "Confirm exam track change",
       "description": "You are about to change your active exam track to \"{{opposition}}\". Do you want to continue?",
@@ -158,7 +171,9 @@
     "quickTopics": "Quick test topics",
     "selectTopic": "Select a topic from {{opposition}}",
     "quickSelectionSummary": "{{topicCount}} topics selected - {{questionCount}} questions",
-    "planSummary": "Your plan allows up to {{quickTestLimit}} questions per quick test.",
+    "planSummary": "Test access depends on your plan.",
+    "planSummaryFree": "Tests are available only with the Pro plan.",
+    "planSummaryPro": "Your Pro plan includes access to tests.",
     "quickDialogTitle": "Configure quick test",
     "quickDialogDescription": "Choose blocks and topics from {{opposition}} to generate your test.",
     "quickDialogQuestionsLabel": "Number of questions",
@@ -192,29 +207,6 @@
     "contentLockedDescription": "With the paid plan you can access the full syllabus content.",
     "contentLockedCta": "View plans"
   },
-  "calendar": {
-    "badge": "Calendar",
-    "title": "Weekly plan",
-    "description": "Organize your study blocks and review upcoming preparation milestones.",
-    "upcomingSessions": "Upcoming sessions",
-    "blocks": {
-      "monday": {
-        "day": "Monday",
-        "activity": "Review Topic 1-2",
-        "time": "19:00 - 20:30"
-      },
-      "wednesday": {
-        "day": "Wednesday",
-        "activity": "Quick test Topic 3",
-        "time": "19:30 - 20:00"
-      },
-      "friday": {
-        "day": "Friday",
-        "activity": "General mock exam",
-        "time": "18:30 - 19:30"
-      }
-    }
-  },
   "opositAI": {
     "badge": "AI",
     "title": "opositAI section",
@@ -228,24 +220,29 @@
   },
   "study": {
     "badge": "Study",
-    "description": "Set a study timer and keep control from any screen.",
-    "durationLabel": "Duration (minutes)",
-    "durationHint": "You can adjust between 1 and 480 minutes.",
+    "description": "Set a Pomodoro timer and keep control from any screen.",
     "remainingLabel": "Time remaining",
+    "phaseLabel": "Current phase",
+    "phasefocus": "Focus",
+    "phaseshortBreak": "Short break",
+    "phaselongBreak": "Long break",
     "statusRunning": "Timer running",
     "statusPaused": "Timer paused",
-    "statusFinished": "Time finished",
+    "statusFinished": "Block switching",
     "statusIdle": "Ready to start",
+    "tapHintIdle": "Tap the countdown to start",
+    "tapHintRunning": "Tap the countdown to pause",
+    "tapHintPaused": "Tap the countdown to continue",
     "pause": "Pause",
     "resume": "Resume",
     "start": "Start",
     "stop": "Stop",
     "restart": "Restart",
-    "finishedMessage": "Study block is over. Time for a break.",
-    "readyHint": "Set a duration and press start.",
     "toasts": {
-      "breakTitle": "Block finished",
-      "breakDescription": "Time to take a break."
+      "focusCompleteTitle": "Pomodoro completed",
+      "focusCompleteDescription": "Next phase: {{nextPhase}}.",
+      "breakCompleteTitle": "Break completed",
+      "breakCompleteDescription": "Next phase: {{nextPhase}}."
     }
   },
   "testSession": {
@@ -258,6 +255,9 @@
     "questionsLabel": "Questions: {{count}}",
     "missingDataTitle": "Test data not found",
     "missingDataDescription": "There is no data available for this test in the current session.",
+    "lockedTitle": "Tests are available only in Pro",
+    "lockedDescription": "Your current plan does not include access to take tests. Upgrade to Pro to continue.",
+    "readOnlyHistoryDescription": "This test is already finished. You can review it, but you cannot take it again on the free plan.",
     "emptyQuestionsTitle": "This test has no questions",
     "emptyQuestionsDescription": "The backend did not return valid questions for this attempt.",
     "backToConfig": "Back to setup",

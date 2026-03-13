@@ -3,7 +3,10 @@ import opositaiLogo from "@/assets/opositai-logo.png";
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
 import { isPaidPlan } from "@/lib/plans";
-import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
+import {
+  useUserBillingIssueQuery,
+  useUserPlanStateQuery
+} from "@/queries/subscriptionQueries";
 import {
   Tooltip,
   TooltipContent,
@@ -14,8 +17,8 @@ import UserActionsDropdown from "@/components/UserActionsDropdown";
 import { cn } from "@/lib/utils";
 import { useStudyTimer } from "@/study/StudyTimerProvider";
 import {
+  AlertTriangle,
   Brain,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   CircleUserRound,
@@ -33,13 +36,25 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import appPackage from "../../package.json";
 
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "opositai:sidebar-collapsed";
+const BILLING_ISSUE_DISMISS_PREFIX = "opositai:billing-issue-dismissed";
+
+const formatPlanEndDate = (value: string | null, locale: string) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return parsed.toLocaleDateString(locale, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+};
 
 const AuthenticatedSidebarLayout = () => {
   const location = useLocation();
-  const { t } = useTranslation(["profile", "common"]);
+  const { t, i18n } = useTranslation(["profile", "common", "plans"]);
   const { profile, user } = useAuth();
   const { status, formattedRemaining, pause, resume, stop } = useStudyTimer();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -49,7 +64,6 @@ const AuthenticatedSidebarLayout = () => {
     return window.localStorage.getItem(SIDEBAR_COLLAPSE_STORAGE_KEY) === "1";
   });
   const avatarUrl = profile?.avatarUrl ?? "";
-  const appVersion = String(appPackage.version ?? "");
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${
       profile?.lastName ?? ""
@@ -57,7 +71,26 @@ const AuthenticatedSidebarLayout = () => {
     return fullName || profile?.email || t("profile:layout.defaults.account");
   }, [profile, t]);
   const { data: planState } = useUserPlanStateQuery(user?.id);
+  const { data: billingIssue } = useUserBillingIssueQuery(user?.id);
   const isFreePlan = !isPaidPlan(planState);
+  const intlLocale = useMemo(
+    () => (i18n.resolvedLanguage?.toLowerCase().startsWith("en") ? "en-US" : "es-ES"),
+    [i18n.resolvedLanguage]
+  );
+  const premiumUntilDateLabel = useMemo(
+    () => formatPlanEndDate(planState?.current_period_end ?? null, intlLocale),
+    [intlLocale, planState?.current_period_end]
+  );
+  const showPremiumUntilNotice = Boolean(
+    isPaidPlan(planState) &&
+      planState?.cancel_at_period_end &&
+      premiumUntilDateLabel
+  );
+  const billingIssueFingerprint = billingIssue
+    ? `${billingIssue.subscription_id}:${billingIssue.updated_at ?? ""}:${billingIssue.failed_at ?? ""}`
+    : "";
+  const [dismissedBillingIssueFingerprint, setDismissedBillingIssueFingerprint] =
+    useState("");
 
   const menuGroups = useMemo(
     () => [
@@ -68,11 +101,6 @@ const AuthenticatedSidebarLayout = () => {
             label: t("profile:layout.menuItems.dashboard"),
             to: "/dashboard",
             icon: LayoutDashboard
-          },
-          {
-            label: t("profile:layout.menuItems.profile"),
-            to: "/perfil/mi-perfil",
-            icon: CircleUserRound
           },
           {
             label: t("profile:layout.menuItems.ia"),
@@ -93,11 +121,6 @@ const AuthenticatedSidebarLayout = () => {
             label: t("profile:layout.menuItems.syllabus"),
             to: "/perfil/temario",
             icon: NotebookText
-          },
-          {
-            label: t("profile:layout.menuItems.calendar"),
-            to: "/perfil/calendario",
-            icon: CalendarDays
           },
           {
             label: t("profile:layout.menuItems.study"),
@@ -141,6 +164,36 @@ const AuthenticatedSidebarLayout = () => {
       isSidebarCollapsed ? "1" : "0"
     );
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") {
+      setDismissedBillingIssueFingerprint("");
+      return;
+    }
+
+    const stored =
+      window.sessionStorage.getItem(
+        `${BILLING_ISSUE_DISMISS_PREFIX}:${user.id}`
+      ) ?? "";
+    setDismissedBillingIssueFingerprint(stored);
+  }, [user?.id]);
+
+  const showBillingIssueBanner =
+    Boolean(billingIssue) &&
+    billingIssue.subscription_status === "past_due" &&
+    billingIssueFingerprint.length > 0 &&
+    dismissedBillingIssueFingerprint !== billingIssueFingerprint;
+
+  const dismissBillingIssueBanner = () => {
+    if (!user?.id || !billingIssueFingerprint || typeof window === "undefined")
+      return;
+
+    window.sessionStorage.setItem(
+      `${BILLING_ISSUE_DISMISS_PREFIX}:${user.id}`,
+      billingIssueFingerprint
+    );
+    setDismissedBillingIssueFingerprint(billingIssueFingerprint);
+  };
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -305,7 +358,7 @@ const AuthenticatedSidebarLayout = () => {
               </div>
             </header>
 
-            <nav className="relative h-full overflow-y-auto p-3">
+            <nav className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-3">
               <ul className="space-y-1.5">
                 {sidebarMenuItems.map((item) => {
                   const active = location.pathname === item.to;
@@ -365,77 +418,71 @@ const AuthenticatedSidebarLayout = () => {
                   );
                 })}
               </ul>
+              <div
+                className={cn(
+                  "mt-4 -mx-3 min-h-0 flex-1 border-t border-border/60 pt-3",
+                  isSidebarCollapsed && "lg:hidden"
+                )}
+              >
+                <div id="assistant-sidebar-history-slot" className="h-full min-h-0" />
+              </div>
             </nav>
 
             <footer
               className={cn(
-                "relative mt-auto p-3 border-t border-border/60",
+                "relative mt-auto flex flex-col gap-3 border-t border-border/60 p-3",
                 isSidebarCollapsed && "lg:hidden"
               )}
             >
-              <div className="rounded-2xl border border-border bg-background/70 p-3">
-                <Link
-                  to="/perfil/mi-perfil"
-                  onClick={closeMobileSidebar}
-                  className="mb-3 flex items-center gap-2 rounded-xl border border-border/70 bg-background px-2.5 py-2 transition-colors hover:bg-secondary/70"
-                >
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt={t("profile:myProfile.avatarAlt")}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <CircleUserRound className="h-4 w-4 text-muted-foreground" />
-                    )}
+              <Link
+                to="/perfil/mi-perfil"
+                onClick={closeMobileSidebar}
+                className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-secondary/70"
+              >
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={t("profile:myProfile.avatarAlt")}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <CircleUserRound className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">
+                    {accountName}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-foreground">
-                      {accountName}
-                    </span>
-                    <span className="block text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
-                      {t("profile:layout.myProfile")}
-                    </span>
+                  <span className="block text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
+                    {t("profile:layout.myProfile")}
                   </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </Link>
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
 
-                {isFreePlan ? (
-                  <CustomButton
-                    asChild
-                    styleType="ghost"
-                    className="w-full justify-start"
-                  >
-                    <Link to="/perfil/planes" onClick={closeMobileSidebar}>
-                      <Sparkles className="h-4 w-4" />
-                      {t("profile:layout.upgradeToPro")}
-                    </Link>
-                  </CustomButton>
-                ) : null}
-              </div>
+              {showPremiumUntilNotice ? (
+                <div className="rounded-xl border border-primary/25 bg-primary/10 px-2.5 py-2 text-xs text-primary">
+                  <p className="font-semibold tracking-wide">
+                    {t("profile:layout.premiumUntil", {
+                      date: premiumUntilDateLabel
+                    })}
+                  </p>
+                </div>
+              ) : isFreePlan ? (
+                <CustomButton
+                  asChild
+                  styleType="ghost"
+                  className="w-full justify-start"
+                >
+                  <Link to="/perfil/planes" onClick={closeMobileSidebar}>
+                    <Sparkles className="h-4 w-4" />
+                    {t("profile:layout.upgradeToPro")}
+                  </Link>
+                </CustomButton>
+              ) : null}
             </footer>
 
-            <div
-              className={cn(
-                "relative border-t border-border/60 p-3",
-                isSidebarCollapsed && "lg:flex lg:justify-center"
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/85 px-2 py-1 text-[8px] font-semibold tracking-widest uppercase text-muted-foreground shadow-sm",
-                  isSidebarCollapsed && "lg:px-2.5"
-                )}
-                title={`v${appVersion}`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                <span className={cn(isSidebarCollapsed && "lg:hidden")}>
-                  {t("common:meta.version")}
-                </span>
-                <span className="text-foreground">v{appVersion}</span>
-              </span>
-            </div>
           </div>
 
           <CustomButton
@@ -443,7 +490,7 @@ const AuthenticatedSidebarLayout = () => {
             onClick={handleToggleSidebarCollapse}
             styleType="menu"
             radius="full"
-            className="h-7 w-7 p-0 absolute right-0 top-1/2 z-20 hidden -translate-y-1/2 translate-x-1/2 border-border/80 shadow-sm lg:inline-flex"
+            className="absolute right-0 top-[37%] z-20 hidden h-7 w-7 -translate-y-1/2 translate-x-1/2 border-border/80 p-0 shadow-sm lg:inline-flex"
             aria-label={t(
               isSidebarCollapsed
                 ? "profile:layout.expandSidebar"
@@ -460,10 +507,51 @@ const AuthenticatedSidebarLayout = () => {
 
         <main
           className={cn(
-            "w-full max-w-[110rem] mx-auto px-4 md:px-6 py-8 lg:py-10 relative z-10 transition-all duration-300",
+            "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
             desktopSidebarOffsetClass
           )}
         >
+          {showBillingIssueBanner && billingIssue && (
+            <section className="mb-4 rounded-2xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 to-background px-4 py-3 shadow-[0_20px_45px_-40px_rgba(217,119,6,0.7)]">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {t("plans:billingIssue.bannerTitle")}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {billingIssue.error_message}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <CustomButton asChild size="sm" styleType="primary">
+                      <Link to="/perfil/pago-fallido">
+                        {t("plans:billingIssue.bannerCta")}
+                      </Link>
+                    </CustomButton>
+                    <CustomButton
+                      type="button"
+                      size="sm"
+                      styleType="ghost"
+                      onClick={dismissBillingIssueBanner}
+                    >
+                      {t("plans:billingIssue.bannerDismiss")}
+                    </CustomButton>
+                  </div>
+                </div>
+                <CustomButton
+                  type="button"
+                  size="iconSm"
+                  radius="full"
+                  styleType="ghost"
+                  aria-label={t("plans:billingIssue.bannerDismiss")}
+                  onClick={dismissBillingIssueBanner}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </CustomButton>
+              </div>
+            </section>
+          )}
           <Outlet />
         </main>
       </div>

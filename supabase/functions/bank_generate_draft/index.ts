@@ -182,6 +182,7 @@ async function embedQuery(text: string) {
     if (!Array.isArray(vector)) throw new Error("No embedding vector found");
     return vector as number[];
   }
+
   const baseUrl = Deno.env.get("OLLAMA_BASE_URL");
   if (!baseUrl) throw new Error("Missing OLLAMA_BASE_URL");
   const model = Deno.env.get("OLLAMA_EMBED_MODEL") ?? "nomic-embed-text";

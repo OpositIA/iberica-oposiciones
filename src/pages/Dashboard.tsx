@@ -1,6 +1,8 @@
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
+import { isPaidPlan } from "@/lib/plans";
 import { useProfileBaseQuery } from "@/queries/profileQueries";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   fetchQuickTestsDashboardBundle,
   type QuickTestHistoryRecord
@@ -36,6 +38,8 @@ const Dashboard = () => {
   const { data: profileBase } = useProfileBaseQuery(
     shouldLoadProfileBase ? user?.id : null
   );
+  const { data: planState } = useUserPlanStateQuery(user?.id);
+  const hasQuickTestsAccess = isPaidPlan(planState);
   const [visibleHistoryCount, setVisibleHistoryCount] =
     useState(HISTORY_PAGE_SIZE);
   const { data: dashboardBundle, isLoading: isHistoryLoading } = useQuery({
@@ -132,7 +136,7 @@ const Dashboard = () => {
                 {t("actions.profile")}
               </Link>
             </CustomButton>
-            {!inProgressQuickTest && (
+            {!inProgressQuickTest && hasQuickTestsAccess && (
               <CustomButton asChild styleType="menu">
                 <Link to="/perfil/test">
                   <BookOpen className="h-4 w-4" />
@@ -140,7 +144,7 @@ const Dashboard = () => {
                 </Link>
               </CustomButton>
             )}
-            {inProgressQuickTest && (
+            {inProgressQuickTest && hasQuickTestsAccess && (
               <CustomButton asChild styleType="menu">
                 <Link
                   to={`/perfil/test/${encodeURIComponent(inProgressQuickTest.testId)}`}

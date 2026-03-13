@@ -63,11 +63,19 @@ const buildProfileSnapshot = (
     | undefined,
   authUser: User
 ): UserProfileSnapshot => {
+  const metadata = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+  const metadataFirstName =
+    typeof metadata.first_name === "string" ? metadata.first_name : "";
+  const metadataLastName =
+    typeof metadata.last_name === "string" ? metadata.last_name : "";
+  const metadataAvatarUrl =
+    typeof metadata.avatar_url === "string" ? metadata.avatar_url : "";
+
   return {
-    firstName: sanitizeSingleLineText(data?.first_name, 80),
-    lastName: sanitizeSingleLineText(data?.last_name, 120),
+    firstName: sanitizeSingleLineText(data?.first_name ?? metadataFirstName, 80),
+    lastName: sanitizeSingleLineText(data?.last_name ?? metadataLastName, 120),
     email: sanitizeSingleLineText(data?.email ?? authUser.email, 254),
-    avatarUrl: sanitizeUrl(data?.avatar_url)
+    avatarUrl: sanitizeUrl(data?.avatar_url ?? metadataAvatarUrl)
   };
 };
 

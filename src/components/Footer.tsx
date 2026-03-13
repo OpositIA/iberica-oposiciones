@@ -17,7 +17,6 @@ const Footer = () => {
   const resourceLinks = [
     t("landing:footer.resourceLinks.blog"),
     t("landing:footer.resourceLinks.guides"),
-    t("landing:footer.resourceLinks.calendar"),
     t("landing:footer.resourceLinks.laws")
   ];
 

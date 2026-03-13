@@ -1,81 +1,6 @@
-/// <reference lib="deno.ns" />
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+﻿import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { XMLParser } from "https://esm.sh/fast-xml-parser@4.5.3";
-import {
-  parseJsonBody,
-  sanitizeBoolean,
-  sanitizeCode,
-  sanitizeInteger,
-  sanitizeStringArray,
-} from "../_shared/inputSanitization.ts";
-
-type RequestPayload = {
-  boe_ids?: string[];
-  force?: boolean;
-  dry_run?: boolean;
-  cursor_boe_id?: string;
-  max_laws?: number;
-};
-
-type SyncTarget = {
-  boeId: string;
-  label: string;
-};
-
-type LawMetadata = {
-  boeId: string;
-  tituloLey: string;
-  fechaActualizacion: string | null;
-  fechaIso: string | null;
-  urlNorma: string;
-  eli: string | null;
-};
-
-type LawBlock = {
-  bloqueId: string;
-  bloqueTitulo: string;
-  url: string;
-};
-
-type LawUnit = {
-  bloqueId: string;
-  bloqueTitulo: string;
-  unitId: string;
-  unitType: string;
-  unitTitle: string;
-  content: string;
-  fechaVigencia: string | null;
-  fechaPublicacion: string | null;
-};
-
-type LawChunk = {
-  chunkIndex: number;
-  title: string;
-  content: string;
-  contentHash: string;
-  metadata: Record<string, unknown>;
-};
-
-type SyncLogRow = {
-  boe_id: string;
-  fecha_actualizacion: string | null;
-};
-
-type RagSourceRow = {
-  id: number;
-  is_current: boolean;
-};
-
-type ChunkIndexRow = {
-  id: number;
-  chunk_index: number;
-};
-
-type TargetBatch = {
-  targets: SyncTarget[];
-  hasMore: boolean;
-};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,9 +17,21 @@ const parser = new XMLParser({
   processEntities: true,
 });
 
+const OPENROUTER_BASE_URL = Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
+const OPENROUTER_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
+const OPENROUTER_APP_URL = Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+const OPENROUTER_APP_NAME = Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
+const OPENROUTER_TIMEOUT_MS = Math.max(5000, Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "45000"));
+const EMBEDDING_DIM = 4096;
+const EMBEDDING_BATCH_SIZE = Math.max(
+  1,
+  Math.min(64, Number(Deno.env.get("OPENROUTER_EMBEDDING_BATCH_SIZE") ?? "8")),
+);
 const UPSERT_BATCH_SIZE = 100;
-const splitRe = /(\n\n+)|(\n)|(?<=\.)\s+|(?<=;)\s+|(?<=:)\s+/u;
-const enumRe = /^\s*(\d+\.|\d+\)|[a-zA-Z]\)|[IVXLC]+\.)\s+/u;
+const MAX_CHUNKS_PER_RUN_DEFAULT = Math.max(
+  1,
+  Math.min(200, Number(Deno.env.get("SYNC_LAWS_MAX_CHUNKS_PER_RUN") ?? "200")),
+);
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -105,44 +42,49 @@ const json = (body: unknown, status = 200) =>
     },
   });
 
-function normalizeText(value: string): string {
-  return value
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const safeText = (value: unknown, max = 5000) => {
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return "";
+  return String(value)
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, max);
+};
+
+const normalizeText = (value: string) =>
+  value
     .replace(/\u00a0/g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
 
-function asArray<T>(value: T | T[] | null | undefined): T[] {
-  if (Array.isArray(value)) return value;
-  return value == null ? [] : [value];
-}
+const stripAccents = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-function s(value: unknown): string {
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return "";
-}
+const asArray = <T>(value: T | T[] | null | undefined): T[] =>
+  Array.isArray(value) ? value : value == null ? [] : [value];
 
 function textContent(value: unknown): string {
   if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") 
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return String(value).trim();
-  
+  }
 
-  if (Array.isArray(value)) 
+  if (Array.isArray(value)) {
     return normalizeText(value.map((item) => textContent(item)).filter(Boolean).join(" "));
-  
+  }
 
-  if (typeof value !== "object") return "";
+  if (!isRecord(value)) return "";
 
   const parts: string[] = [];
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+  for (const [key, child] of Object.entries(value)) {
     if (key.startsWith("@_")) continue;
     const text = textContent(child);
     if (text) parts.push(text);
   }
-
   return normalizeText(parts.join(" "));
 }
 
@@ -152,20 +94,15 @@ function collectByKey(value: unknown, targetKey: string, out: Record<string, unk
     return;
   }
 
-  if (!value || typeof value !== "object") return;
-  const record = value as Record<string, unknown>;
-
-  for (const [key, child] of Object.entries(record)) {
+  if (!isRecord(value)) return;
+  for (const [key, child] of Object.entries(value)) {
     if (key === targetKey) {
       for (const item of asArray(child)) {
-        if (item && typeof item === "object" && !Array.isArray(item)) 
-          out.push(item as Record<string, unknown>);
-        
+        if (isRecord(item)) out.push(item);
       }
     }
 
-    if (key.startsWith("@_")) continue;
-    collectByKey(child, targetKey, out);
+    if (!key.startsWith("@_")) collectByKey(child, targetKey, out);
   }
 }
 
@@ -175,10 +112,8 @@ function collectTextsByKey(value: unknown, targetKey: string, out: string[]): vo
     return;
   }
 
-  if (!value || typeof value !== "object") return;
-  const record = value as Record<string, unknown>;
-
-  for (const [key, child] of Object.entries(record)) {
+  if (!isRecord(value)) return;
+  for (const [key, child] of Object.entries(value)) {
     if (key === targetKey) {
       for (const item of asArray(child)) {
         const text = textContent(item);
@@ -186,8 +121,7 @@ function collectTextsByKey(value: unknown, targetKey: string, out: string[]): vo
       }
     }
 
-    if (key.startsWith("@_")) continue;
-    collectTextsByKey(child, targetKey, out);
+    if (!key.startsWith("@_")) collectTextsByKey(child, targetKey, out);
   }
 }
 
@@ -200,17 +134,16 @@ function findFirstTextByKeys(value: unknown, keys: Set<string>): string | null {
     return null;
   }
 
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
+  if (!isRecord(value)) return null;
 
-  for (const [key, child] of Object.entries(record)) {
+  for (const [key, child] of Object.entries(value)) {
     if (keys.has(key)) {
       const text = textContent(child);
       if (text) return text;
     }
   }
 
-  for (const [key, child] of Object.entries(record)) {
+  for (const [key, child] of Object.entries(value)) {
     if (key.startsWith("@_")) continue;
     const found = findFirstTextByKeys(child, keys);
     if (found) return found;
@@ -219,332 +152,180 @@ function findFirstTextByKeys(value: unknown, keys: Set<string>): string | null {
   return null;
 }
 
-function boeTsToIso(value: string | null): string | null {
-  const raw = s(value);
-  if (!raw || raw.length < 8 || !/^\d{8}/.test(raw)) return null;
-  return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-}
+const normalizeDateToIso = (value: string | null): string | null => {
+  const raw = safeText(value, 20);
+  if (!raw) return null;
+  if (/^\d{8}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  const m = raw.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
+  if (!m) return null;
+  return `${m[1]}-${m[2]}-${m[3]}`;
+};
 
-function yyyymmddInt(value: string | null | undefined): number {
-  const raw = s(value);
-  if (!raw || raw.length < 8 || !/^\d{8}/.test(raw)) return 0;
-  return Number(raw.slice(0, 8));
-}
+const sanitizeCode = (value: unknown, max = 80) => safeText(value, max).replace(/[^A-Za-z0-9._:-]/g, "");
 
-function mapUnitType(rawType: string): string {
-  const value = rawType.toLowerCase();
-  if (value.includes("precepto")) return "articulo";
-  if (value.includes("preambulo")) return "preambulo";
-  if (value.includes("anexo")) return "anexo";
-  if (value.includes("adicional")) return "disposicion_adicional";
-  if (value.includes("transitoria")) return "disposicion_transitoria";
-  if (value.includes("derogatoria")) return "disposicion_derogatoria";
-  if (value.includes("final")) return "disposicion_final";
-  return "estructura";
-}
-
-function smartChunk(text: string, maxChars = 7000, minChars = 800, overlapChars = 800): string[] {
+function splitIntoChunks(text: string, maxChars = 7000, overlap = 800): string[] {
   const normalized = normalizeText(text);
   if (!normalized) return [];
   if (normalized.length <= maxChars) return [normalized];
 
-  const parts = normalized.split(splitRe).filter((part) => part && part.trim());
+  const words = normalized.split(/\s+/).filter(Boolean);
   const chunks: string[] = [];
-  let buffer = "";
+  let current = "";
 
-  const pushBuffer = (value: string) => {
-    const trimmed = value.trim();
-    if (trimmed) chunks.push(trimmed);
-  };
-
-  for (const rawPart of parts) {
-    const part = rawPart.trim();
-    if (!part) continue;
-
-    if (!buffer) {
-      buffer = part;
+  for (const word of words) {
+    if (!current) {
+      current = word;
       continue;
     }
 
-    if (buffer.length + 1 + part.length <= maxChars) {
-      buffer += enumRe.test(part) ? `\n${part}` : ` ${part}`;
+    if (current.length + 1 + word.length <= maxChars) {
+      current += ` ${word}`;
       continue;
     }
 
-    if (buffer.length < minChars && part.length < maxChars) {
-      buffer += ` ${part}`;
-      continue;
-    }
-
-    pushBuffer(buffer);
-
-    if (overlapChars > 0 && buffer.length > overlapChars) 
-      buffer = `${buffer.slice(-overlapChars)} ${part}`.trim();
-     else 
-      buffer = part;
-    
+    chunks.push(current);
+    current = overlap > 0 && current.length > overlap
+      ? `${current.slice(-overlap)} ${word}`.trim()
+      : word;
   }
 
-  pushBuffer(buffer);
-
-  const merged: string[] = [];
-  for (const chunk of chunks) {
-    if (merged.length > 0 && chunk.length < minChars) 
-      merged[merged.length - 1] = `${merged[merged.length - 1]}\n${chunk}`.trim();
-     else 
-      merged.push(chunk);
-    
-  }
-
-  return merged;
+  if (current) chunks.push(current);
+  return chunks;
 }
 
 async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function parseXml(xmlText: string): Record<string, unknown> {
   const parsed = parser.parse(xmlText);
-  if (!parsed || typeof parsed !== "object") 
-    throw new Error("Invalid BOE XML");
-  
-  return parsed as Record<string, unknown>;
+  if (!isRecord(parsed)) throw new Error("Invalid BOE XML");
+  return parsed;
 }
 
-async function fetchTextWithRetry(url: string, accept: string): Promise<string> {
+async function fetchTextWithRetry(url: string): Promise<string> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
     try {
       const response = await fetch(url, {
         headers: {
-          Accept: accept,
+          Accept: "application/xml,text/xml,*/*",
           "User-Agent": "study-brilliance-law-sync/1.0",
         },
       });
 
-      if (response.status === 404) 
-        throw new Error(`404 Not Found: ${url}`);
-      
-
-      if (!response.ok) 
-        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-      
-
+      if (response.status === 404) throw new Error(`404 Not Found: ${url}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
       return await response.text();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (lastError.message.includes("404 Not Found")) throw lastError;
-      const waitMs = 1000 * (2 ** attempt);
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** attempt)));
     }
   }
 
-  throw new Error(`GET fallo tras reintentos: ${url} | ${lastError?.message ?? "unknown"}`);
+  throw new Error(`GET failed: ${url} | ${lastError?.message ?? "unknown"}`);
 }
 
-async function getMetadata(boeId: string): Promise<LawMetadata> {
-  const xmlText = await fetchTextWithRetry(
-    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`,
-    "application/xml,text/xml,*/*",
-  );
-  const root = parseXml(xmlText);
-  const tituloLey = findFirstTextByKeys(root, new Set(["titulo"])) ?? boeId;
-  const fechaActualizacion = findFirstTextByKeys(root, new Set(["fecha_actualizacion"]));
-  const urlNorma = findFirstTextByKeys(root, new Set(["url_html_consolidada"]))
-    ?? `https://www.boe.es/buscar/act.php?id=${encodeURIComponent(boeId)}`;
-  const eli = findFirstTextByKeys(root, new Set(["eli"]));
+type SyncTarget = { boeId: string; label: string };
+type ParagraphNode = { text: string; className: string | null };
+type LawUnit = { unitId: string; unitTitle: string; content: string; paragraphs: ParagraphNode[] };
+type Chunk = { chunkIndex: number; title: string; content: string; contentHash: string; metadata: Record<string, unknown> };
 
-  return {
-    boeId,
-    tituloLey,
-    fechaActualizacion,
-    fechaIso: boeTsToIso(fechaActualizacion),
-    urlNorma,
-    eli,
-  };
-}
+const ARTICLE_REFERENCE_RE = /\barticulo\s+(\d+(?:[.,]\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies))?)/i;
+const PARAGRAPH_REFERENCE_RE = /^(\d+)\.\s*(.*)$/;
 
-async function getIndexBlocks(boeId: string): Promise<LawBlock[]> {
-  const xmlText = await fetchTextWithRetry(
-    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/texto/indice`,
-    "application/xml,text/xml,*/*",
-  );
-  const root = parseXml(xmlText);
-  const rawBlocks: Record<string, unknown>[] = [];
-  collectByKey(root, "bloque", rawBlocks);
-
-  const byId = new Map<string, LawBlock>();
-  for (const rawBlock of rawBlocks) {
-    const bloqueId = textContent(rawBlock.id);
-    if (!bloqueId) continue;
-    const bloqueTitulo = textContent(rawBlock.titulo);
-    const url = textContent(rawBlock.url)
-      || `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/texto/bloque/${encodeURIComponent(bloqueId)}`;
-    byId.set(bloqueId, {
-      bloqueId,
-      bloqueTitulo,
-      url,
-    });
+function collectParagraphNodes(value: unknown, out: ParagraphNode[], insideNote = false): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectParagraphNodes(item, out, insideNote);
+    return;
   }
 
-  return Array.from(byId.values());
+  if (!isRecord(value)) return;
+
+  for (const [key, child] of Object.entries(value)) {
+    const nextInsideNote = insideNote || key === "blockquote";
+
+    if (key === "p") {
+      for (const item of asArray(child)) {
+        const text = normalizeText(textContent(item));
+        if (!text) continue;
+        const className = isRecord(item) ? safeText(item["@_class"], 80) || null : null;
+        if (nextInsideNote || (className && /^nota_/i.test(className))) continue;
+        out.push({ text, className });
+      }
+    }
+
+    if (!key.startsWith("@_")) collectParagraphNodes(child, out, nextInsideNote);
+  }
 }
 
-function pickLatestVersion(rawVersions: unknown): Record<string, unknown> | null {
-  const versions = asArray(rawVersions).filter((item): item is Record<string, unknown> =>
-    Boolean(item) && typeof item === "object" && !Array.isArray(item)
-  );
+function selectLatestVersionNode(value: unknown): Record<string, unknown> | null {
+  const versions: Record<string, unknown>[] = [];
+  collectByKey(value, "version", versions);
   if (versions.length === 0) return null;
 
-  return versions.reduce((best, current) => {
-    const bestKey = [
-      yyyymmddInt(s(best["@_fecha_vigencia"])),
-      yyyymmddInt(s(best["@_fecha_publicacion"])),
-    ];
-    const currentKey = [
-      yyyymmddInt(s(current["@_fecha_vigencia"])),
-      yyyymmddInt(s(current["@_fecha_publicacion"])),
-    ];
-
-    if (currentKey[0] > bestKey[0]) return current;
-    if (currentKey[0] < bestKey[0]) return best;
-    return currentKey[1] > bestKey[1] ? current : best;
+  const sortable = versions.map((node, idx) => {
+    const vigencia = normalizeDateToIso(safeText(node["@_fecha_vigencia"], 20));
+    const publicacion = normalizeDateToIso(safeText(node["@_fecha_publicacion"], 20));
+    return {
+      node,
+      idx,
+      sortDate: vigencia || publicacion || "0000-00-00",
+    };
   });
+
+  sortable.sort((a, b) => {
+    const byDate = a.sortDate.localeCompare(b.sortDate);
+    return byDate !== 0 ? byDate : a.idx - b.idx;
+  });
+
+  return sortable[sortable.length - 1]?.node ?? null;
 }
 
-function extractUnitFromBlock(rawBlock: Record<string, unknown>, rootBlock: LawBlock): LawUnit | null {
-  const unitId = s(rawBlock["@_id"]) || rootBlock.bloqueId;
-  const unitType = mapUnitType(s(rawBlock["@_tipo"]));
-  const unitTitle = (
-    s(rawBlock["@_titulo"])
-    || rootBlock.bloqueTitulo
-    || unitId
-    || "Unidad"
-  ).slice(0, 250);
+const normalizeArticleRef = (value: string) =>
+  stripAccents(value)
+    .toLowerCase()
+    .replace(/\bart(?:iculo)?s?\.?\s*/g, "")
+    .replace(/[\u00BA\u00AA]/g, "")
+    .replace(/,/g, ".")
+    .replace(/\s+/g, "")
+    .replace(/[^0-9a-z.]/g, "")
+    .trim();
 
-  const version = pickLatestVersion(rawBlock.version);
-  if (!version) return null;
+const extractArticleRef = (value: string): string | null => {
+  const normalized = stripAccents(value);
+  const match = normalized.match(ARTICLE_REFERENCE_RE);
+  if (!match) return null;
+  const ref = normalizeArticleRef(match[1]);
+  return ref || null;
+};
 
-  const paragraphs: string[] = [];
-  collectTextsByKey(version, "p", paragraphs);
-  const content = normalizeText(paragraphs.length > 0 ? paragraphs.join("\n") : textContent(version));
-  if (!content) return null;
-
-  return {
-    bloqueId: rootBlock.bloqueId,
-    bloqueTitulo: rootBlock.bloqueTitulo,
-    unitId,
-    unitType,
-    unitTitle,
-    content,
-    fechaVigencia: boeTsToIso(s(version["@_fecha_vigencia"]) || null),
-    fechaPublicacion: boeTsToIso(s(version["@_fecha_publicacion"]) || null),
-  };
-}
-
-async function getBlockUnits(block: LawBlock): Promise<LawUnit[]> {
-  const xmlText = await fetchTextWithRetry(block.url, "application/xml,text/xml,*/*");
-  const root = parseXml(xmlText);
-  const rawBlocks: Record<string, unknown>[] = [];
-  collectByKey(root, "bloque", rawBlocks);
-
-  const units: LawUnit[] = [];
-  for (const rawBlock of rawBlocks) {
-    const unit = extractUnitFromBlock(rawBlock, block);
-    if (unit) units.push(unit);
-  }
-  return units;
-}
-
-async function buildChunks(target: SyncTarget, metadata: LawMetadata, units: LawUnit[]): Promise<LawChunk[]> {
-  const chunks: LawChunk[] = [];
-  let chunkIndex = 0;
-
-  for (const unit of units) {
-    const unitChunks = smartChunk(unit.content);
-    for (let ordinal = 0; ordinal < unitChunks.length; ordinal += 1) {
-      const content = unitChunks[ordinal];
-      const contentHash = await sha256Hex(content);
-      const title = unitChunks.length === 1 ? unit.unitTitle : `${unit.unitTitle} (${ordinal + 1}/${unitChunks.length})`;
-      chunks.push({
-        chunkIndex,
-        title: title.slice(0, 500),
-        content,
-        contentHash,
-        metadata: {
-          boe_id: metadata.boeId,
-          label: target.label,
-          titulo_ley: metadata.tituloLey,
-          eli: metadata.eli,
-          fecha_actualizacion: metadata.fechaActualizacion,
-          fecha_iso: metadata.fechaIso,
-          bloque_id: unit.bloqueId,
-          bloque_titulo: unit.bloqueTitulo,
-          unit_id: unit.unitId,
-          unit_type: unit.unitType,
-          unit_title: unit.unitTitle,
-          chunk_ordinal: ordinal + 1,
-          unit_chunks_total: unitChunks.length,
-          fecha_vigencia: unit.fechaVigencia,
-          fecha_publicacion: unit.fechaPublicacion,
-          source_kind: "supporting_law",
-        },
-      });
-      chunkIndex += 1;
-    }
-  }
-
-  if (chunks.length === 0) 
-    throw new Error(`No se generaron chunks para ${metadata.boeId}`);
-  
-
-  return chunks;
-}
-
-async function buildSourceHash(boeId: string, chunks: LawChunk[]): Promise<string> {
-  const payload = chunks.map((chunk) => ({
-    boe_id: boeId,
-    chunk_index: chunk.chunkIndex,
-    content_hash: chunk.contentHash,
-    title: chunk.title,
-  }));
-  return await sha256Hex(JSON.stringify(payload));
-}
+const chunkUnitIdForParagraph = (unitId: string, paragraphRef: string) =>
+  `${unitId}_p${paragraphRef.replace(/[^0-9a-z.]+/gi, "_")}`;
 
 function createServiceClient() {
   const url = Deno.env.get("SUPABASE_URL")?.trim();
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
-  if (!url || !key) 
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-async function getRuntimeSecret(
-  supabase: ReturnType<typeof createServiceClient>,
-  name: string,
-): Promise<string | null> {
+async function getRuntimeSecret(supabase: ReturnType<typeof createServiceClient>, name: string): Promise<string | null> {
   const { data, error } = await supabase.rpc("get_runtime_secret", { p_name: name });
   if (error) throw new Error(`get_runtime_secret(${name}) failed: ${error.message}`);
   return typeof data === "string" && data.trim() ? data.trim() : null;
 }
 
-async function ensureEdgeSecret(
-  req: Request,
-  supabase: ReturnType<typeof createServiceClient>,
-): Promise<Response | null> {
+async function ensureEdgeSecret(req: Request, supabase: ReturnType<typeof createServiceClient>): Promise<Response | null> {
   const expected = await getRuntimeSecret(supabase, "rag_edge_secret");
   if (!expected) return json({ error: "Missing rag_edge_secret" }, 500);
 
   const received = req.headers.get("x-edge-secret")?.trim();
-  if (!received || received !== expected) 
-    return json({ error: "Unauthorized (x-edge-secret)" }, 401);
-  
+  if (!received || received !== expected) return json({ error: "Unauthorized (x-edge-secret)" }, 401);
   return null;
 }
 
@@ -553,52 +334,539 @@ async function getTargets(
   boeIds: string[],
   cursorBoeId: string | null,
   maxLaws: number,
-): Promise<TargetBatch> {
-  const cleanIds = boeIds.map((value) => value.trim()).filter(Boolean);
+): Promise<{ targets: SyncTarget[]; hasMore: boolean }> {
+  const cleanIds = boeIds.map((v) => sanitizeCode(v, 40)).filter(Boolean);
 
-  if (cleanIds.length === 0) {
-    let query = supabase
+  if (cleanIds.length > 0) {
+    const { data, error } = await supabase
       .from("law_watchlist")
       .select("boe_id, label")
       .eq("is_active", true)
-      .order("boe_id", { ascending: true });
+      .in("boe_id", cleanIds);
 
-    if (cursorBoeId) 
-      query = query.gt("boe_id", cursorBoeId);
-    
+    if (error) throw new Error(`Load explicit laws failed: ${error.message}`);
+    const byId = new Map<string, string>();
+    for (const row of data ?? []) byId.set(String(row.boe_id), String(row.label));
 
-    const { data, error } = await query.limit(maxLaws + 1);
-
-    if (error) throw new Error(`Load law_watchlist failed: ${error.message}`);
-    const rows = data ?? [];
     return {
-      targets: rows.slice(0, maxLaws).map((row) => ({
-        boeId: String(row.boe_id),
-        label: String(row.label),
-      })),
-      hasMore: rows.length > maxLaws,
+      targets: cleanIds.filter((id) => byId.has(id)).map((id) => ({ boeId: id, label: byId.get(id) ?? id })),
+      hasMore: false,
     };
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("law_watchlist")
     .select("boe_id, label")
-    .in("boe_id", cleanIds);
+    .eq("is_active", true)
+    .order("boe_id", { ascending: true });
 
-  if (error) throw new Error(`Load explicit laws failed: ${error.message}`);
+  if (cursorBoeId) query = query.gt("boe_id", cursorBoeId);
 
-  const labels = new Map<string, string>();
-  for (const row of data ?? []) 
-    labels.set(String(row.boe_id), String(row.label));
-  
+  const { data, error } = await query.limit(maxLaws + 1);
+  if (error) throw new Error(`Load law_watchlist failed: ${error.message}`);
+
+  const rows = data ?? [];
+  return {
+    targets: rows.slice(0, maxLaws).map((row) => ({ boeId: String(row.boe_id), label: String(row.label) })),
+    hasMore: rows.length > maxLaws,
+  };
+}
+
+async function callOpenRouterEmbeddings(apiKey: string, texts: string[]): Promise<number[][]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": OPENROUTER_APP_URL,
+        "X-Title": OPENROUTER_APP_NAME,
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_EMBEDDING_MODEL,
+        input: texts,
+        dimensions: EMBEDDING_DIM,
+      }),
+      signal: controller.signal,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const p = isRecord(payload) ? payload : {};
+      const e = isRecord(p.error) ? p.error : {};
+      const detail = safeText(e.message, 500) || safeText(p.message, 500) || `HTTP ${response.status}`;
+      throw new Error(`OpenRouter embeddings failed: ${detail}`);
+    }
+
+    if (!isRecord(payload) || !Array.isArray(payload.data)) {
+      throw new Error("OpenRouter embeddings payload invalido");
+    }
+
+    const byIndex = new Map<number, number[]>();
+    for (let i = 0; i < payload.data.length; i += 1) {
+      const item = payload.data[i];
+      if (!isRecord(item) || !Array.isArray(item.embedding)) throw new Error("OpenRouter item invalido");
+      const vector = item.embedding.map((v) => Number(v));
+      if (vector.length !== EMBEDDING_DIM || vector.some((v) => !Number.isFinite(v))) {
+        throw new Error(`Embedding invalido: dim=${vector.length}`);
+      }
+      const index = typeof item.index === "number" ? Math.floor(item.index) : i;
+      byIndex.set(index, vector);
+    }
+
+    const ordered: number[][] = [];
+    for (let i = 0; i < texts.length; i += 1) {
+      const v = byIndex.get(i);
+      if (!v) throw new Error(`Missing embedding index ${i}`);
+      ordered.push(v);
+    }
+    return ordered;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("OpenRouter embeddings timeout");
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function embedWithRetry(apiKey: string, texts: string[]): Promise<number[][]> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await callOpenRouterEmbeddings(apiKey, texts);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      await new Promise((resolve) => setTimeout(resolve, 1200 * (2 ** attempt)));
+    }
+  }
+  throw new Error(`OpenRouter embeddings retry failed: ${lastError?.message ?? "unknown"}`);
+}
+
+async function fetchLawData(target: SyncTarget) {
+  const boeId = target.boeId;
+
+  const metadataXml = await fetchTextWithRetry(
+    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`,
+  );
+  const metadataRoot = parseXml(metadataXml);
+
+  const title = findFirstTextByKeys(metadataRoot, new Set(["titulo"])) || boeId;
+  const fechaActualizacion = findFirstTextByKeys(metadataRoot, new Set(["fecha_actualizacion"]));
+  const fechaVigencia = normalizeDateToIso(
+    findFirstTextByKeys(metadataRoot, new Set(["fecha_vigencia"])),
+  ) || "";
+  const fechaPublicacion = normalizeDateToIso(
+    findFirstTextByKeys(metadataRoot, new Set(["fecha_publicacion"])),
+  ) || "";
+  const urlNorma =
+    findFirstTextByKeys(metadataRoot, new Set(["url_html_consolidada"])) ||
+    `https://www.boe.es/buscar/act.php?id=${encodeURIComponent(boeId)}`;
+  const eli = findFirstTextByKeys(metadataRoot, new Set(["eli"])) || "";
+
+  const indexXml = await fetchTextWithRetry(
+    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/texto/indice`,
+  );
+  const indexRoot = parseXml(indexXml);
+
+  const rawBlocks: Record<string, unknown>[] = [];
+  collectByKey(indexRoot, "bloque", rawBlocks);
+
+  const blocks: Array<{ id: string; title: string; url: string }> = [];
+  const seen = new Set<string>();
+
+  for (const block of rawBlocks) {
+    const id = textContent(block.id) || safeText(block["@_id"], 120);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+
+    const blockTitle = textContent(block.titulo) || safeText(block["@_titulo"], 250) || id;
+    const blockUrl =
+      textContent(block.url) ||
+      `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/texto/bloque/${encodeURIComponent(id)}`;
+
+    blocks.push({ id, title: blockTitle, url: blockUrl });
+  }
+
+  const unitTexts: LawUnit[] = [];
+
+  for (const block of blocks) {
+    try {
+      const blockXml = await fetchTextWithRetry(block.url);
+      const blockRoot = parseXml(blockXml);
+      const currentVersion = selectLatestVersionNode(blockRoot) ?? blockRoot;
+      const paragraphs: ParagraphNode[] = [];
+      collectParagraphNodes(currentVersion, paragraphs);
+      const content = normalizeText(paragraphs.map((item) => item.text).join("\n"));
+      if (!content) continue;
+      unitTexts.push({ unitId: block.id, unitTitle: block.title, content, paragraphs });
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          msg: "sync_block_error",
+          boe_id: boeId,
+          block_id: block.id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }
+
+  if (unitTexts.length === 0) throw new Error(`No content extracted for ${boeId}`);
 
   return {
-    targets: cleanIds.map((boeId) => ({
-      boeId,
-      label: labels.get(boeId) ?? boeId,
-    })),
-    hasMore: false,
+    boeId,
+    label: target.label,
+    title,
+    fechaActualizacion,
+    fechaIso: normalizeDateToIso(fechaActualizacion),
+    fechaVigencia,
+    fechaPublicacion,
+    urlNorma,
+    eli,
+    units: unitTexts,
+    blocksTotal: blocks.length,
   };
+}
+
+async function buildChunks(law: Awaited<ReturnType<typeof fetchLawData>>): Promise<Chunk[]> {
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+  const pushChunk = async (
+    title: string,
+    content: string,
+    metadata: Record<string, unknown>,
+  ) => {
+    const normalizedContent = normalizeText(content);
+    if (!normalizedContent) return;
+    chunks.push({
+      chunkIndex,
+      title,
+      content: normalizedContent,
+      contentHash: await sha256Hex(normalizedContent),
+      metadata: {
+        boe_id: law.boeId,
+        titulo_ley: law.title,
+        ...metadata,
+      },
+    });
+    chunkIndex += 1;
+  };
+
+  for (const unit of law.units) {
+    const articleRef = extractArticleRef(unit.unitTitle) ?? extractArticleRef(unit.content);
+
+    if (!articleRef) {
+      const parts = splitIntoChunks(unit.content, 4500, 300);
+      for (let i = 0; i < parts.length; i += 1) {
+        await pushChunk(
+          parts.length === 1 ? unit.unitTitle : `${unit.unitTitle} (${i + 1}/${parts.length})`,
+          `${unit.unitTitle}\n${parts[i]}`,
+          {
+            unit_id: unit.unitId,
+            unit_type: "estructura",
+            article: unit.unitTitle,
+            apartado_path: unit.unitId,
+          },
+        );
+      }
+      continue;
+    }
+
+    const articleContent = [unit.unitTitle, ...unit.paragraphs.map((item) => item.text)].join("\n");
+    const articleParts = splitIntoChunks(articleContent, 5500, 250);
+    for (let i = 0; i < articleParts.length; i += 1) {
+      await pushChunk(
+        articleParts.length === 1 ? unit.unitTitle : `${unit.unitTitle} (${i + 1}/${articleParts.length})`,
+        articleParts[i],
+        {
+          unit_id: unit.unitId,
+          unit_type: "article",
+          article: articleRef,
+          apartado_path: articleRef,
+        },
+      );
+    }
+
+    let currentParagraphRef: string | null = null;
+    let currentParagraphLines: string[] = [];
+
+    const flushParagraph = async () => {
+      if (!currentParagraphRef || currentParagraphLines.length === 0) return;
+      await pushChunk(
+        `${unit.unitTitle} - apartado ${currentParagraphRef}`,
+        [unit.unitTitle, ...currentParagraphLines].join("\n"),
+        {
+          unit_id: chunkUnitIdForParagraph(unit.unitId, currentParagraphRef),
+          unit_type: "article_paragraph",
+          article: currentParagraphRef,
+          apartado_path: currentParagraphRef,
+        },
+      );
+      currentParagraphRef = null;
+      currentParagraphLines = [];
+    };
+
+    for (const paragraph of unit.paragraphs) {
+      const text = normalizeText(paragraph.text);
+      if (!text) continue;
+
+      if (paragraph.className === "articulo") continue;
+
+      const paragraphMatch = text.match(PARAGRAPH_REFERENCE_RE);
+      if (paragraphMatch) {
+        await flushParagraph();
+        currentParagraphRef = `${articleRef}.${paragraphMatch[1]}`;
+        currentParagraphLines = [text];
+        continue;
+      }
+
+      if (currentParagraphRef) {
+        currentParagraphLines.push(text);
+      }
+    }
+
+    await flushParagraph();
+  }
+
+  if (chunks.length === 0) throw new Error(`No chunks for ${law.boeId}`);
+  return chunks;
+}
+
+async function sourceHashFromChunks(boeId: string, chunks: Chunk[]): Promise<string> {
+  const payload = chunks.map((c) => ({ boe_id: boeId, chunk_index: c.chunkIndex, content_hash: c.contentHash }));
+  return await sha256Hex(JSON.stringify(payload));
+}
+
+async function upsertSource(
+  supabase: ReturnType<typeof createServiceClient>,
+  law: Awaited<ReturnType<typeof fetchLawData>>,
+  sourceHash: string,
+  chunksTotal: number,
+): Promise<{ sourceId: number; created: boolean }> {
+  const { data: existing, error: existingError } = await supabase
+    .from("rag_sources")
+    .select("id")
+    .eq("source_type", "law")
+    .eq("law_boe_id", law.boeId)
+    .eq("source_hash", sourceHash)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) throw new Error(`Load rag_source failed: ${existingError.message}`);
+
+  if (existing) {
+    const sourceId = Number(existing.id);
+    const { error } = await supabase
+      .from("rag_sources")
+      .update({
+        title: law.title,
+        source_url: law.urlNorma,
+        metadata: {
+          eli: law.eli,
+          fecha_actualizacion: law.fechaActualizacion,
+          fecha_iso: law.fechaIso,
+          fecha_vigencia: law.fechaVigencia,
+          fecha_publicacion: law.fechaPublicacion,
+        },
+      })
+      .eq("id", sourceId);
+
+    if (error) throw new Error(`Update rag_source failed: ${error.message}`);
+    return { sourceId, created: false };
+  }
+
+  const { data, error } = await supabase
+    .from("rag_sources")
+    .insert({
+      source_type: "law",
+      opposition_id: null,
+      syllabus_id: null,
+      law_boe_id: law.boeId,
+      title: law.title,
+      source_url: law.urlNorma,
+      source_hash: sourceHash,
+      is_current: false,
+      metadata: {
+        eli: law.eli,
+        fecha_actualizacion: law.fechaActualizacion,
+        fecha_iso: law.fechaIso,
+        fecha_vigencia: law.fechaVigencia,
+        fecha_publicacion: law.fechaPublicacion,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`Insert rag_source failed: ${error.message}`);
+  return { sourceId: Number(data.id), created: true };
+}
+
+async function upsertChunksPartial(
+  supabase: ReturnType<typeof createServiceClient>,
+  sourceId: number,
+  chunks: Chunk[],
+  apiKey: string,
+  maxChunksPerRun: number,
+): Promise<{ embeddedNow: number; pendingBefore: number; remainingAfter: number }> {
+  const existingRows: Record<string, unknown>[] = [];
+  const pageSize = 1000;
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("rag_chunks")
+      .select("chunk_index, embedding_content_hash, embedding_updated_at")
+      .eq("rag_source_id", sourceId)
+      .order("chunk_index", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw new Error(`Load existing chunk indexes failed: ${error.message}`);
+
+    const page = (data ?? []) as Record<string, unknown>[];
+    existingRows.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  const existingByIndex = new Map<number, Record<string, unknown>>();
+  for (const row of existingRows) {
+    const idx = Number((row as Record<string, unknown>).chunk_index);
+    if (Number.isFinite(idx)) existingByIndex.set(idx, row as Record<string, unknown>);
+  }
+
+  const pending = chunks.filter((chunk) => {
+    const row = existingByIndex.get(chunk.chunkIndex);
+    if (!row) return true;
+    const embeddedHash = safeText(row.embedding_content_hash, 128);
+    const embeddedAt = safeText(row.embedding_updated_at, 64);
+    return embeddedHash !== chunk.contentHash || !embeddedAt;
+  });
+
+  const toEmbed = pending.slice(0, maxChunksPerRun);
+  let embedded = 0;
+
+  for (let i = 0; i < toEmbed.length; i += EMBEDDING_BATCH_SIZE) {
+    const batch = toEmbed.slice(i, i + EMBEDDING_BATCH_SIZE);
+    const vectors = await embedWithRetry(apiKey, batch.map((c) => c.content));
+    const nowIso = new Date().toISOString();
+
+    const payload = batch.map((chunk, idx) => ({
+      rag_source_id: sourceId,
+      opposition_id: null,
+      syllabus_id: null,
+      source_type: "law",
+      chunk_index: chunk.chunkIndex,
+      title: chunk.title,
+      content: chunk.content,
+      content_hash: chunk.contentHash,
+      embedding: vectors[idx],
+      embedding_content_hash: chunk.contentHash,
+      embedding_provider: "openrouter",
+      embedding_model: OPENROUTER_EMBEDDING_MODEL,
+      embedding_updated_at: nowIso,
+      embedding_error: null,
+      metadata: chunk.metadata,
+      is_current: true,
+    }));
+
+    const { error } = await supabase.from("rag_chunks").upsert(payload, {
+      onConflict: "rag_source_id,chunk_index",
+    });
+
+    if (error) throw new Error(`Upsert rag_chunks failed: ${error.message}`);
+    embedded += batch.length;
+  }
+
+  const pendingBefore = pending.length;
+  const remainingAfter = Math.max(0, pendingBefore - toEmbed.length);
+
+  // Only cleanup stale rows once the full source has been embedded.
+  if (remainingAfter === 0) {
+    const validIndexes = new Set(chunks.map((c) => c.chunkIndex));
+    const stale = existingRows
+      .map((r) => Number((r as Record<string, unknown>).chunk_index))
+      .filter((idx) => Number.isFinite(idx) && !validIndexes.has(idx));
+
+    for (let i = 0; i < stale.length; i += UPSERT_BATCH_SIZE) {
+      const part = stale.slice(i, i + UPSERT_BATCH_SIZE);
+      const { error } = await supabase
+        .from("rag_chunks")
+        .update({ is_current: false })
+        .eq("rag_source_id", sourceId)
+        .in("chunk_index", part);
+      if (error) throw new Error(`Mark stale chunks failed: ${error.message}`);
+    }
+  }
+
+  return { embeddedNow: embedded, pendingBefore, remainingAfter };
+}
+
+async function markCurrentSource(
+  supabase: ReturnType<typeof createServiceClient>,
+  boeId: string,
+  sourceId: number,
+): Promise<void> {
+  const { data: oldRows, error: oldError } = await supabase
+    .from("rag_sources")
+    .select("id")
+    .eq("source_type", "law")
+    .eq("law_boe_id", boeId)
+    .neq("id", sourceId)
+    .eq("is_current", true);
+
+  if (oldError) throw new Error(`Load previous sources failed: ${oldError.message}`);
+  const oldIds = (oldRows ?? []).map((r) => Number(r.id));
+
+  const { error: setNewSourceError } = await supabase
+    .from("rag_sources")
+    .update({ is_current: true })
+    .eq("id", sourceId);
+  if (setNewSourceError) throw new Error(`Set new source current failed: ${setNewSourceError.message}`);
+
+  const { error: setNewChunksError } = await supabase
+    .from("rag_chunks")
+    .update({ is_current: true })
+    .eq("rag_source_id", sourceId);
+  if (setNewChunksError) throw new Error(`Set new chunks current failed: ${setNewChunksError.message}`);
+
+  if (oldIds.length > 0) {
+    const { error: oldSourceError } = await supabase
+      .from("rag_sources")
+      .update({ is_current: false })
+      .in("id", oldIds);
+    if (oldSourceError) throw new Error(`Unset old sources current failed: ${oldSourceError.message}`);
+
+    const { error: oldChunksError } = await supabase
+      .from("rag_chunks")
+      .update({ is_current: false })
+      .in("rag_source_id", oldIds);
+    if (oldChunksError) throw new Error(`Unset old chunks current failed: ${oldChunksError.message}`);
+  }
+}
+
+async function upsertSyncLog(
+  supabase: ReturnType<typeof createServiceClient>,
+  law: Awaited<ReturnType<typeof fetchLawData>>,
+  chunksTotal: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from("law_sync_log")
+    .upsert(
+      {
+        boe_id: law.boeId,
+        titulo_ley: law.title,
+        fecha_actualizacion: law.fechaActualizacion,
+        fecha_iso: law.fechaIso,
+        url_norma: law.urlNorma,
+        eli: law.eli,
+        chunks_total: chunksTotal,
+        last_sync_at: new Date().toISOString(),
+      },
+      { onConflict: "boe_id" },
+    );
+
+  if (error) throw new Error(`Upsert law_sync_log failed: ${error.message}`);
 }
 
 async function enqueueNextBatch(
@@ -609,11 +877,7 @@ async function enqueueNextBatch(
 ): Promise<number | null> {
   const { data, error } = await supabase.rpc("invoke_internal_edge_function", {
     p_function_name: "sync-laws-rag",
-    p_body: {
-      force,
-      cursor_boe_id: lastBoeId,
-      max_laws: maxLaws,
-    },
+    p_body: { force, cursor_boe_id: lastBoeId, max_laws: maxLaws },
     p_timeout_milliseconds: 300000,
   });
 
@@ -621,363 +885,25 @@ async function enqueueNextBatch(
   return typeof data === "number" ? data : null;
 }
 
-async function getSyncLog(
+async function enqueueSameLaw(
   supabase: ReturnType<typeof createServiceClient>,
   boeId: string,
-): Promise<SyncLogRow | null> {
-  const { data, error } = await supabase
-    .from("law_sync_log")
-    .select("boe_id, fecha_actualizacion")
-    .eq("boe_id", boeId)
-    .maybeSingle();
-
-  if (error) throw new Error(`Load law_sync_log failed: ${error.message}`);
-  return (data as SyncLogRow | null) ?? null;
-}
-
-async function getSourceByHash(
-  supabase: ReturnType<typeof createServiceClient>,
-  boeId: string,
-  sourceHash: string,
-): Promise<RagSourceRow | null> {
-  const { data, error } = await supabase
-    .from("rag_sources")
-    .select("id, is_current")
-    .eq("source_type", "law")
-    .eq("law_boe_id", boeId)
-    .eq("source_hash", sourceHash)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw new Error(`Load rag_source failed: ${error.message}`);
-  return (data as RagSourceRow | null) ?? null;
-}
-
-async function insertSource(
-  supabase: ReturnType<typeof createServiceClient>,
-  metadata: LawMetadata,
-  target: SyncTarget,
-  sourceHash: string,
-  chunksTotal: number,
-  unitsTotal: number,
-): Promise<number> {
-  const { data, error } = await supabase
-    .from("rag_sources")
-    .insert({
-      source_type: "law",
-      opposition_id: null,
-      syllabus_id: null,
-      law_boe_id: metadata.boeId,
-      title: metadata.tituloLey,
-      source_url: metadata.urlNorma,
-      source_hash: sourceHash,
-      is_current: false,
-      metadata: {
-        label: target.label,
-        eli: metadata.eli,
-        fecha_actualizacion: metadata.fechaActualizacion,
-        fecha_iso: metadata.fechaIso,
-        chunks_total: chunksTotal,
-        units_total: unitsTotal,
-      },
-    })
-    .select("id")
-    .single();
-
-  if (error) throw new Error(`Insert rag_source failed: ${error.message}`);
-  return Number(data.id);
-}
-
-async function updateExistingSource(
-  supabase: ReturnType<typeof createServiceClient>,
-  sourceId: number,
-  metadata: LawMetadata,
-  target: SyncTarget,
-  sourceHash: string,
-  chunksTotal: number,
-  unitsTotal: number,
-): Promise<void> {
-  const { error } = await supabase
-    .from("rag_sources")
-    .update({
-      title: metadata.tituloLey,
-      source_url: metadata.urlNorma,
-      source_hash: sourceHash,
-      metadata: {
-        label: target.label,
-        eli: metadata.eli,
-        fecha_actualizacion: metadata.fechaActualizacion,
-        fecha_iso: metadata.fechaIso,
-        chunks_total: chunksTotal,
-        units_total: unitsTotal,
-      },
-    })
-    .eq("id", sourceId);
-
-  if (error) throw new Error(`Update rag_source failed: ${error.message}`);
-}
-
-async function syncChunks(
-  supabase: ReturnType<typeof createServiceClient>,
-  sourceId: number,
-  chunks: LawChunk[],
-): Promise<void> {
-  const { data: existingRows, error: existingError } = await supabase
-    .from("rag_chunks")
-    .select("id, chunk_index")
-    .eq("rag_source_id", sourceId);
-
-  if (existingError) throw new Error(`Load rag_chunks failed: ${existingError.message}`);
-
-  const existingIndexes = new Set<number>((existingRows as ChunkIndexRow[] ?? []).map((row) => Number(row.chunk_index)));
-  const newIndexes = new Set<number>(chunks.map((chunk) => chunk.chunkIndex));
-
-  for (let index = 0; index < chunks.length; index += UPSERT_BATCH_SIZE) {
-    const batch = chunks.slice(index, index + UPSERT_BATCH_SIZE);
-    const payload = batch.map((chunk) => ({
-      rag_source_id: sourceId,
-      opposition_id: null,
-      syllabus_id: null,
-      source_type: "law",
-      chunk_index: chunk.chunkIndex,
-      title: chunk.title,
-      content: chunk.content,
-      content_hash: chunk.contentHash,
-      metadata: chunk.metadata,
-      is_current: true,
-    }));
-
-    const { error } = await supabase
-      .from("rag_chunks")
-      .upsert(payload, { onConflict: "rag_source_id,chunk_index" });
-
-    if (error) throw new Error(`Upsert rag_chunks failed: ${error.message}`);
-  }
-
-  const staleIndexes = Array.from(existingIndexes).filter((value) => !newIndexes.has(value));
-  for (let index = 0; index < staleIndexes.length; index += UPSERT_BATCH_SIZE) {
-    const batch = staleIndexes.slice(index, index + UPSERT_BATCH_SIZE);
-    const { error } = await supabase
-      .from("rag_chunks")
-      .update({ is_current: false })
-      .eq("rag_source_id", sourceId)
-      .in("chunk_index", batch);
-
-    if (error) throw new Error(`Mark stale rag_chunks failed: ${error.message}`);
-  }
-}
-
-async function setCurrentSource(
-  supabase: ReturnType<typeof createServiceClient>,
-  boeId: string,
-  sourceId: number,
-): Promise<void> {
-  const rpc = await supabase.rpc("set_current_rag_source", { p_rag_source_id: sourceId });
-  if (!rpc.error) return;
-
-  const { data: oldRows, error: oldError } = await supabase
-    .from("rag_sources")
-    .select("id")
-    .eq("source_type", "law")
-    .eq("law_boe_id", boeId)
-    .neq("id", sourceId)
-    .eq("is_current", true);
-
-  if (oldError) throw new Error(`Load current law rag_sources failed: ${oldError.message}`);
-  const oldSourceIds = (oldRows ?? []).map((row) => Number(row.id));
-
-  const { error: markOldSourcesError } = await supabase
-    .from("rag_sources")
-    .update({ is_current: false })
-    .eq("source_type", "law")
-    .eq("law_boe_id", boeId)
-    .neq("id", sourceId);
-
-  if (markOldSourcesError) throw new Error(`Mark old rag_sources failed: ${markOldSourcesError.message}`);
-
-  if (oldSourceIds.length > 0) {
-    const { error: markOldChunksError } = await supabase
-      .from("rag_chunks")
-      .update({ is_current: false })
-      .in("rag_source_id", oldSourceIds);
-
-    if (markOldChunksError) throw new Error(`Mark old rag_chunks failed: ${markOldChunksError.message}`);
-  }
-
-  const { error: markSourceError } = await supabase
-    .from("rag_sources")
-    .update({ is_current: true })
-    .eq("id", sourceId);
-
-  if (markSourceError) throw new Error(`Mark new rag_source current failed: ${markSourceError.message}`);
-
-  const { error: markChunksError } = await supabase
-    .from("rag_chunks")
-    .update({ is_current: true })
-    .eq("rag_source_id", sourceId);
-
-  if (markChunksError) throw new Error(`Mark new rag_chunks current failed: ${markChunksError.message}`);
-}
-
-async function upsertSyncLog(
-  supabase: ReturnType<typeof createServiceClient>,
-  metadata: LawMetadata,
-  chunksTotal: number,
-): Promise<void> {
-  const { error } = await supabase
-    .from("law_sync_log")
-    .upsert({
-      boe_id: metadata.boeId,
-      titulo_ley: metadata.tituloLey,
-      fecha_actualizacion: metadata.fechaActualizacion,
-      fecha_iso: metadata.fechaIso,
-      url_norma: metadata.urlNorma,
-      eli: metadata.eli,
-      chunks_total: chunksTotal,
-      last_sync_at: new Date().toISOString(),
-    }, { onConflict: "boe_id" });
-
-  if (error) throw new Error(`Upsert law_sync_log failed: ${error.message}`);
-}
-
-async function ensureReindexJob(
-  supabase: ReturnType<typeof createServiceClient>,
-  boeId: string,
-  sourceId: number,
-  reason: string,
-): Promise<void> {
-  const { data: pending, error: pendingError } = await supabase
-    .from("rag_reindex_jobs")
-    .select("id, status")
-    .eq("source_type", "law")
-    .eq("law_boe_id", boeId)
-    .in("status", ["pending", "processing"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (pendingError) throw new Error(`Load pending rag_reindex_jobs failed: ${pendingError.message}`);
-
-  if (pending?.id != null) {
-    const { error } = await supabase
-      .from("rag_reindex_jobs")
-      .update({
-        rag_source_id: sourceId,
-        status: "pending",
-        reason,
-        error_text: null,
-      })
-      .eq("id", pending.id);
-
-    if (error) throw new Error(`Update rag_reindex_job failed: ${error.message}`);
-    return;
-  }
-
-  const { error } = await supabase
-    .from("rag_reindex_jobs")
-    .insert({
-      source_type: "law",
-      opposition_id: null,
-      syllabus_id: null,
-      rag_source_id: sourceId,
-      law_boe_id: boeId,
-      status: "pending",
-      reason,
-      error_text: null,
-    });
-
-  if (error) throw new Error(`Insert rag_reindex_job failed: ${error.message}`);
-}
-
-async function syncOne(
-  supabase: ReturnType<typeof createServiceClient>,
-  target: SyncTarget,
   force: boolean,
-  dryRun: boolean,
-): Promise<Record<string, unknown>> {
-  const metadata = await getMetadata(target.boeId);
-  const syncLog = await getSyncLog(supabase, target.boeId);
+  maxChunksPerRun: number,
+): Promise<number | null> {
+  const { data, error } = await supabase.rpc("invoke_internal_edge_function", {
+    p_function_name: "sync-laws-rag",
+    p_body: {
+      force,
+      boe_ids: [boeId],
+      max_laws: 1,
+      max_chunks_per_run: maxChunksPerRun,
+    },
+    p_timeout_milliseconds: 300000,
+  });
 
-  if (!force && syncLog?.fecha_actualizacion && metadata.fechaActualizacion === syncLog.fecha_actualizacion) {
-    return {
-      boe_id: target.boeId,
-      label: target.label,
-      status: "unchanged",
-      fecha_actualizacion: metadata.fechaActualizacion,
-    };
-  }
-
-  const blocks = await getIndexBlocks(target.boeId);
-  const units: LawUnit[] = [];
-  for (const block of blocks) {
-    try {
-      units.push(...await getBlockUnits(block));
-    } catch (error) {
-      console.warn(JSON.stringify({
-        msg: "law_block_skipped",
-        boe_id: target.boeId,
-        bloque_id: block.bloqueId,
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    }
-  }
-
-  if (units.length === 0) 
-    throw new Error(`No se extrajo contenido util para ${target.boeId}`);
-  
-
-  const chunks = await buildChunks(target, metadata, units);
-  const sourceHash = await buildSourceHash(target.boeId, chunks);
-  const existingSource = await getSourceByHash(supabase, target.boeId, sourceHash);
-
-  if (dryRun) {
-    return {
-      boe_id: target.boeId,
-      label: target.label,
-      status: "dry_run",
-      source_hash: sourceHash,
-      blocks_total: blocks.length,
-      units_total: units.length,
-      chunks_total: chunks.length,
-      existing_source_id: existingSource?.id ?? null,
-      created_new_source: existingSource == null,
-    };
-  }
-
-  let sourceId: number | null = null;
-  let createdNewSource = false;
-
-  try {
-    if (existingSource) {
-      sourceId = Number(existingSource.id);
-      await updateExistingSource(supabase, sourceId, metadata, target, sourceHash, chunks.length, units.length);
-    } else {
-      sourceId = await insertSource(supabase, metadata, target, sourceHash, chunks.length, units.length);
-      createdNewSource = true;
-    }
-
-    await syncChunks(supabase, sourceId, chunks);
-    await setCurrentSource(supabase, target.boeId, sourceId);
-    await upsertSyncLog(supabase, metadata, chunks.length);
-    await ensureReindexJob(supabase, target.boeId, sourceId, "law-updated");
-
-    return {
-      boe_id: target.boeId,
-      label: target.label,
-      status: "synced",
-      source_id: sourceId,
-      source_hash: sourceHash,
-      blocks_total: blocks.length,
-      units_total: units.length,
-      chunks_total: chunks.length,
-      created_new_source: createdNewSource,
-    };
-  } catch (error) {
-    if (createdNewSource && sourceId != null) 
-      await supabase.from("rag_sources").delete().eq("id", sourceId);
-    
-    throw error;
-  }
+  if (error) throw new Error(`Enqueue same-law continuation failed: ${error.message}`);
+  return typeof data === "number" ? data : null;
 }
 
 serve(async (req) => {
@@ -989,52 +915,133 @@ serve(async (req) => {
     const authError = await ensureEdgeSecret(req, supabase);
     if (authError) return authError;
 
-    let parsedBody: RequestPayload;
-    try {
-      parsedBody = await parseJsonBody<RequestPayload>(req);
-    } catch (error) {
-      if (error instanceof Error && error.message === "Invalid JSON body") 
-        return json({ error: error.message }, 400);
-      
-      throw error;
-    }
-    const body: RequestPayload = {
-      boe_ids: sanitizeStringArray(parsedBody.boe_ids, {
-        maxItems: 25,
-        maxLength: 40,
-      }).map((value) => sanitizeCode(value, 40)).filter(Boolean),
-      force: sanitizeBoolean(parsedBody.force),
-      dry_run: sanitizeBoolean(parsedBody.dry_run),
-      cursor_boe_id: sanitizeCode(parsedBody.cursor_boe_id, 40) || undefined,
-      max_laws:
-        sanitizeInteger(parsedBody.max_laws, { min: 1, max: 5, fallback: 1 }) ?? 1,
-    };
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const boeIds = Array.isArray(body.boe_ids)
+      ? body.boe_ids.map((v) => sanitizeCode(v, 40)).filter(Boolean)
+      : [];
     const force = body.force === true;
     const dryRun = body.dry_run === true;
-    const maxLaws = Math.max(1, Math.min(5, Number(body.max_laws ?? 1)));
-    const batch = await getTargets(
-      supabase,
-      body.boe_ids ?? [],
-      body.cursor_boe_id?.trim() || null,
-      maxLaws,
-    );
-    const targets = batch.targets;
+    const cursorBoeId = sanitizeCode(body.cursor_boe_id, 40) || null;
+    const maxLawsRaw = Number(body.max_laws ?? 1);
+    const maxLaws = Number.isFinite(maxLawsRaw) ? Math.max(1, Math.min(5, Math.floor(maxLawsRaw))) : 1;
+    const maxChunksRaw = Number(body.max_chunks_per_run ?? MAX_CHUNKS_PER_RUN_DEFAULT);
+    const maxChunksPerRun = Number.isFinite(maxChunksRaw)
+      ? Math.max(1, Math.min(200, Math.floor(maxChunksRaw)))
+      : MAX_CHUNKS_PER_RUN_DEFAULT;
+
+    const targetBatch = await getTargets(supabase, boeIds, cursorBoeId, maxLaws);
+    const targets = targetBatch.targets;
 
     if (targets.length === 0) {
-      return json({
-        ok: true,
-        force,
-        dry_run: dryRun,
-        laws_processed: 0,
-        has_more: false,
-        results: [],
-      });
+      return json({ ok: true, force, dry_run: dryRun, laws_processed: 0, has_more: false, results: [] });
+    }
+
+    const openRouterApiKey =
+      (await getRuntimeSecret(supabase, "openrouter_api_key").catch(() => null)) ||
+      (Deno.env.get("OPENROUTER_API_KEY")?.trim() || "");
+
+    if (!dryRun && !openRouterApiKey) {
+      return json(
+        { ok: false, error: "Missing OPENROUTER_API_KEY (env) or runtime secret openrouter_api_key" },
+        500,
+      );
     }
 
     const results: Record<string, unknown>[] = [];
+    let hasPartial = false;
+    let partialNextRequestId: number | null = null;
+
     for (const target of targets) {
       try {
-        results.push(await syncOne(supabase, target, force, dryRun));
+        const law = await fetchLawData(target);
+
+        const syncLog = await supabase
+          .from("law_sync_log")
+          .select("fecha_actualizacion")
+          .eq("boe_id", target.boeId)
+          .maybeSingle();
+        if (syncLog.error) throw new Error(`Load law_sync_log failed: ${syncLog.error.message}`);
+
+        const previousFecha = safeText(syncLog.data?.fecha_actualizacion, 20) || null;
+        if (!force && previousFecha && previousFecha === law.fechaActualizacion) {
+          results.push({
+            boe_id: target.boeId,
+            label: target.label,
+            status: "unchanged",
+            fecha_actualizacion: law.fechaActualizacion,
+          });
+          continue;
+        }
+
+        const chunks = await buildChunks(law);
+        const sourceHash = await sourceHashFromChunks(law.boeId, chunks);
+
+        if (dryRun) {
+          results.push({
+            boe_id: target.boeId,
+            label: target.label,
+            status: "dry_run",
+            source_hash: sourceHash,
+            blocks_total: law.blocksTotal,
+            units_total: law.units.length,
+            chunks_total: chunks.length,
+            embedding_model: OPENROUTER_EMBEDDING_MODEL,
+            embedding_dim: EMBEDDING_DIM,
+          });
+          continue;
+        }
+
+        const { sourceId, created } = await upsertSource(supabase, law, sourceHash, chunks.length);
+        const chunkRun = await upsertChunksPartial(
+          supabase,
+          sourceId,
+          chunks,
+          openRouterApiKey,
+          maxChunksPerRun,
+        );
+
+        if (chunkRun.remainingAfter === 0) {
+          await markCurrentSource(supabase, law.boeId, sourceId);
+          await upsertSyncLog(supabase, law, chunks.length);
+
+          results.push({
+            boe_id: target.boeId,
+            label: target.label,
+            status: "synced",
+            source_id: sourceId,
+            source_hash: sourceHash,
+            blocks_total: law.blocksTotal,
+            units_total: law.units.length,
+            chunks_total: chunks.length,
+            embedded_chunks: chunkRun.embeddedNow,
+            embedding_model: OPENROUTER_EMBEDDING_MODEL,
+            embedding_dim: EMBEDDING_DIM,
+            created_new_source: created,
+          });
+        } else {
+          hasPartial = true;
+          const continuationId = await enqueueSameLaw(supabase, law.boeId, true, maxChunksPerRun);
+          if (partialNextRequestId == null && continuationId != null) partialNextRequestId = continuationId;
+
+          results.push({
+            boe_id: target.boeId,
+            label: target.label,
+            status: "partial",
+            source_id: sourceId,
+            source_hash: sourceHash,
+            blocks_total: law.blocksTotal,
+            units_total: law.units.length,
+            chunks_total: chunks.length,
+            embedded_chunks: chunkRun.embeddedNow,
+            pending_chunks_before: chunkRun.pendingBefore,
+            remaining_chunks: chunkRun.remainingAfter,
+            max_chunks_per_run: maxChunksPerRun,
+            next_request_id: continuationId,
+            embedding_model: OPENROUTER_EMBEDDING_MODEL,
+            embedding_dim: EMBEDDING_DIM,
+            created_new_source: created,
+          });
+        }
       } catch (error) {
         results.push({
           boe_id: target.boeId,
@@ -1045,23 +1052,17 @@ serve(async (req) => {
       }
     }
 
-    const shouldChain = !dryRun && (body.boe_ids?.length ?? 0) === 0 && batch.hasMore;
-    let nextRequestId: number | null = null;
-    if (shouldChain) {
-      nextRequestId = await enqueueNextBatch(
-        supabase,
-        targets[targets.length - 1].boeId,
-        force,
-        maxLaws,
-      );
-    }
+    const shouldChain = !dryRun && boeIds.length === 0 && targetBatch.hasMore && !hasPartial;
+    const nextRequestId = shouldChain
+      ? await enqueueNextBatch(supabase, targets[targets.length - 1].boeId, force, maxLaws)
+      : (partialNextRequestId ?? null);
 
     return json({
       ok: true,
       force,
       dry_run: dryRun,
       laws_processed: targets.length,
-      has_more: batch.hasMore,
+      has_more: targetBatch.hasMore || hasPartial,
       next_request_id: nextRequestId,
       results,
     });
@@ -1072,3 +1073,4 @@ serve(async (req) => {
     }, 500);
   }
 });
+

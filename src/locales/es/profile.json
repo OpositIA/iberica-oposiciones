@@ -43,15 +43,15 @@
       "ia": "IA",
       "test": "Test",
       "syllabus": "Temario",
-      "calendar": "Calendario",
       "study": "A estudiar"
     },
     "myProfile": "Mi perfil",
     "activePlan": "Plan activo",
     "closeSession": "Cerrar sesion",
-    "planSummary": "Acceso a IA y tests rapidos segun tu plan.",
+    "planSummary": "Acceso a funcionalidades segun tu plan.",
     "managePlan": "Gestionar plan",
-    "upgradeToPro": "Mejora a PRO"
+    "upgradeToPro": "Mejora a PRO",
+    "premiumUntil": "Premium hasta {{date}}"
   },
   "myProfile": {
     "toasts": {
@@ -78,7 +78,11 @@
       "localeUpdateFailedTitle": "No se pudo cambiar el idioma",
       "localeUpdateFailedDescription": "Intentalo de nuevo en unos segundos.",
       "localeUpdatedTitle": "Idioma actualizado",
-      "localeUpdatedDescription": "El idioma se ha aplicado y guardado en tu perfil."
+      "localeUpdatedDescription": "El idioma se ha aplicado y guardado en tu perfil.",
+      "paymentPortalRedirectTitle": "Abriendo gestion de pagos",
+      "paymentPortalRedirectDescription": "Te redirigimos al portal seguro para gestionar tu suscripcion.",
+      "paymentPortalRedirectErrorTitle": "No se pudo abrir la gestion de pagos",
+      "paymentPortalRedirectErrorDescription": "Intentalo de nuevo en unos segundos."
     },
     "loading": "Cargando perfil...",
     "avatarAlt": "Perfil",
@@ -123,6 +127,15 @@
       "change": "Cambiar",
       "changing": "Cambiando..."
     },
+    "paymentSection": {
+      "badge": "Facturacion",
+      "title": "Suscripcion y facturacion",
+      "description": "Desde el portal seguro puedes actualizar tu metodo de pago, consultar facturas o cancelar tu suscripcion.",
+      "noSubscriptionDescription": "No tienes una suscripcion de pago activa en este momento. Si activas Premium, podras gestionar tu suscripcion desde aqui.",
+      "cta": "Gestionar suscripcion",
+      "opening": "Abriendo portal...",
+      "managePlansCta": "Ver planes"
+    },
     "dialog": {
       "title": "Confirmar cambio de oposicion",
       "description": "Vas a cambiar tu oposicion activa a \"{{opposition}}\". Quieres continuar?",
@@ -158,7 +171,9 @@
     "quickTopics": "Temas para test rapido",
     "selectTopic": "Selecciona un tema de {{opposition}}",
     "quickSelectionSummary": "{{topicCount}} temas seleccionados - {{questionCount}} preguntas",
-    "planSummary": "Tu plan incluye acceso a test rapido.",
+    "planSummary": "Acceso a test segun tu plan.",
+    "planSummaryFree": "Los tests estan disponibles solo con el plan Pro.",
+    "planSummaryPro": "Tu plan Pro incluye acceso a tests.",
     "quickDialogTitle": "Configurar test rapido",
     "quickDialogDescription": "Elige bloques y temas de {{opposition}} para generar tu test.",
     "quickDialogQuestionsLabel": "Numero de preguntas",
@@ -192,29 +207,6 @@
     "contentLockedDescription": "Con el plan de pago podras acceder al contenido completo del temario.",
     "contentLockedCta": "Ver planes"
   },
-  "calendar": {
-    "badge": "Calendario",
-    "title": "Plan semanal",
-    "description": "Organiza tus bloques de estudio y revisa los proximos hitos de preparacion.",
-    "upcomingSessions": "Proximas sesiones",
-    "blocks": {
-      "monday": {
-        "day": "Lunes",
-        "activity": "Repaso Tema 1-2",
-        "time": "19:00 - 20:30"
-      },
-      "wednesday": {
-        "day": "Miercoles",
-        "activity": "Test rapido Tema 3",
-        "time": "19:30 - 20:00"
-      },
-      "friday": {
-        "day": "Viernes",
-        "activity": "Simulacro general",
-        "time": "18:30 - 19:30"
-      }
-    }
-  },
   "opositAI": {
     "badge": "IA",
     "title": "Apartado opositAI",
@@ -228,24 +220,29 @@
   },
   "study": {
     "badge": "A estudiar",
-    "description": "Configura un temporizador para estudiar y controlalo desde cualquier pantalla.",
-    "durationLabel": "Duracion (minutos)",
-    "durationHint": "Puedes ajustar entre 1 y 480 minutos.",
+    "description": "Configura un temporizador Pomodoro y controlalo desde cualquier pantalla.",
     "remainingLabel": "Tiempo restante",
+    "phaseLabel": "Fase actual",
+    "phasefocus": "Concentracion",
+    "phaseshortBreak": "Descanso corto",
+    "phaselongBreak": "Descanso largo",
     "statusRunning": "Temporizador en marcha",
     "statusPaused": "Temporizador en pausa",
-    "statusFinished": "Tiempo finalizado",
+    "statusFinished": "Cambio de bloque",
     "statusIdle": "Listo para empezar",
+    "tapHintIdle": "Pulsa el contador para empezar",
+    "tapHintRunning": "Pulsa el contador para pausar",
+    "tapHintPaused": "Pulsa el contador para continuar",
     "pause": "Pausar",
     "resume": "Reanudar",
     "start": "Iniciar",
     "stop": "Detener",
     "restart": "Reiniciar",
-    "finishedMessage": "Se acabo el bloque. Toca descansar.",
-    "readyHint": "Configura una duracion y pulsa iniciar.",
     "toasts": {
-      "breakTitle": "Bloque finalizado",
-      "breakDescription": "Hora de hacer un descanso."
+      "focusCompleteTitle": "Pomodoro completado",
+      "focusCompleteDescription": "Siguiente fase: {{nextPhase}}.",
+      "breakCompleteTitle": "Descanso completado",
+      "breakCompleteDescription": "Siguiente fase: {{nextPhase}}."
     }
   },
   "testSession": {
@@ -258,6 +255,9 @@
     "questionsLabel": "Preguntas: {{count}}",
     "missingDataTitle": "No se encontro este test",
     "missingDataDescription": "No hay datos disponibles para este test en la sesion actual.",
+    "lockedTitle": "Los tests estan disponibles solo en Pro",
+    "lockedDescription": "Tu plan actual no incluye acceso a realizar tests. Cambia a Pro para continuar.",
+    "readOnlyHistoryDescription": "Este test ya esta finalizado. Puedes revisarlo, pero no volver a realizarlo con el plan gratuito.",
     "emptyQuestionsTitle": "El test no tiene preguntas",
     "emptyQuestionsDescription": "El backend no devolvio preguntas validas para este intento.",
     "backToConfig": "Volver a configuracion",
