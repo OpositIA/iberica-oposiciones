@@ -168,21 +168,29 @@ export const fetchOppositionById = async (
     .maybeSingle()
     .overrideTypes<Pick<OppositionSyllabusRow, "id">, { merge: false }>();
 
-  const { data: topicRows } = currentSyllabusRow
-    ? await supabase
-        .from("opposition_topics")
-        .select("id, topic_code, topic_title, order_index")
-        .eq("syllabus_id", currentSyllabusRow.id)
-        .order("order_index", { ascending: true })
-        .order("id", { ascending: true })
-        .overrideTypes<OppositionTopicRow[], { merge: false }>()
-    : await supabase
-        .from("opposition_topics")
-        .select("id, topic_code, topic_title, order_index")
-        .eq("opposition_id", normalizedId)
-        .order("order_index", { ascending: true })
-        .order("id", { ascending: true })
-        .overrideTypes<OppositionTopicRow[], { merge: false }>();
+  let topicRows: OppositionTopicRow[] | null = null;
+
+  if (currentSyllabusRow) {
+    const { data } = await supabase
+      .from("opposition_topics" as never)
+      .select("id, topic_code, topic_title, order_index")
+      .eq("syllabus_id", currentSyllabusRow.id)
+      .order("order_index", { ascending: true })
+      .order("id", { ascending: true })
+      .overrideTypes<OppositionTopicRow[], { merge: false }>();
+
+    topicRows = data;
+  } else {
+    const { data } = await supabase
+      .from("opposition_topics" as never)
+      .select("id, topic_code, topic_title, order_index")
+      .eq("opposition_id", normalizedId)
+      .order("order_index", { ascending: true })
+      .order("id", { ascending: true })
+      .overrideTypes<OppositionTopicRow[], { merge: false }>();
+
+    topicRows = data;
+  }
 
   const topicIds = (topicRows ?? []).map((row) => row.id);
   const topicCodeById = new Map(

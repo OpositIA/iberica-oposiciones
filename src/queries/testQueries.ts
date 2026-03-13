@@ -798,11 +798,12 @@ export const fetchQuickTestsDashboardBundle = async (
     )
     .eq("user_id", userId)
     .order("last_interaction_at", { ascending: false })
-    .limit(DASHBOARD_BUNDLE_MAX_ROWS);
+    .limit(DASHBOARD_BUNDLE_MAX_ROWS)
+    .overrideTypes<QuickTestAttemptJoinedRow[], { merge: false }>();
 
   if (error) throw error;
 
-  const rows = (Array.isArray(data) ? data : []) as QuickTestAttemptJoinedRow[];
+  const rows = Array.isArray(data) ? data : [];
 
   const inProgress =
     rows

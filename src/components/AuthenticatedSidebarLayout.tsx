@@ -253,7 +253,7 @@ const AuthenticatedSidebarLayout = () => {
                     <button
                       type="button"
                       onClick={pause}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-secondary"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
                       aria-label={t("profile:study.pause")}
                       title={t("profile:study.pause")}
                     >
@@ -264,7 +264,7 @@ const AuthenticatedSidebarLayout = () => {
                     <button
                       type="button"
                       onClick={resume}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-secondary"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
                       aria-label={t("profile:study.resume")}
                       title={t("profile:study.resume")}
                     >
@@ -274,7 +274,7 @@ const AuthenticatedSidebarLayout = () => {
                   <button
                     type="button"
                     onClick={stop}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-secondary"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
                     aria-label={t("profile:study.stop")}
                     title={t("profile:study.stop")}
                   >
@@ -379,7 +379,7 @@ const AuthenticatedSidebarLayout = () => {
                               "px-3 gap-3",
                               active
                                 ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.6)]"
-                                : "text-foreground hover:bg-secondary"
+                                : "text-foreground hover:bg-primary/10 hover:text-primary"
                             )}
                             aria-label={
                               isSidebarCollapsed ? item.label : undefined
@@ -443,7 +443,7 @@ const AuthenticatedSidebarLayout = () => {
               <Link
                 to="/perfil/mi-perfil"
                 onClick={closeMobileSidebar}
-                className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-secondary/70"
+                className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-primary/10"
               >
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
                   {avatarUrl ? (
