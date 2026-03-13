@@ -13,13 +13,14 @@
     "validateDailyLimitFailedTitle": "No se pudo validar el limite diario",
     "validateDailyLimitFailedDescription": "No se pudo comprobar la cuota de IA.",
     "loadConversationFailedTitle": "No se pudo cargar la conversacion",
+    "pinChatFailedTitle": "No se pudo actualizar el chat fijado",
     "dailyLimitReachedTitle": "Limite diario alcanzado",
     "dailyLimitReachedDescription": "Ya has usado {{used}}/{{limit}} peticiones hoy."
   },
   "errors": {
     "saveUserMessageFailed": "No se pudo guardar tu mensaje: {{message}}",
     "saveAssistantMessageFailed": "No se pudo guardar la respuesta de la IA: {{message}}",
-    "dailyLimitReached": "Has alcanzado tu limite diario de peticiones IA. Vuelve manana.",
+    "dailyLimitReached": "Has alcanzado tu limite diario de peticiones IA. Vuelve mañana.",
     "assistantResponseFailed": "No se pudo obtener respuesta del asistente.",
     "invalidSession": "Sesion expirada o invalida. Debes iniciar sesion de nuevo.",
     "connection": "Error de conexion con el endpoint https://hxvckhyxfmfvdipahobv.supabase.co/functions/v1/ask",
@@ -31,14 +32,17 @@
     "conversations": "Tus conversaciones",
     "loadingChats": "Cargando chats...",
     "emptyChats": "No hay conversaciones todavia.",
-    "newChat": "Nuevo chat"
+    "newChat": "Nuevo chat",
+    "pinChat": "Fijar",
+    "unpinChat": "Desfijar",
+    "pinnedChat": "Chat fijado"
   },
   "header": {
     "badge": "Chat IA",
     "title": "Asistente de estudio",
     "dailyLimit": "Limite diario",
     "checkingUsage": "Comprobando peticiones de hoy...",
-    "limitReached": "Has alcanzado el limite diario. Vuelve manana.",
+    "limitReached": "Has alcanzado el limite diario. Vuelve mañana.",
     "remaining": "Te quedan {{count}} peticiones hoy.",
     "planSummary": "Acceso IA disponible segun tu plan actual."
   },
@@ -49,6 +53,7 @@
     "assistantLabel": "IA",
     "userLabel": "Tu",
     "writing": "Escribiendo",
+    "scrollToLatest": "Ir al ultimo mensaje",
     "conceptMapResponse": "He preparado el mapa mental: {{title}}",
     "conceptMapReady": "Mapa mental listo para explorar.",
     "conceptMapStats": "{{nodes}} nodos · {{edges}} conexiones principales",
@@ -69,7 +74,7 @@
     "selectNodeHint": "Selecciona un nodo del arbol para ver sus detalles."
   },
   "input": {
-    "placeholderLimitReached": "Limite diario alcanzado. Vuelve manana.",
+    "placeholderLimitReached": "Limite diario alcanzado. Vuelve mañana.",
     "placeholder": "Escribe tu pregunta para la IA...",
     "quickActions": "Acciones rapidas",
     "mindMap": "Mapa mental",

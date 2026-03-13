@@ -24,7 +24,8 @@ import type { Tables } from "@/integrations/supabase/types";
 import {
   sanitizeCode,
   sanitizeMultilineText,
-  sanitizeSingleLineText
+  sanitizeSingleLineText,
+  sanitizeText
 } from "@/lib/inputSanitization";
 import {
   buildMindMapEdgePath,
@@ -46,30 +47,38 @@ import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowDown,
   BookOpen,
+  Check,
   ChevronDown,
   ChevronRight,
   Ellipsis,
+  Expand,
   ExternalLink,
   GitBranch,
   Loader2,
   MessageCircle,
   Minus,
+  Pencil,
+  Pin,
   Plus,
   Send,
   Trash2,
-  User
+  User,
+  X
 } from "lucide-react";
 import {
   FormEvent,
   PointerEvent,
   KeyboardEvent as ReactKeyboardEvent,
+  SyntheticEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState
 } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 type ChatMessage = {
@@ -87,6 +96,13 @@ type ConversationItem = {
   title: string;
   createdAt: string;
   lastMessageAt: string;
+  pinned: boolean;
+};
+
+type AssistantTableData = {
+  headerRow: string[] | null;
+  bodyRows: string[][];
+  totalColumns: number;
 };
 
 type GeminiHistoryItem = {
@@ -95,6 +111,13 @@ type GeminiHistoryItem = {
 };
 
 type DailyQuotaResult = {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  remaining: number;
+};
+
+type NormalizedDailyQuota = {
   allowed: boolean;
   used: number;
   limit: number;
@@ -148,6 +171,8 @@ type MindMapNodePosition = {
 
 const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
 const MESSAGES_PAGE_SIZE = 8;
+const CONVERSATIONS_LOAD_TIMEOUT_MS = 12000;
+const MESSAGES_LOAD_TIMEOUT_MS = 15000;
 const CONCEPT_MAP_STORAGE_PREFIX = "__CONCEPT_MAP__:";
 const ASK_ENDPOINT = `${
   import.meta.env.VITE_SUPABASE_URL ??
@@ -177,8 +202,64 @@ const parseJson = (value: string) => {
   }
 };
 
+const normalizeDailyQuota = (
+  row:
+    | {
+        used?: unknown;
+        limit?: unknown;
+        remaining?: unknown;
+        allowed?: unknown;
+      }
+    | null
+    | undefined,
+  fallbackLimit = 0
+): NormalizedDailyQuota => {
+  const nextLimit =
+    typeof row?.limit === "number" &&
+    Number.isFinite(row.limit) &&
+    row.limit > 0
+      ? Math.floor(row.limit)
+      : Math.max(0, Math.floor(fallbackLimit));
+
+  const nextUsed =
+    typeof row?.used === "number" && Number.isFinite(row.used)
+      ? Math.max(0, Math.floor(row.used))
+      : 0;
+
+  const reportedRemaining =
+    typeof row?.remaining === "number" && Number.isFinite(row.remaining)
+      ? Math.max(0, Math.floor(row.remaining))
+      : null;
+
+  const computedRemaining =
+    nextLimit > 0 ? Math.max(nextLimit - nextUsed, 0) : 0;
+
+  const nextRemaining =
+    reportedRemaining === null
+      ? computedRemaining
+      : nextUsed < nextLimit && reportedRemaining === 0
+        ? computedRemaining
+        : reportedRemaining;
+
+  const allowed =
+    typeof row?.allowed === "boolean"
+      ? row.allowed
+      : nextLimit > 0
+        ? nextUsed < nextLimit
+        : nextRemaining > 0;
+
+  return {
+    allowed,
+    used: nextUsed,
+    limit: nextLimit,
+    remaining: nextRemaining
+  };
+};
+
 const isEditableEventTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
+  if (target.closest("input, textarea, select, [contenteditable='true']"))
+    return true;
   const tagName = target.tagName.toLowerCase();
   if (tagName === "input" || tagName === "textarea" || tagName === "select")
     return true;
@@ -331,14 +412,38 @@ const parseAssistantContentFromStorage = (
 const mapConversation = (
   row: Pick<
     Tables<"ai_conversations">,
-    "id" | "title" | "created_at" | "last_message_at"
+    "id" | "title" | "created_at" | "last_message_at" | "pinned"
   >
 ): ConversationItem => ({
   id: row.id,
   title: row.title,
   createdAt: row.created_at,
-  lastMessageAt: row.last_message_at
+  lastMessageAt: row.last_message_at,
+  pinned: row.pinned
 });
+
+const compareConversationDates = (a: string, b: string) => {
+  const aTime = Date.parse(a);
+  const bTime = Date.parse(b);
+
+  if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+  if (Number.isNaN(aTime)) return 1;
+  if (Number.isNaN(bTime)) return -1;
+
+  return bTime - aTime;
+};
+
+const sortConversationItems = (items: ConversationItem[]) =>
+  items.slice().sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return compareConversationDates(a.lastMessageAt, b.lastMessageAt);
+  });
+
+const sortConversationRows = (rows: AssistantConversationRow[]) =>
+  rows.slice().sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return compareConversationDates(a.last_message_at, b.last_message_at);
+  });
 
 const mapDbMessageToChatMessage = (
   row: Pick<Tables<"ai_messages">, "id" | "role" | "content" | "created_at">,
@@ -379,6 +484,9 @@ const AssistantIA = () => {
   const [deletingConversationId, setDeletingConversationId] = useState<
     string | null
   >(null);
+  const [pinningConversationId, setPinningConversationId] = useState<
+    string | null
+  >(null);
   const [conversationPendingDelete, setConversationPendingDelete] =
     useState<ConversationItem | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -389,7 +497,10 @@ const AssistantIA = () => {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const chatFormRef = useRef<HTMLFormElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const inputTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [mensajes, setMensajes] = useState<ChatMessage[]>([]);
+  const [showScrollToLatestButton, setShowScrollToLatestButton] =
+    useState(false);
   const [dailyUsedRequests, setDailyUsedRequests] = useState(0);
   const [dailyRequestLimit, setDailyRequestLimit] = useState(0);
   const [isLoadingDailyUsage, setIsLoadingDailyUsage] = useState(true);
@@ -417,6 +528,14 @@ const AssistantIA = () => {
   const [isMindMapNodeDragging, setIsMindMapNodeDragging] = useState(false);
   const [isMindMapSpacePressed, setIsMindMapSpacePressed] = useState(false);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [tableDialogData, setTableDialogData] =
+    useState<AssistantTableData | null>(null);
+  const [editingConversationId, setEditingConversationId] = useState<
+    string | null
+  >(null);
+  const [editingConversationTitle, setEditingConversationTitle] = useState("");
+  const [sidebarHistoryHost, setSidebarHistoryHost] =
+    useState<HTMLElement | null>(null);
   const mindMapViewportRef = useRef<HTMLDivElement | null>(null);
   const mindMapInteractionRef = useRef<
     | {
@@ -448,6 +567,7 @@ const AssistantIA = () => {
   const shouldStickToBottomRef = useRef(true);
   const bootstrappedUserIdRef = useRef<string | null>(null);
   const lastLoadedConversationIdRef = useRef<string | null>(null);
+  const loadMessagesRequestIdRef = useRef(0);
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const intlLocale = toIntlLocale(locale);
@@ -479,6 +599,45 @@ const AssistantIA = () => {
   const dailyUsageProgressColor = isDailyLimitReached
     ? "hsl(var(--destructive))"
     : "hsl(var(--primary))";
+  const showInitialConversationsLoader =
+    isLoadingConversations && conversations.length === 0;
+  const showInitialMessagesLoader = isLoadingMessages && mensajes.length === 0;
+
+  const resizeChatTextarea = useCallback(() => {
+    const textarea = inputTextareaRef.current;
+    if (!textarea) return;
+
+    const computed = window.getComputedStyle(textarea);
+    const lineHeight = Number.parseFloat(computed.lineHeight) || 22;
+    const paddingTop = Number.parseFloat(computed.paddingTop) || 0;
+    const paddingBottom = Number.parseFloat(computed.paddingBottom) || 0;
+    const minHeight = lineHeight + paddingTop + paddingBottom;
+    const maxHeight = lineHeight * 4 + paddingTop + paddingBottom;
+
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(
+      maxHeight,
+      Math.max(minHeight, textarea.scrollHeight)
+    );
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY =
+      textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const syncSidebarHistoryHost = () => {
+      setSidebarHistoryHost(
+        document.getElementById("assistant-sidebar-history-slot")
+      );
+    };
+
+    syncSidebarHistoryHost();
+    window.addEventListener("resize", syncSidebarHistoryHost);
+
+    return () => window.removeEventListener("resize", syncSidebarHistoryHost);
+  }, []);
 
   const formatHora = useCallback(
     (value?: string | Date) =>
@@ -510,12 +669,21 @@ const AssistantIA = () => {
   const getConversations = useCallback(
     async (userId: string) => {
       try {
-        const data = await queryClient.fetchQuery({
-          queryKey: assistantQueryKeys.conversations(userId),
-          queryFn: () => fetchAssistantConversations(userId),
-          ...assistantQueryConfig
-        });
-        return data.map((row) => mapConversation(row));
+        let timeoutId: number | undefined;
+        const data = await Promise.race([
+          queryClient.fetchQuery({
+            queryKey: assistantQueryKeys.conversations(userId),
+            queryFn: () => fetchAssistantConversations(userId),
+            ...assistantQueryConfig
+          }),
+          new Promise<never>((_resolve, reject) => {
+            timeoutId = window.setTimeout(() => {
+              reject(new Error("Timeout al cargar conversaciones"));
+            }, CONVERSATIONS_LOAD_TIMEOUT_MS);
+          })
+        ]);
+        if (timeoutId) window.clearTimeout(timeoutId);
+        return sortConversationRows(data).map((row) => mapConversation(row));
       } catch (error) {
         const message =
           error instanceof Error
@@ -539,7 +707,7 @@ const AssistantIA = () => {
       const { data, error } = await supabase
         .from("ai_conversations")
         .insert({ user_id: userId, title: t("assistant:newChat") })
-        .select("id, title, created_at, last_message_at")
+        .select("id, title, created_at, last_message_at, pinned")
         .single();
 
       if (error || !data) {
@@ -561,7 +729,7 @@ const AssistantIA = () => {
           const withoutExisting = prev.filter(
             (item) => item.id !== mappedRow.id
           );
-          return [mappedRow, ...withoutExisting];
+          return sortConversationRows([mappedRow, ...withoutExisting]);
         }
       );
 
@@ -576,7 +744,7 @@ const AssistantIA = () => {
       queryKey: assistantQueryKeys.conversations(currentUserId)
     });
     const data = await getConversations(currentUserId);
-    if (data) setConversations(data);
+    if (data) setConversations(sortConversationItems(data));
   }, [currentUserId, getConversations, queryClient]);
 
   const refreshDailyUsage = useCallback(
@@ -598,19 +766,13 @@ const AssistantIA = () => {
           return;
         }
 
-        const nextLimit =
-          typeof row.limit === "number" &&
-          Number.isFinite(row.limit) &&
-          row.limit > 0
-            ? Math.floor(row.limit)
-            : 0;
-        const nextUsed =
-          typeof row.used === "number" && Number.isFinite(row.used)
-            ? Math.max(0, Math.floor(row.used))
-            : 0;
+        const normalizedQuota = normalizeDailyQuota(
+          row,
+          planState?.ai_daily_limit ?? dailyRequestLimit
+        );
 
-        setDailyRequestLimit(nextLimit);
-        setDailyUsedRequests(nextUsed);
+        setDailyRequestLimit(normalizedQuota.limit);
+        setDailyUsedRequests(normalizedQuota.used);
         setIsLoadingDailyUsage(false);
       } catch {
         setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
@@ -618,7 +780,46 @@ const AssistantIA = () => {
         return;
       }
     },
-    [queryClient]
+    [dailyRequestLimit, planState?.ai_daily_limit, queryClient]
+  );
+
+  const getDailyQuota = useCallback(
+    async (userId: string): Promise<DailyQuotaResult | null> => {
+      const { data, error } = await supabase.rpc("get_ai_daily_quota", {
+        p_user_id: userId,
+        p_tz: DAILY_USAGE_TIMEZONE
+      });
+
+      const row = data?.[0];
+      if (error || !row) {
+        toast({
+          variant: "destructive",
+          title: t("assistant:toasts.validateDailyLimitFailedTitle"),
+          description:
+            error?.message ??
+            t("assistant:toasts.validateDailyLimitFailedDescription")
+        });
+        return null;
+      }
+
+      const normalizedQuota = normalizeDailyQuota(
+        row,
+        planState?.ai_daily_limit ?? dailyRequestLimit
+      );
+
+      setDailyRequestLimit(normalizedQuota.limit);
+      setDailyUsedRequests(normalizedQuota.used);
+      queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
+        day: String(row.day ?? ""),
+        is_paid: Boolean(row.is_paid),
+        limit: normalizedQuota.limit,
+        remaining: normalizedQuota.remaining,
+        used: normalizedQuota.used
+      });
+
+      return normalizedQuota;
+    },
+    [dailyRequestLimit, planState?.ai_daily_limit, queryClient, t, toast]
   );
 
   const consumeDailyQuota = useCallback(
@@ -640,53 +841,66 @@ const AssistantIA = () => {
         return null;
       }
 
-      const nextLimit =
-        typeof row.limit === "number" &&
-        Number.isFinite(row.limit) &&
-        row.limit > 0
-          ? Math.floor(row.limit)
-          : 0;
-      const nextUsed =
-        typeof row.used === "number" && Number.isFinite(row.used)
-          ? Math.max(0, Math.floor(row.used))
-          : 0;
-      const nextRemaining =
-        typeof row.remaining === "number" && Number.isFinite(row.remaining)
-          ? Math.max(0, Math.floor(row.remaining))
-          : Math.max(nextLimit - nextUsed, 0);
+      const normalizedQuota = normalizeDailyQuota(
+        row,
+        planState?.ai_daily_limit ?? dailyRequestLimit
+      );
 
-      setDailyRequestLimit(nextLimit);
-      setDailyUsedRequests(nextUsed);
+      setDailyRequestLimit(normalizedQuota.limit);
+      setDailyUsedRequests(normalizedQuota.used);
       queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
         day: String(row.day ?? ""),
-        is_paid: Boolean(planState?.is_paid),
-        limit: nextLimit,
-        remaining: nextRemaining,
-        used: nextUsed
+        is_paid: Boolean(row.is_paid ?? planState?.is_paid),
+        limit: normalizedQuota.limit,
+        remaining: normalizedQuota.remaining,
+        used: normalizedQuota.used
       });
 
       return {
-        allowed: Boolean(row.allowed),
-        used: nextUsed,
-        limit: nextLimit,
-        remaining: nextRemaining
+        allowed:
+          typeof row.allowed === "boolean"
+            ? row.allowed
+            : normalizedQuota.allowed,
+        used: normalizedQuota.used,
+        limit: normalizedQuota.limit,
+        remaining: normalizedQuota.remaining
       };
     },
-    [planState?.is_paid, queryClient, t, toast]
+    [
+      dailyRequestLimit,
+      planState?.ai_daily_limit,
+      planState?.is_paid,
+      queryClient,
+      t,
+      toast
+    ]
   );
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
+      const requestId = loadMessagesRequestIdRef.current + 1;
+      loadMessagesRequestIdRef.current = requestId;
       setIsLoadingMessages(true);
       setIsLoadingOlderMessages(false);
       setHasMoreMessages(false);
       try {
-        const rows = await queryClient.fetchQuery({
-          queryKey: assistantQueryKeys.messages(conversationId),
-          queryFn: () =>
-            fetchAssistantMessages(conversationId, MESSAGES_PAGE_SIZE),
-          ...assistantQueryConfig
-        });
+        let timeoutId: number | undefined;
+        const rows = await Promise.race([
+          queryClient.fetchQuery({
+            queryKey: assistantQueryKeys.messages(conversationId),
+            queryFn: () =>
+              fetchAssistantMessages(conversationId, MESSAGES_PAGE_SIZE),
+            ...assistantQueryConfig
+          }),
+          new Promise<never>((_resolve, reject) => {
+            timeoutId = window.setTimeout(() => {
+              reject(new Error("Timeout al cargar mensajes"));
+            }, MESSAGES_LOAD_TIMEOUT_MS);
+          })
+        ]);
+        if (timeoutId) window.clearTimeout(timeoutId);
+
+        if (loadMessagesRequestIdRef.current !== requestId) return;
 
         const mapped = rows
           .slice()
@@ -695,7 +909,6 @@ const AssistantIA = () => {
 
         setMensajes(mapped);
         setHasMoreMessages(rows.length === MESSAGES_PAGE_SIZE);
-        setIsLoadingMessages(false);
         lastLoadedConversationIdRef.current = conversationId;
         shouldStickToBottomRef.current = true;
         requestAnimationFrame(() => {
@@ -713,9 +926,12 @@ const AssistantIA = () => {
           title: t("assistant:toasts.loadConversationFailedTitle"),
           description: message
         });
+        if (loadMessagesRequestIdRef.current !== requestId) return;
         lastLoadedConversationIdRef.current = null;
         setMensajes([]);
-        setIsLoadingMessages(false);
+      } finally {
+        if (loadMessagesRequestIdRef.current === requestId)
+          setIsLoadingMessages(false);
       }
     },
     [formatHora, queryClient, t, toast]
@@ -798,13 +1014,16 @@ const AssistantIA = () => {
     setCurrentUserId(userId);
 
     if (!userId) {
+      loadMessagesRequestIdRef.current += 1;
       bootstrappedUserIdRef.current = null;
       lastLoadedConversationIdRef.current = null;
       setConversations([]);
       setActiveConversationId(null);
       setMensajes([]);
       setHasMoreMessages(false);
+      setIsLoadingMessages(false);
       setIsLoadingOlderMessages(false);
+      setPinningConversationId(null);
       setDailyUsedRequests(0);
       setDailyRequestLimit(0);
       setIsLoadingDailyUsage(false);
@@ -833,38 +1052,41 @@ const AssistantIA = () => {
         const created = await createConversationRecord(userId);
         if (isCancelled) return;
         if (created) {
-          setConversations([created]);
+          setConversations(sortConversationItems([created]));
           setActiveConversationId(created.id);
-        } else bootstrappedUserIdRef.current = null;
+        } else {
+          bootstrappedUserIdRef.current = null;
+        }
 
         setIsLoadingConversations(false);
         return;
       }
 
-      setConversations(loadedConversations);
+      setConversations(sortConversationItems(loadedConversations));
       setActiveConversationId(loadedConversations[0].id);
       setIsLoadingConversations(false);
     };
 
     void bootstrap();
-    void refreshDailyUsage(userId);
 
     return () => {
       isCancelled = true;
     };
-  }, [
-    createConversationRecord,
-    getConversations,
-    isAuthReady,
-    refreshDailyUsage,
-    user?.id
-  ]);
+  }, [createConversationRecord, getConversations, isAuthReady, user?.id]);
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+    if (!user?.id) return;
+    void refreshDailyUsage(user.id);
+  }, [isAuthReady, refreshDailyUsage, user?.id]);
 
   useEffect(() => {
     if (!activeConversationId) {
+      loadMessagesRequestIdRef.current += 1;
       lastLoadedConversationIdRef.current = null;
       setMensajes([]);
       setHasMoreMessages(false);
+      setIsLoadingMessages(false);
       setIsLoadingOlderMessages(false);
       return;
     }
@@ -887,6 +1109,21 @@ const AssistantIA = () => {
     return () => window.clearInterval(intervalId);
   }, [estadosEscrituraIA.length, isSendingChat]);
 
+  const syncChatScrollState = useCallback(() => {
+    const node = chatContainerRef.current;
+    if (!node) {
+      setShowScrollToLatestButton(false);
+      return;
+    }
+
+    const distanceToBottom =
+      node.scrollHeight - node.scrollTop - node.clientHeight;
+    const isNearBottom = distanceToBottom < 72;
+
+    shouldStickToBottomRef.current = isNearBottom;
+    setShowScrollToLatestButton(mensajes.length > 0 && !isNearBottom);
+  }, [mensajes.length]);
+
   useEffect(() => {
     const node = chatContainerRef.current;
     if (!node) return;
@@ -897,12 +1134,36 @@ const AssistantIA = () => {
         (node.scrollHeight - prependPreviousScrollHeightRef.current);
       node.scrollTop = Math.max(nextScrollTop, 0);
       isRestoringPrependScrollRef.current = false;
+      syncChatScrollState();
       return;
     }
 
     if (shouldStickToBottomRef.current || isSendingChat)
       node.scrollTop = node.scrollHeight;
-  }, [mensajes, isSendingChat, estadoEscrituraIdx, isLoadingMessages]);
+    syncChatScrollState();
+  }, [
+    mensajes,
+    isSendingChat,
+    estadoEscrituraIdx,
+    isLoadingMessages,
+    syncChatScrollState
+  ]);
+
+  useEffect(() => {
+    resizeChatTextarea();
+  }, [inputChat, resizeChatTextarea]);
+
+  useEffect(() => {
+    if (!isLoadingConversations) return;
+    if (conversations.length === 0) return;
+    setIsLoadingConversations(false);
+  }, [conversations.length, isLoadingConversations]);
+
+  useEffect(() => {
+    if (!isLoadingMessages) return;
+    if (mensajes.length === 0) return;
+    setIsLoadingMessages(false);
+  }, [isLoadingMessages, mensajes.length]);
 
   const extraerTextoRespuesta = (payload: unknown) => {
     if (!payload || typeof payload !== "object") return "";
@@ -935,9 +1196,13 @@ const AssistantIA = () => {
 
   const renderInlineMarkdown = (text: string, keyPrefix: string) =>
     text
-      .split(/(\*\*[^*]+\*\*)/g)
+      .split(/(\*\*[^*]+\*\*|<br\s*\/?>)/gi)
       .filter(Boolean)
       .map((segment, index) => {
+        if (/^<br\s*\/?>$/i.test(segment)) {
+          return <br key={`${keyPrefix}-br-${index}`} />;
+        }
+
         const strongMatch = segment.match(/^\*\*(.+)\*\*$/);
         if (strongMatch) {
           return (
@@ -952,6 +1217,155 @@ const AssistantIA = () => {
 
         return <span key={`${keyPrefix}-text-${index}`}>{segment}</span>;
       });
+
+  const renderAssistantTable = (
+    tableData: AssistantTableData,
+    keyPrefix: string,
+    expanded = false
+  ) => {
+    const normalizeRow = (row: string[]) =>
+      Array.from(
+        { length: tableData.totalColumns },
+        (_, idx) => row[idx] ?? ""
+      );
+
+    return (
+      <div
+        className={
+          expanded
+            ? "h-full overflow-auto rounded-xl border border-border/70 bg-background"
+            : "overflow-x-auto rounded-lg border border-border/70"
+        }
+      >
+        <table
+          className={
+            expanded
+              ? "min-w-full border-collapse text-sm md:text-[15px]"
+              : "min-w-full border-collapse text-sm"
+          }
+        >
+          {tableData.headerRow ? (
+            <thead
+              className={
+                expanded ? "sticky top-0 bg-secondary/70" : "bg-secondary/40"
+              }
+            >
+              <tr>
+                {normalizeRow(tableData.headerRow).map((cell, cellIndex) => (
+                  <th
+                    key={`${keyPrefix}-th-${cellIndex}`}
+                    className={
+                      expanded
+                        ? "border-b border-border/70 px-4 py-3 text-left font-semibold"
+                        : "border-b border-border/70 px-3 py-2 text-left font-semibold"
+                    }
+                  >
+                    {renderInlineMarkdown(
+                      cell,
+                      `${keyPrefix}-th-content-${cellIndex}`
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          ) : null}
+          <tbody>
+            {tableData.bodyRows.map((row, rowIndex) => (
+              <tr
+                key={`${keyPrefix}-tr-${rowIndex}`}
+                className="odd:bg-background even:bg-secondary/15"
+              >
+                {normalizeRow(row).map((cell, cellIndex) => (
+                  <td
+                    key={`${keyPrefix}-td-${rowIndex}-${cellIndex}`}
+                    className={
+                      expanded
+                        ? "border-t border-border/60 px-4 py-3 align-top"
+                        : "border-t border-border/60 px-3 py-2 align-top"
+                    }
+                  >
+                    {renderInlineMarkdown(
+                      cell,
+                      `${keyPrefix}-td-content-${rowIndex}-${cellIndex}`
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const extractAssistantTables = (content: string): AssistantTableData[] => {
+    const lines = content.split(/\r?\n/);
+    const tables: AssistantTableData[] = [];
+    let tableLines: string[] = [];
+
+    const isTableCandidateLine = (line: string) => {
+      if (!line.includes("|")) return false;
+      const rawCells = line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim());
+      return rawCells.length >= 2;
+    };
+
+    const parseTableCells = (line: string) =>
+      line
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim());
+
+    const isMarkdownSeparatorRow = (row: string[]) =>
+      row.length > 0 &&
+      row.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
+
+    const flush = () => {
+      if (tableLines.length === 0) return;
+      const rows = tableLines
+        .map(parseTableCells)
+        .filter((row) => row.length > 0);
+      tableLines = [];
+      if (rows.length === 0) return;
+
+      const hasHeaderSeparator =
+        rows.length > 1 && isMarkdownSeparatorRow(rows[1]);
+      const headerRow = hasHeaderSeparator ? rows[0] : null;
+      const bodyRows = hasHeaderSeparator ? rows.slice(2) : rows;
+      const totalColumns = Math.max(
+        headerRow?.length ?? 0,
+        ...bodyRows.map((row) => row.length),
+        0
+      );
+
+      if (totalColumns === 0) return;
+      tables.push({ headerRow, bodyRows, totalColumns });
+    };
+
+    lines.forEach((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) {
+        flush();
+        return;
+      }
+
+      if (isTableCandidateLine(line)) {
+        tableLines.push(line);
+        return;
+      }
+
+      flush();
+    });
+
+    flush();
+    return tables;
+  };
 
   const renderAssistantContent = (content: string, keyPrefix: string) => {
     const lines = content.split(/\r?\n/);
@@ -1027,53 +1441,15 @@ const AssistantIA = () => {
 
       if (totalColumns === 0) return;
 
-      const normalizeRow = (row: string[]) =>
-        Array.from({ length: totalColumns }, (_, idx) => row[idx] ?? "");
+      const tableData: AssistantTableData = {
+        headerRow,
+        bodyRows,
+        totalColumns
+      };
 
       blocks.push(
-        <div
-          key={`${keyPrefix}-table-wrap-${lineIndex}`}
-          className="overflow-x-auto rounded-lg border border-border/70"
-        >
-          <table className="min-w-full border-collapse text-sm">
-            {headerRow ? (
-              <thead className="bg-secondary/40">
-                <tr>
-                  {normalizeRow(headerRow).map((cell, cellIndex) => (
-                    <th
-                      key={`${keyPrefix}-th-${lineIndex}-${cellIndex}`}
-                      className="border-b border-border/70 px-3 py-2 text-left font-semibold"
-                    >
-                      {renderInlineMarkdown(
-                        cell,
-                        `${keyPrefix}-th-content-${lineIndex}-${cellIndex}`
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-            ) : null}
-            <tbody>
-              {bodyRows.map((row, rowIndex) => (
-                <tr
-                  key={`${keyPrefix}-tr-${lineIndex}-${rowIndex}`}
-                  className="odd:bg-background even:bg-secondary/15"
-                >
-                  {normalizeRow(row).map((cell, cellIndex) => (
-                    <td
-                      key={`${keyPrefix}-td-${lineIndex}-${rowIndex}-${cellIndex}`}
-                      className="border-t border-border/60 px-3 py-2 align-top"
-                    >
-                      {renderInlineMarkdown(
-                        cell,
-                        `${keyPrefix}-td-content-${lineIndex}-${rowIndex}-${cellIndex}`
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div key={`${keyPrefix}-table-wrap-${lineIndex}`}>
+          {renderAssistantTable(tableData, `${keyPrefix}-table-${lineIndex}`)}
         </div>
       );
     };
@@ -1234,15 +1610,29 @@ const AssistantIA = () => {
     [isDefaultConversationTitle]
   );
 
-  const moveConversationToTop = useCallback((conversationId: string) => {
+  const moveConversationToSectionTop = useCallback((conversationId: string) => {
     setConversations((prev) => {
       const found = prev.find(
         (conversation) => conversation.id === conversationId
       );
       if (!found) return prev;
+
+      const remaining = prev.filter(
+        (conversation) => conversation.id !== conversationId
+      );
+
+      if (found.pinned) return [found, ...remaining];
+
+      const firstUnpinnedIndex = remaining.findIndex(
+        (conversation) => !conversation.pinned
+      );
+
+      if (firstUnpinnedIndex === -1) return [...remaining, found];
+
       return [
+        ...remaining.slice(0, firstUnpinnedIndex),
         found,
-        ...prev.filter((conversation) => conversation.id !== conversationId)
+        ...remaining.slice(firstUnpinnedIndex)
       ];
     });
   }, []);
@@ -1257,7 +1647,7 @@ const AssistantIA = () => {
 
     const existingEmpty = getExistingEmptyConversation(conversations);
     if (existingEmpty) {
-      moveConversationToTop(existingEmpty.id);
+      moveConversationToSectionTop(existingEmpty.id);
       setActiveConversationId(existingEmpty.id);
       setInputChat("");
       return;
@@ -1269,10 +1659,12 @@ const AssistantIA = () => {
 
     if (!created) return;
 
-    setConversations((prev) => [
-      created,
-      ...prev.filter((item) => item.id !== created.id)
-    ]);
+    setConversations((prev) =>
+      sortConversationItems([
+        created,
+        ...prev.filter((item) => item.id !== created.id)
+      ])
+    );
     setActiveConversationId(created.id);
     setInputChat("");
     setMensajes([]);
@@ -1280,7 +1672,13 @@ const AssistantIA = () => {
   };
 
   const onRequestDeleteConversation = (conversation: ConversationItem) => {
-    if (!currentUserId || deletingConversationId || isSendingChat) return;
+    if (
+      !currentUserId ||
+      deletingConversationId ||
+      pinningConversationId ||
+      isSendingChat
+    )
+      return;
     setConversationPendingDelete(conversation);
   };
 
@@ -1290,6 +1688,7 @@ const AssistantIA = () => {
       !currentUserId ||
       !conversationId ||
       deletingConversationId ||
+      pinningConversationId ||
       isSendingChat
     )
       return;
@@ -1357,13 +1756,134 @@ const AssistantIA = () => {
     setActiveConversationId(conversationId);
   };
 
+  const startEditingConversation = (conversation: ConversationItem) => {
+    if (
+      !currentUserId ||
+      deletingConversationId ||
+      pinningConversationId ||
+      isSendingChat
+    )
+      return;
+    setEditingConversationId(conversation.id);
+    setEditingConversationTitle(conversation.title || "");
+  };
+
+  const cancelEditingConversation = () => {
+    setEditingConversationId(null);
+    setEditingConversationTitle("");
+  };
+
+  const saveConversationTitle = async (conversation: ConversationItem) => {
+    if (!currentUserId) {
+      cancelEditingConversation();
+      return;
+    }
+
+    const nextTitle =
+      sanitizeSingleLineText(editingConversationTitle, 80) ||
+      t("assistant:newChat");
+    const currentTitle = conversation.title || t("assistant:newChat");
+
+    if (nextTitle === currentTitle) {
+      cancelEditingConversation();
+      return;
+    }
+
+    const { error } = await supabase
+      .from("ai_conversations")
+      .update({ title: nextTitle })
+      .eq("id", conversation.id)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: t("assistant:toasts.renameChatFailedTitle", {
+          defaultValue: "No se pudo renombrar el chat"
+        }),
+        description: error.message
+      });
+      return;
+    }
+
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id === conversation.id ? { ...item, title: nextTitle } : item
+      )
+    );
+    queryClient.setQueryData(
+      assistantQueryKeys.conversations(currentUserId),
+      (prev: AssistantConversationRow[] | undefined) =>
+        (prev ?? []).map((item) =>
+          item.id === conversation.id ? { ...item, title: nextTitle } : item
+        )
+    );
+    cancelEditingConversation();
+  };
+
+  const toggleConversationPinned = async (conversation: ConversationItem) => {
+    if (
+      !currentUserId ||
+      deletingConversationId ||
+      pinningConversationId ||
+      isSendingChat
+    )
+      return;
+
+    const nextPinned = !conversation.pinned;
+    setPinningConversationId(conversation.id);
+
+    const { error } = await supabase
+      .from("ai_conversations")
+      .update({ pinned: nextPinned })
+      .eq("id", conversation.id)
+      .eq("user_id", currentUserId);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: t("assistant:toasts.pinChatFailedTitle", {
+          defaultValue: "No se pudo actualizar el chat fijado"
+        }),
+        description: error.message
+      });
+      setPinningConversationId(null);
+      return;
+    }
+
+    setConversations((prev) =>
+      sortConversationItems(
+        prev.map((item) =>
+          item.id === conversation.id ? { ...item, pinned: nextPinned } : item
+        )
+      )
+    );
+    queryClient.setQueryData(
+      assistantQueryKeys.conversations(currentUserId),
+      (prev: AssistantConversationRow[] | undefined) =>
+        sortConversationRows(
+          (prev ?? []).map((item) =>
+            item.id === conversation.id ? { ...item, pinned: nextPinned } : item
+          )
+        )
+    );
+    setPinningConversationId(null);
+  };
+
+  const handleScrollToLatestMessage = useCallback(() => {
+    const node = chatContainerRef.current;
+    if (!node) return;
+
+    shouldStickToBottomRef.current = true;
+    setShowScrollToLatestButton(false);
+    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+  }, []);
+
   const handleChatScroll = useCallback(() => {
     const node = chatContainerRef.current;
     if (!node) return;
 
-    const distanceToBottom =
-      node.scrollHeight - node.scrollTop - node.clientHeight;
-    shouldStickToBottomRef.current = distanceToBottom < 72;
+    syncChatScrollState();
 
     if (
       node.scrollTop <= 64 &&
@@ -1376,7 +1896,8 @@ const AssistantIA = () => {
     hasMoreMessages,
     isLoadingMessages,
     isLoadingOlderMessages,
-    loadOlderMessages
+    loadOlderMessages,
+    syncChatScrollState
   ]);
 
   const conceptMapDialogMessage = useMemo(
@@ -2086,7 +2607,7 @@ const AssistantIA = () => {
       return;
     }
 
-    const quota = await consumeDailyQuota(currentUserId);
+    const quota = await getDailyQuota(currentUserId);
     if (!quota) return;
     if (!quota.allowed) {
       if (!isCurrentPlanPaid) {
@@ -2110,16 +2631,18 @@ const AssistantIA = () => {
     if (!conversationId) {
       const existingEmpty = getExistingEmptyConversation(conversations);
       if (existingEmpty) {
-        moveConversationToTop(existingEmpty.id);
+        moveConversationToSectionTop(existingEmpty.id);
         setActiveConversationId(existingEmpty.id);
         conversationId = existingEmpty.id;
       } else {
         const created = await createConversationRecord(currentUserId);
         if (!created) return;
-        setConversations((prev) => [
-          created,
-          ...prev.filter((item) => item.id !== created.id)
-        ]);
+        setConversations((prev) =>
+          sortConversationItems([
+            created,
+            ...prev.filter((item) => item.id !== created.id)
+          ])
+        );
         setActiveConversationId(created.id);
         conversationId = created.id;
       }
@@ -2193,7 +2716,10 @@ const AssistantIA = () => {
           parts: [{ text: m.content }]
         }));
 
-      const accessToken = session?.access_token;
+      const {
+        data: { session: latestSession }
+      } = await supabase.auth.getSession();
+      const accessToken = latestSession?.access_token ?? session?.access_token;
       if (!accessToken)
         throw new AuthSessionError("Sesion expirada. Vuelve a iniciar sesion.");
 
@@ -2290,6 +2816,9 @@ const AssistantIA = () => {
           })
         );
       }
+
+      await consumeDailyQuota(currentUserId);
+
       await queryClient.invalidateQueries({
         queryKey: assistantQueryKeys.messages(conversationId)
       });
@@ -2337,127 +2866,244 @@ const AssistantIA = () => {
     chatFormRef.current?.requestSubmit();
   };
 
-  return (
-    <div className="grid h-[78vh] max-h-[78vh] min-h-0 items-stretch gap-4 lg:grid-cols-[18.5rem_minmax(0,1fr)] [@media(max-height:760px)]:h-[86vh] [@media(max-height:760px)]:max-h-[86vh]">
-      <aside className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)]">
-        <div className="pointer-events-none absolute -top-14 -left-14 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
-        <div className="border-b border-border/70 bg-gradient-to-br from-primary/10 via-background to-background px-4 py-4">
-          <div className="mb-2">
-            <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
-              {t("assistant:sidebar.history")}
-            </p>
-            <h2 className="mt-1 text-sm font-semibold text-foreground">
-              {t("assistant:sidebar.conversations")}
-            </h2>
-          </div>
-        </div>
+  const handleLockedTextareaInteraction = useCallback(
+    (event: SyntheticEvent<HTMLTextAreaElement>) => {
+      if (!isDailyLimitReached || isCurrentPlanPaid) return;
+      event.preventDefault();
+      setIsUpgradeDialogOpen(true);
+    },
+    [isCurrentPlanPaid, isDailyLimitReached]
+  );
 
-        <div className="flex-1 min-h-0 space-y-2 overflow-y-auto p-3">
-          {isLoadingConversations ? (
-            <p className="py-3 text-sm text-muted-foreground">
-              {t("assistant:sidebar.loadingChats")}
-            </p>
-          ) : conversations.length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">
-              {t("assistant:sidebar.emptyChats")}
-            </p>
-          ) : (
-            conversations.map((conversation) => {
-              const isActive = conversation.id === activeConversationId;
-              const isDeletingThis = deletingConversationId === conversation.id;
-              return (
-                <div
-                  key={conversation.id}
-                  role="button"
-                  tabIndex={isSendingChat ? -1 : 0}
-                  aria-disabled={isSendingChat}
-                  onClick={() => {
-                    if (isSendingChat) return;
-                    onSelectConversation(conversation.id);
-                  }}
-                  onKeyDown={(event) => {
-                    if (isSendingChat) return;
-                    if (event.target !== event.currentTarget) return;
-                    if (event.key !== "Enter" && event.key !== " ") return;
+  const renderConversationHistoryItem = (conversation: ConversationItem) => {
+    const isActive = conversation.id === activeConversationId;
+    const isDeletingThis = deletingConversationId === conversation.id;
+    const isPinningThis = pinningConversationId === conversation.id;
+    const isEditingThis = editingConversationId === conversation.id;
+
+    return (
+      <div
+        key={conversation.id}
+        role="button"
+        tabIndex={isSendingChat ? -1 : 0}
+        aria-disabled={isSendingChat}
+        onClick={() => {
+          if (isSendingChat || isEditingThis) return;
+          onSelectConversation(conversation.id);
+        }}
+        onKeyDown={(event) => {
+          if (isSendingChat || isEditingThis) return;
+          if (event.target !== event.currentTarget) return;
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          onSelectConversation(conversation.id);
+        }}
+        className={`group w-full rounded-xl px-2.5 py-1 text-left transition-all ${
+          isActive
+            ? "bg-primary text-primary-foreground shadow-[0_14px_30px_-24px_hsl(var(--primary)/0.85)]"
+            : "bg-background/75 text-foreground hover:-translate-y-[1px] hover:bg-secondary/85"
+        } ${isSendingChat ? "cursor-default opacity-70" : "cursor-pointer"}`}
+      >
+        <div className="flex items-center gap-2">
+          {conversation.pinned ? (
+            <span
+              className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                isActive
+                  ? "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground"
+                  : "border-primary/20 bg-primary/10 text-primary"
+              }`}
+              aria-label={t("assistant:sidebar.pinnedChat", {
+                defaultValue: "Chat fijado"
+              })}
+              title={t("assistant:sidebar.pinnedChat", {
+                defaultValue: "Chat fijado"
+              })}
+            >
+              <Pin className="h-3 w-3" />
+            </span>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            {isEditingThis ? (
+              <input
+                value={editingConversationTitle}
+                onChange={(event) =>
+                  setEditingConversationTitle(
+                    sanitizeSingleLineText(event.target.value, 80)
+                  )
+                }
+                onClick={(event) => event.stopPropagation()}
+                onDoubleClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Enter") {
                     event.preventDefault();
-                    onSelectConversation(conversation.id);
-                  }}
-                  className={`group w-full rounded-xl border px-3 py-2.5 text-left transition-all ${
+                    void saveConversationTitle(conversation);
+                  } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    cancelEditingConversation();
+                  }
+                }}
+                autoFocus
+                className="w-full rounded-lg border border-primary/35 bg-background px-2 py-1 text-[12px] font-medium text-foreground outline-none"
+              />
+            ) : (
+              <p
+                className={`truncate text-[12px] font-medium leading-tight ${
+                  isActive ? "text-primary-foreground" : "text-foreground"
+                }`}
+                title={conversation.title || t("assistant:newChat")}
+              >
+                {conversation.title || t("assistant:newChat")}
+              </p>
+            )}
+          </div>
+
+          {isEditingThis ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  cancelEditingConversation();
+                }}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                aria-label={t("common:cancel", {
+                  defaultValue: "Cancelar"
+                })}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void saveConversationTitle(conversation);
+                }}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/30 text-primary transition-colors hover:bg-primary/10"
+                aria-label={t("common:save", {
+                  defaultValue: "Guardar"
+                })}
+              >
+                <Check className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  disabled={
+                    Boolean(deletingConversationId) ||
+                    Boolean(pinningConversationId) ||
+                    isSendingChat
+                  }
+                  className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all ${
                     isActive
-                      ? "border-primary/50 bg-primary/10 text-foreground shadow-[0_10px_30px_-25px_hsl(var(--primary)/0.65)]"
-                      : "border-border/80 bg-background/90 text-foreground hover:-translate-y-[1px] hover:border-primary/30 hover:bg-secondary"
-                  } ${isSendingChat ? "cursor-default opacity-70" : "cursor-pointer"}`}
+                      ? "border-primary-foreground/20 text-primary-foreground/85 hover:bg-primary-foreground/10"
+                      : "border-border/70 text-muted-foreground hover:bg-secondary"
+                  } ${isDeletingThis || isPinningThis ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
+                  aria-label={t("assistant:sidebar.chatOptions", {
+                    defaultValue: "Opciones del chat"
+                  })}
                 >
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1 text-left">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
-                            isActive ? "bg-primary" : "bg-muted-foreground/40"
-                          }`}
-                        />
-                        <p className="truncate text-sm font-medium">
-                          {conversation.title || t("assistant:newChat")}
-                        </p>
-                      </div>
-                      <p className="mt-1 pl-3.5 text-[11px] text-muted-foreground">
-                        {formatFechaHistorial(conversation.lastMessageAt)}
-                      </p>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                          }}
-                          onKeyDown={(event) => {
-                            event.stopPropagation();
-                          }}
-                          disabled={
-                            Boolean(deletingConversationId) || isSendingChat
-                          }
-                          className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 text-muted-foreground transition-all hover:bg-secondary disabled:opacity-60 ${
-                            isDeletingThis
-                              ? "opacity-100"
-                              : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                          }`}
-                          aria-label={t("assistant:sidebar.chatOptions", {
-                            defaultValue: "Opciones del chat"
-                          })}
-                          title={t("assistant:sidebar.chatOptions", {
-                            defaultValue: "Opciones del chat"
-                          })}
-                        >
-                          {isDeletingThis ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Ellipsis className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-36">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            onRequestDeleteConversation(conversation)
-                          }
-                          className="text-foreground focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive cursor-pointer gap-2"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          {t("assistant:sidebar.deleteChat", {
-                            defaultValue: "Eliminar"
-                          })}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              );
-            })
+                  {isDeletingThis || isPinningThis ? (
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  ) : (
+                    <Ellipsis className="h-2.5 w-2.5" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem
+                  onClick={() => {
+                    void toggleConversationPinned(conversation);
+                  }}
+                  className="cursor-pointer gap-2"
+                >
+                  <Pin className="h-3.5 w-3.5" />
+                  {conversation.pinned
+                    ? t("assistant:sidebar.unpinChat", {
+                        defaultValue: "Desfijar"
+                      })
+                    : t("assistant:sidebar.pinChat", {
+                        defaultValue: "Fijar"
+                      })}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => startEditingConversation(conversation)}
+                  className="cursor-pointer gap-2"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  {t("assistant:sidebar.renameChat", {
+                    defaultValue: "Editar"
+                  })}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onRequestDeleteConversation(conversation)}
+                  className="cursor-pointer gap-2 text-foreground focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t("assistant:sidebar.deleteChat", {
+                    defaultValue: "Eliminar"
+                  })}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
+      </div>
+    );
+  };
 
-        <div className="mt-auto border-t border-border/70 bg-background/85 p-3 backdrop-blur">
+  const historySidebarPanel = (
+    <div className="relative flex h-full min-h-0 flex-col">
+      <div className="px-6 pb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          Tus chats
+        </p>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-20">
+        {showInitialConversationsLoader ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            {t("assistant:sidebar.loadingChats")}
+          </div>
+        ) : conversations.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-background/70 text-muted-foreground shadow-sm">
+              <MessageCircle className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {t("assistant:newChat")}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("assistant:chat.emptyDescription")}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 px-3">
+            {conversations.map((conversation) =>
+              renderConversationHistoryItem(conversation)
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {sidebarHistoryHost
+        ? createPortal(historySidebarPanel, sidebarHistoryHost)
+        : null}
+
+      <div className="relative flex h-[78vh] max-h-[78vh] min-h-0 flex-col overflow-visible pl-14 [@media(max-height:760px)]:h-[86vh] [@media(max-height:760px)]:max-h-[86vh] md:pl-16">
+        <div className="pointer-events-none absolute -top-20 -right-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute left-1 top-4 z-20">
           <CustomButton
             type="button"
             onClick={onCreateConversation}
@@ -2465,105 +3111,58 @@ const AssistantIA = () => {
               isCreatingConversation || isLoadingConversations || !currentUserId
             }
             styleType="primary"
-            radius="xl"
-            className="w-full px-3 py-3"
+            size="icon"
+            radius="full"
+            className="pointer-events-auto h-11 w-11 shadow-[0_18px_38px_-18px_hsl(var(--primary)/0.8)]"
+            aria-label={t("assistant:sidebar.newChat")}
+            title={t("assistant:sidebar.newChat")}
           >
             {isCreatingConversation ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Plus className="h-4 w-4" />
             )}
-            {t("assistant:sidebar.newChat")}
           </CustomButton>
         </div>
-      </aside>
-
-      <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 p-4 shadow-[0_26px_60px_-38px_rgba(0,0,0,0.42)] md:p-5 [@media(max-height:760px)]:p-3">
-        <div className="pointer-events-none absolute -top-20 -right-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
-        <div className="min-w-0 flex-1 min-h-0 flex flex-col">
-          <div className="mb-4 flex items-start justify-between gap-4 [@media(max-height:760px)]:mb-2">
-            <div className="min-w-0 flex-1">
-              <p className="mb-1 text-xs font-semibold tracking-widest uppercase text-muted-foreground [@media(max-height:760px)]:hidden">
-                {t("assistant:header.badge")}
-              </p>
-              <h1 className="text-2xl font-serif text-foreground [@media(max-height:760px)]:text-xl">
-                {t("assistant:header.title")}
-              </h1>
-              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                <span>{t(`plans:plans.${currentPlanKey}.name`)}</span>
-                <span className="text-foreground/70">
-                  {t("assistant:header.planSummary", {
-                    limit: dailyRequestLimit || planState?.ai_daily_limit || 3
+        <div
+          ref={chatContainerRef}
+          onScroll={handleChatScroll}
+          className="flex-1 min-h-0 space-y-3 overflow-y-auto px-1 py-12 md:px-2 md:py-12"
+        >
+          {showInitialMessagesLoader ? (
+            <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground [@media(max-height:760px)]:min-h-44">
+              {t("assistant:chat.loadingConversation")}
+            </div>
+          ) : (
+            <>
+              {isLoadingOlderMessages && mensajes.length > 0 && (
+                <div className="flex items-center justify-center py-1 text-xs text-muted-foreground">
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  {t("assistant:chat.loadingOlderMessages", {
+                    defaultValue: "Cargando mensajes anteriores..."
                   })}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 flex-col items-end">
-              <div
-                className="relative grid h-16 w-16 place-items-center rounded-full border border-border/70 shadow-sm transition-[background] duration-300 [@media(max-height:760px)]:h-14 [@media(max-height:760px)]:w-14"
-                style={{
-                  background: `conic-gradient(${dailyUsageProgressColor} ${dailyUsageFillPercent}%, hsl(var(--border)) 0%)`
-                }}
-                role="img"
-                aria-label={t("assistant:header.dailyLimit")}
-                title={
-                  isLoadingDailyUsage
-                    ? t("assistant:header.checkingUsage")
-                    : `${dailyUsedRequests}/${dailyRequestLimit}`
-                }
-              >
-                <div className="absolute inset-[5px] rounded-full bg-background/95" />
-                <div className="relative flex flex-col items-center leading-none">
-                  <span
-                    className={`text-[11px] font-semibold ${isDailyLimitReached ? "text-destructive" : "text-foreground"}`}
-                  >
-                    {isLoadingDailyUsage ? "..." : dailyUsedRequests}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground">
-                    /{isLoadingDailyUsage ? "..." : dailyRequestLimit}
-                  </span>
                 </div>
-              </div>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {t("assistant:header.dailyLimit")}
-              </p>
-            </div>
-          </div>
+              )}
+              {mensajes.length === 0 && (
+                <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 text-center [@media(max-height:760px)]:min-h-44">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    {t("assistant:chat.emptyTitle")}
+                  </p>
+                  <p className="max-w-xs text-xs text-muted-foreground">
+                    {t("assistant:chat.emptyDescription")}
+                  </p>
+                </div>
+              )}
+              {mensajes.map((m) => {
+                const assistantTables =
+                  m.role === "assistant" && !m.conceptMap
+                    ? extractAssistantTables(m.content)
+                    : [];
 
-          <div
-            ref={chatContainerRef}
-            onScroll={handleChatScroll}
-            className="flex-1 min-h-0 space-y-3 overflow-y-auto rounded-2xl border border-border/70 bg-gradient-to-b from-secondary/30 via-secondary/15 to-background p-3 md:p-4"
-          >
-            {isLoadingMessages ? (
-              <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground [@media(max-height:760px)]:min-h-44">
-                {t("assistant:chat.loadingConversation")}
-              </div>
-            ) : (
-              <>
-                {isLoadingOlderMessages && mensajes.length > 0 && (
-                  <div className="flex items-center justify-center py-1 text-xs text-muted-foreground">
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    {t("assistant:chat.loadingOlderMessages", {
-                      defaultValue: "Cargando mensajes anteriores..."
-                    })}
-                  </div>
-                )}
-                {mensajes.length === 0 && (
-                  <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 text-center [@media(max-height:760px)]:min-h-44">
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                    </div>
-                    <p className="text-sm font-medium text-foreground">
-                      {t("assistant:chat.emptyTitle")}
-                    </p>
-                    <p className="max-w-xs text-xs text-muted-foreground">
-                      {t("assistant:chat.emptyDescription")}
-                    </p>
-                  </div>
-                )}
-                {mensajes.map((m) => (
+                return (
                   <div
                     key={m.id}
                     className={`max-w-[88%] rounded-2xl p-3 ${
@@ -2572,7 +3171,7 @@ const AssistantIA = () => {
                         : "ml-auto bg-primary text-primary-foreground shadow-[0_12px_24px_-18px_hsl(var(--primary)/0.65)]"
                     }`}
                   >
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="mb-1 flex items-center gap-2">
                       {m.role === "assistant" ? (
                         <MessageCircle className="h-3.5 w-3.5" />
                       ) : (
@@ -2583,9 +3182,18 @@ const AssistantIA = () => {
                           ? t("assistant:chat.assistantLabel")
                           : t("assistant:chat.userLabel")}
                       </span>
-                      <span className="text-[11px] opacity-70 ml-auto">
-                        {m.time}
-                      </span>
+                      {m.role === "assistant" && assistantTables.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setTableDialogData(assistantTables[0])}
+                          className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+                          aria-label={t("assistant:chat.openTableDialog", {
+                            defaultValue: "Abrir tabla"
+                          })}
+                        >
+                          <Expand className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
                     </div>
                     {m.role === "assistant" ? (
                       m.conceptMap ? (
@@ -2597,65 +3205,78 @@ const AssistantIA = () => {
                         )
                       )
                     ) : (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
                         {m.content}
                       </p>
                     )}
                   </div>
-                ))}
-                {isSendingChat && (
-                  <div className="max-w-[88%] rounded-2xl border border-border/70 bg-background p-3 text-foreground shadow-sm">
-                    {pendingAssistantMode === "concept-map" ? (
-                      <div className="rounded-2xl border border-border/70 bg-secondary/30 p-3">
-                        <div className="flex items-start gap-3">
-                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/35 bg-primary/10 text-primary">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </span>
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold text-foreground">
-                              {t("assistant:chat.conceptMapGeneratingTitle", {
-                                defaultValue: "Generando mapa mental"
-                              })}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t(
-                                "assistant:chat.conceptMapGeneratingDescription",
-                                {
-                                  defaultValue:
-                                    "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo."
-                                }
-                              )}
-                            </p>
-                          </div>
+                );
+              })}
+              {isSendingChat && (
+                <div className="max-w-[88%] rounded-2xl border border-border/70 bg-background p-3 text-foreground shadow-sm">
+                  {pendingAssistantMode === "concept-map" ? (
+                    <div className="rounded-2xl border border-border/70 bg-secondary/30 p-3">
+                      <div className="flex items-start gap-3">
+                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/35 bg-primary/10 text-primary">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </span>
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            {t("assistant:chat.conceptMapGeneratingTitle", {
+                              defaultValue: "Generando mapa mental"
+                            })}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {t(
+                              "assistant:chat.conceptMapGeneratingDescription",
+                              {
+                                defaultValue:
+                                  "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo."
+                              }
+                            )}
+                          </p>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 mb-1">
-                          <MessageCircle className="h-3.5 w-3.5" />
-                          <span className="text-[11px] uppercase tracking-widest opacity-70">
-                            {t("assistant:chat.assistantLabel")}
-                          </span>
-                          <span className="text-[11px] opacity-70 ml-auto">
-                            {t("assistant:chat.writing")}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                          {estadosEscrituraIA[estadoEscrituraIdx]}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-1 flex items-center gap-2">
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        <span className="text-[11px] uppercase tracking-widest opacity-70">
+                          {t("assistant:chat.assistantLabel")}
+                        </span>
+                        <span className="ml-auto text-[11px] opacity-70">
+                          {t("assistant:chat.writing")}
+                        </span>
+                      </div>
+                      <p className="animate-pulse text-sm leading-relaxed text-muted-foreground">
+                        {estadosEscrituraIA[estadoEscrituraIdx]}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
-          <form
-            ref={chatFormRef}
-            onSubmit={onSubmitChat}
-            className="mt-3 [@media(max-height:760px)]:mt-2"
-          >
+        <div className="relative mt-3 [@media(max-height:760px)]:mt-2">
+          {showScrollToLatestButton ? (
+            <CustomButton
+              type="button"
+              onClick={handleScrollToLatestMessage}
+              styleType="subtle"
+              size="sm"
+              radius="full"
+              className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 border-border/80 bg-background/95 px-4 shadow-[0_18px_34px_-20px_hsl(var(--foreground)/0.45)] backdrop-blur supports-[backdrop-filter]:bg-background/80"
+              aria-label={t("assistant:chat.scrollToLatest")}
+              title={t("assistant:chat.scrollToLatest")}
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+              {t("assistant:chat.scrollToLatest")}
+            </CustomButton>
+          ) : null}
+          <form ref={chatFormRef} onSubmit={onSubmitChat}>
             <div
               className={`rounded-[1.55rem] border px-4 pt-3 pb-2 shadow-sm ${
                 isDailyLimitReached
@@ -2664,19 +3285,29 @@ const AssistantIA = () => {
               }`}
             >
               <Textarea
+                ref={inputTextareaRef}
                 value={inputChat}
                 onChange={(e) =>
-                  setInputChat(sanitizeMultilineText(e.target.value, 4000))
+                  setInputChat(
+                    sanitizeText(e.target.value, {
+                      maxLength: 4000,
+                      trim: false,
+                      collapseWhitespace: false,
+                      preserveNewlines: true
+                    })
+                  )
                 }
+                onPointerDown={handleLockedTextareaInteraction}
+                onFocus={handleLockedTextareaInteraction}
                 onKeyDown={onInputChatKeyDown}
                 placeholder={
                   isDailyLimitReached
                     ? t("assistant:input.placeholderLimitReached")
                     : t("assistant:input.placeholder")
                 }
-                disabled={isDailyLimitReached}
-                rows={3}
-                className="min-h-[76px] max-h-44 w-full resize-none overflow-y-auto overflow-x-hidden border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                readOnly={isDailyLimitReached && !isCurrentPlanPaid}
+                rows={1}
+                className="min-h-0 w-full resize-none overflow-x-hidden overflow-y-hidden border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
 
               <div className="mt-3 flex items-center justify-between gap-3">
@@ -2708,7 +3339,7 @@ const AssistantIA = () => {
                           setIsMindMapEnabled(checked === true)
                         }
                         disabled={isDailyLimitReached}
-                        className="pl-2 transition-colors hover:bg-black/10 data-[highlighted]:bg-black/10 data-[highlighted]:text-foreground focus:bg-black/10 focus:text-foreground"
+                        className="pl-2 transition-colors hover:bg-black/10 data-[highlighted]:bg-black/10 data-[highlighted]:text-foreground focus:bg-black/10 focus:text-foreground data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary data-[state=checked]:font-medium [&_span.absolute]:hidden"
                       >
                         <span className="inline-flex items-center gap-2">
                           <GitBranch className="h-4 w-4" />
@@ -2719,13 +3350,23 @@ const AssistantIA = () => {
                   </DropdownMenu>
 
                   {isMindMapEnabled && (
-                    <span className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary">
-                      {t("assistant:input.mindMap")}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsMindMapEnabled(false)}
+                      className="group inline-flex items-center gap-1.5 rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary transition-colors hover:bg-primary/20"
+                      aria-label={t("assistant:input.disableMindMap", {
+                        defaultValue: "Desactivar mapa mental"
+                      })}
+                    >
+                      <span>{t("assistant:input.mindMap")}</span>
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-primary/35 transition-colors group-hover:bg-primary/15">
+                        <X className="h-2.5 w-2.5" />
+                      </span>
+                    </button>
                   )}
                 </div>
 
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-5">
                   {isDailyLimitReached && (
                     <>
                       <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -2741,6 +3382,37 @@ const AssistantIA = () => {
                       )}
                     </>
                   )}
+                  <div className="flex shrink-0 items-center gap-4">
+                    <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {t("assistant:header.dailyLimit")}
+                    </p>
+                    <div
+                      className="relative grid h-10 w-10 place-items-center rounded-full border border-border/70 shadow-sm transition-[background] duration-300"
+                      style={{
+                        background: `conic-gradient(${dailyUsageProgressColor} ${dailyUsageFillPercent}%, hsl(var(--border)) 0%)`
+                      }}
+                      role="img"
+                      aria-label={t("assistant:header.dailyLimit")}
+                      title={
+                        isLoadingDailyUsage
+                          ? t("assistant:header.checkingUsage")
+                          : `${dailyUsedRequests}/${dailyRequestLimit}`
+                      }
+                    >
+                      <div className="absolute inset-[4px] rounded-full bg-background/95" />
+                      <span
+                        className={`relative z-10 text-[9px] font-semibold leading-none ${
+                          isDailyLimitReached
+                            ? "text-destructive"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {isLoadingDailyUsage
+                          ? "..."
+                          : `${dailyUsedRequests}/${dailyRequestLimit}`}
+                      </span>
+                    </div>
+                  </div>
                   <CustomButton
                     type="submit"
                     disabled={
@@ -2762,7 +3434,7 @@ const AssistantIA = () => {
             </div>
           </form>
         </div>
-      </section>
+      </div>
 
       <PlanUpgradeDialog
         open={isUpgradeDialogOpen}
@@ -2772,6 +3444,36 @@ const AssistantIA = () => {
         currentLimit={planState?.ai_daily_limit ?? dailyRequestLimit ?? 3}
         targetLimit={20}
       />
+
+      <Dialog
+        open={Boolean(tableDialogData)}
+        onOpenChange={(open) => {
+          if (!open) setTableDialogData(null);
+        }}
+      >
+        <DialogContent className="h-[92vh] w-[96vw] max-w-[1480px] overflow-hidden rounded-2xl border border-border/70 bg-background/95 p-0 shadow-[0_40px_90px_-50px_rgba(0,0,0,0.55)]">
+          {tableDialogData && (
+            <div className="flex h-full flex-col p-4 md:p-6">
+              <DialogHeader className="mb-3 pr-8">
+                <DialogTitle className="text-base md:text-lg">
+                  {t("assistant:chat.tableDialogTitle", {
+                    defaultValue: "Tabla ampliada"
+                  })}
+                </DialogTitle>
+                <DialogDescription>
+                  {t("assistant:chat.tableDialogDescription", {
+                    defaultValue:
+                      "Vista ampliada para revisar la tabla completa con mayor comodidad."
+                  })}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1">
+                {renderAssistantTable(tableDialogData, "table-dialog", true)}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={isConceptMapDialogOpen}
@@ -3066,7 +3768,7 @@ const AssistantIA = () => {
         isLoading={isDeleteDialogBusy}
         onConfirm={onDeleteConversation}
       />
-    </div>
+    </>
   );
 };
 
