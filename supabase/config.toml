@@ -3,8 +3,14 @@ project_id = "hxvckhyxfmfvdipahobv"
 [functions.create-checkout-session]
 verify_jwt = false
 
+[functions.create-customer-portal-session]
+verify_jwt = false
+
 [functions.generate-quick-test]
 verify_jwt = false
 
 [functions.stripe-webhook]
+verify_jwt = false
+
+[functions.sync-laws-rag]
 verify_jwt = false

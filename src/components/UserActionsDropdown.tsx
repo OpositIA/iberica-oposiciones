@@ -12,10 +12,8 @@ import { applyTheme, getStoredTheme, type AppTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import {
   Brain,
-  CalendarDays,
   CircleUserRound,
   FileText,
-  Home,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -38,10 +36,14 @@ const UserActionsDropdown = ({
   fallbackIconClassName
 }: UserActionsDropdownProps) => {
   const { t } = useTranslation(["profile", "common"]);
-  const { forceLogout, profile, isAuthenticated } = useAuth();
+  const { forceLogout, profile, user, isAuthenticated } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
-  const avatarUrl = profile?.avatarUrl ?? "";
+  const avatarUrl =
+    profile?.avatarUrl ||
+    (typeof user?.user_metadata?.avatar_url === "string"
+      ? user.user_metadata.avatar_url
+      : "");
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${
       profile?.lastName ?? ""
@@ -81,7 +83,7 @@ const UserActionsDropdown = ({
             <img
               src={avatarUrl}
               alt={t("profile:myProfile.avatarAlt")}
-              className="h-full w-full object-cover"
+              className="h-full w-full rounded-full object-cover"
             />
           ) : (
             <CircleUserRound
@@ -105,12 +107,6 @@ const UserActionsDropdown = ({
         <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground">
           {t("profile:layout.accountMenu.sections.web")}
         </DropdownMenuLabel>
-        <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/" className="flex items-center gap-2">
-            <Home className="h-4 w-4" />
-            {t("profile:layout.menuItems.mainMenu")}
-          </Link>
-        </DropdownMenuItem>
         <DropdownMenuItem asChild className={dropdownActionClassName}>
           <Link to="/perfil/planes" className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
@@ -150,12 +146,6 @@ const UserActionsDropdown = ({
           <Link to="/perfil/temario" className="flex items-center gap-2">
             <NotebookText className="h-4 w-4" />
             {t("profile:layout.menuItems.syllabus")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/perfil/calendario" className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
-            {t("profile:layout.menuItems.calendar")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={dropdownActionClassName}>

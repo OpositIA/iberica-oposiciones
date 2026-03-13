@@ -15,6 +15,7 @@ type SyncOptions = {
   fallbackPlanCode?: string | null;
   checkoutSessionId?: string | null;
   invoiceId?: string | null;
+  metadata?: Record<string, unknown>;
 };
 
 const corsHeaders = {
@@ -79,8 +80,59 @@ const loadExistingBySubscriptionId = async (
   return (data ?? null) as ExistingSubscriptionRow | null;
 };
 
+const loadExistingByCustomerId = async (
+  serviceClient: ReturnType<typeof createClient>,
+  stripeCustomerId: string,
+) => {
+  const { data, error } = await serviceClient
+    .from("user_subscriptions")
+    .select("user_id, plan_code")
+    .eq("provider", "stripe")
+    .eq("metadata->>stripe_customer_id", stripeCustomerId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`load_existing_by_customer_failed:${error.message}`);
+  return (data ?? null) as ExistingSubscriptionRow | null;
+};
+
+const resolveUserIdFromProfileEmail = async (
+  serviceClient: ReturnType<typeof createClient>,
+  email: string | null,
+) => {
+  if (!email) return null;
+
+  const { data, error } = await serviceClient
+    .from("profiles")
+    .select("id")
+    .ilike("email", email)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`resolve_user_by_email_failed:${error.message}`);
+  return sanitizeCode(data?.id, 80) || null;
+};
+
+const resolveDefaultPaidPlanCode = async (
+  serviceClient: ReturnType<typeof createClient>,
+) => {
+  const { data, error } = await serviceClient
+    .from("subscription_plans")
+    .select("code")
+    .eq("is_active", true)
+    .neq("tier", "free")
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`default_paid_plan_lookup_failed:${error.message}`);
+  return asString(data?.code, 60);
+};
+
 const syncSubscriptionState = async (
   serviceClient: ReturnType<typeof createClient>,
+  stripe: Stripe,
   subscription: Stripe.Subscription,
   options: SyncOptions,
 ) => {
@@ -92,6 +144,13 @@ const syncSubscriptionState = async (
     serviceClient,
     stripeSubscriptionId,
   );
+  const stripeCustomerId = asString(
+    resolveCustomerId(subscription.customer),
+    120,
+  );
+  const existingByCustomer = stripeCustomerId
+    ? await loadExistingByCustomerId(serviceClient, stripeCustomerId)
+    : null;
 
   const metadataUserId = sanitizeCode(subscription.metadata?.user_id, 80);
   const metadataPlanCode = sanitizeCode(subscription.metadata?.plan_code, 60);
@@ -99,12 +158,30 @@ const syncSubscriptionState = async (
   const fallbackPlanCode = sanitizeCode(options.fallbackPlanCode, 60);
 
   const stripePriceId = asString(subscription.items.data[0]?.price?.id, 200);
-  const resolvedPlanCode = metadataPlanCode
+  let resolvedPlanCode = metadataPlanCode
     || fallbackPlanCode
     || (await resolvePlanCodeFromPrice(serviceClient, stripePriceId))
-    || asString(existing?.plan_code, 60);
-  const resolvedUserId =
-    metadataUserId || fallbackUserId || asString(existing?.user_id, 80);
+    || asString(existing?.plan_code, 60)
+    || asString(existingByCustomer?.plan_code, 60);
+  let resolvedUserId = metadataUserId
+    || fallbackUserId
+    || asString(existing?.user_id, 80)
+    || asString(existingByCustomer?.user_id, 80);
+
+  if (!resolvedUserId && stripeCustomerId) {
+    const customer = await stripe.customers.retrieve(stripeCustomerId);
+    const customerEmail = asString(
+      typeof customer === "string" ? null : customer.email,
+      180,
+    );
+    resolvedUserId = await resolveUserIdFromProfileEmail(
+      serviceClient,
+      customerEmail,
+    );
+  }
+
+  if (!resolvedPlanCode)
+    resolvedPlanCode = await resolveDefaultPaidPlanCode(serviceClient);
 
   if (!resolvedUserId)
     throw new Error(`stripe_user_id_missing_for_subscription:${stripeSubscriptionId}`);
@@ -112,10 +189,6 @@ const syncSubscriptionState = async (
   if (!resolvedPlanCode)
     throw new Error(`stripe_plan_code_missing_for_subscription:${stripeSubscriptionId}`);
 
-  const stripeCustomerId = asString(
-    resolveCustomerId(subscription.customer),
-    120,
-  );
   const status = asString(subscription.status, 40) ?? "pending";
   const latestInvoiceId = asString(resolveObjectId(subscription.latest_invoice), 120);
 
@@ -126,6 +199,7 @@ const syncSubscriptionState = async (
     stripe_latest_invoice_id: latestInvoiceId,
     stripe_collection_method: asString(subscription.collection_method, 60),
     stripe_synced_from_webhook_at: new Date().toISOString(),
+    ...(options.metadata ?? {}),
   };
 
   const { error } = await serviceClient.rpc(
@@ -228,7 +302,7 @@ serve(async (req) => {
           expand: ["items.data.price"],
         });
 
-        await syncSubscriptionState(serviceClient, subscription, {
+        await syncSubscriptionState(serviceClient, stripe, subscription, {
           eventType: event.type,
           fallbackUserId: sanitizeCode(
             session.metadata?.user_id ?? session.client_reference_id,
@@ -244,25 +318,73 @@ serve(async (req) => {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        await syncSubscriptionState(serviceClient, subscription, {
+        await syncSubscriptionState(serviceClient, stripe, subscription, {
           eventType: event.type,
         });
         break;
       }
 
       case "invoice.paid":
+      case "invoice.payment_succeeded":
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
         const stripeSubscriptionId = resolveObjectId(invoice.subscription);
         if (!stripeSubscriptionId) break;
 
+        let paymentErrorMessage: string | null = null;
+        let paymentErrorCode: string | null = null;
+        let paymentErrorType: string | null = null;
+        let paymentDeclineCode: string | null = null;
+        let paymentErrorDocUrl: string | null = null;
+        const stripePaymentIntentId = asString(
+          resolveObjectId(invoice.payment_intent as string | { id: string } | null),
+          120,
+        );
+
+        if (stripePaymentIntentId) {
+          try {
+            const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
+            const lastPaymentError = paymentIntent.last_payment_error;
+            paymentErrorMessage = asString(lastPaymentError?.message, 300);
+            paymentErrorCode = asString(lastPaymentError?.code, 120);
+            paymentErrorType = asString(lastPaymentError?.type, 120);
+            paymentDeclineCode = asString(lastPaymentError?.decline_code, 120);
+            paymentErrorDocUrl = asString(lastPaymentError?.doc_url, 500);
+          } catch {
+            // Keep webhook processing even if payment intent details are unavailable.
+          }
+        }
+
         const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
           expand: ["items.data.price"],
         });
 
-        await syncSubscriptionState(serviceClient, subscription, {
+        await syncSubscriptionState(serviceClient, stripe, subscription, {
           eventType: event.type,
           invoiceId: asString(invoice.id, 120),
+          metadata: {
+            stripe_invoice_attempt_count:
+              typeof invoice.attempt_count === "number" && Number.isFinite(invoice.attempt_count)
+                ? Math.max(0, Math.floor(invoice.attempt_count))
+                : null,
+            stripe_next_payment_attempt_at: toIso(invoice.next_payment_attempt),
+            stripe_hosted_invoice_url: asString(invoice.hosted_invoice_url, 500),
+            stripe_payment_intent_id: stripePaymentIntentId,
+            stripe_payment_error_message:
+              event.type === "invoice.payment_failed" ? paymentErrorMessage : null,
+            stripe_payment_error_code:
+              event.type === "invoice.payment_failed" ? paymentErrorCode : null,
+            stripe_payment_error_type:
+              event.type === "invoice.payment_failed" ? paymentErrorType : null,
+            stripe_payment_decline_code:
+              event.type === "invoice.payment_failed" ? paymentDeclineCode : null,
+            stripe_payment_error_doc_url:
+              event.type === "invoice.payment_failed" ? paymentErrorDocUrl : null,
+            stripe_payment_recovered_at:
+              (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded")
+                ? new Date().toISOString()
+                : null,
+          },
         });
         break;
       }

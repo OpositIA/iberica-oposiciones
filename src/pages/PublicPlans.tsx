@@ -84,7 +84,7 @@ const PublicPlans = () => {
             plans.map((plan) => (
               <article
                 key={plan.code}
-                className={`relative flex flex-col overflow-hidden rounded-2xl border p-5 md:p-6 ${
+                className={`relative flex flex-col overflow-hidden rounded-[1.5rem] border p-4 md:p-5 ${
                   plan.featured
                     ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_22px_50px_-40px_rgba(15,23,42,0.82)]"
                     : "border-foreground/20 bg-background/80 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.06),0_18px_44px_-36px_rgba(15,23,42,0.45)]"
@@ -98,15 +98,19 @@ const PublicPlans = () => {
                 )}
 
                 <div className="max-w-sm">
-                  <h3 className="text-2xl font-serif">{plan.name}</h3>
-                  <div className="mt-3 flex items-end gap-2">
-                    <span className="text-3xl font-serif">{plan.priceLabel}</span>
+                  <h3 className="text-[1.7rem] font-serif leading-none">
+                    {plan.name}
+                  </h3>
+                  <div className="mt-2.5 flex items-end gap-2">
+                    <span className="text-[2rem] font-serif leading-none">
+                      {plan.priceLabel}
+                    </span>
                     <span className="pb-0.5 text-xs opacity-60">
                       {t("pricing.perMonth")}
                     </span>
                   </div>
                   <p
-                    className={`mt-3 text-sm leading-relaxed ${
+                    className={`mt-3 text-sm leading-6 ${
                       plan.featured
                         ? "text-primary-foreground/72"
                         : "text-muted-foreground"
@@ -115,14 +119,14 @@ const PublicPlans = () => {
                     {plan.description}
                   </p>
                   <p
-                    className={`mt-3 text-xs uppercase tracking-[0.16em] ${
+                    className={`mt-2.5 text-[11px] uppercase tracking-[0.16em] ${
                       plan.featured ? "text-primary-foreground/65" : "text-muted-foreground"
                     }`}
                   >
                     {t("public.bestForLabel")}
                   </p>
                   <p
-                    className={`mt-1 text-sm ${
+                    className={`mt-1 text-sm leading-6 ${
                       plan.featured ? "text-primary-foreground/85" : "text-foreground/90"
                     }`}
                   >
@@ -132,7 +136,7 @@ const PublicPlans = () => {
                   </p>
                 </div>
 
-                <div className="mt-4 space-y-2 rounded-xl border border-current/15 bg-black/5 p-3">
+                <div className="mt-3.5 space-y-2 rounded-xl border border-current/15 bg-black/5 p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
                     {t("public.includesLabel")}
                   </p>
@@ -149,7 +153,26 @@ const PublicPlans = () => {
                   </ul>
                 </div>
 
-                <ul className="mt-5 flex-1 space-y-2.5">
+                <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
+                  <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                      {t("comparison.aiLimit")}
+                    </p>
+                    <p className="mt-1.5 text-xl font-serif">{plan.ai_daily_limit}</p>
+                  </div>
+                  <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                      {t("comparison.quickTestLimit")}
+                    </p>
+                    <p className="mt-1.5 text-xl font-serif">
+                      {plan.planKey === "pro"
+                        ? plan.quick_test_question_limit
+                        : t("comparison.quickTestUnavailable")}
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="mt-4 flex-1 space-y-2">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2 text-sm">
                       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
@@ -169,7 +192,7 @@ const PublicPlans = () => {
                 <CustomButton
                   asChild
                   styleType={plan.featured ? "primary" : "menu"}
-                  className="mt-6 w-full py-3"
+                  className="mt-4 w-full py-2.5"
                 >
                   <Link to={`/registro?plan=${encodeURIComponent(plan.code)}`}>
                     {plan.ctaGuest}

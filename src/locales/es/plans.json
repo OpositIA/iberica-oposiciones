@@ -2,12 +2,12 @@
   "header": {
     "badge": "Planes",
     "title": "Mismo producto, limites distintos.",
-    "description": "El plan gratuito te deja probar toda la experiencia. El plan Pro mensual amplia consultas de IA, preguntas por test y deja el sistema listo para descuentos y futuras renovaciones.",
+    "description": "El plan gratuito da acceso base a la plataforma y a la IA. Los tests y el contenido completo del temario quedan reservados para Premium.",
     "metrics": {
       "aiLabel": "Consultas IA / dia",
       "aiDescription": "Consulta el detalle de acceso en tu plan activo.",
-      "quickTestsLabel": "Preguntas por test rapido",
-      "quickTestsDescription": "Consulta el detalle de test rapido en tu plan activo.",
+      "quickTestsLabel": "Acceso a tests",
+      "quickTestsDescription": "Los tests rapidos estan disponibles solo con Premium.",
       "billingLabel": "Facturacion",
       "billingValue": "Mensual",
       "billingDescription": "La base ya soporta anual y descuentos temporales."
@@ -28,8 +28,8 @@
         "pro": "IA con capacidad ampliada para uso intensivo."
       },
       "quickTests": {
-        "free": "Tests rapidos en formato breve.",
-        "pro": "Tests rapidos con mayor amplitud por intento."
+        "free": "Sin acceso a tests.",
+        "pro": "Acceso completo a tests rapidos."
       },
       "syllabus": {
         "free": "Vista limitada del temario.",
@@ -38,7 +38,7 @@
     },
     "detailsTitle": "Que cambia exactamente",
     "columnFree": "Gratis",
-    "columnPro": "Pro mensual",
+    "columnPro": "Premium",
     "rows": {
       "ai": {
         "label": "Uso de IA",
@@ -47,8 +47,8 @@
       },
       "quickTests": {
         "label": "Tests rapidos",
-        "free": "Enfocado a repasos cortos y validacion de avances.",
-        "pro": "Mas capacidad por intento para bloques largos y simulacion real."
+        "free": "No disponible en este plan.",
+        "pro": "Disponible para repaso por bloques y sesiones largas."
       },
       "syllabus": {
         "label": "Contenido de temario",
@@ -63,18 +63,21 @@
     }
   },
   "pricing": {
-    "free": "Gratis",
+    "free": "0€",
     "perMonth": "/ mes"
   },
   "actions": {
     "currentPlan": "Plan actual",
-    "goToCheckout": "Ir a pasarela de pago"
+    "goToCheckout": "Cambiar de plan"
   },
   "currentPlan": {
     "badge": "Tu plan activo",
-    "description": "Tu plan actual incluye acceso a IA y tests rapidos.",
+    "descriptionFree": "Tu plan actual incluye acceso a IA. Los tests rapidos estan disponibles solo en Premium.",
+    "descriptionPro": "Tu plan actual incluye acceso a IA y tests rapidos.",
+    "cancelScheduled": "Cancelacion programada: mantienes Premium hasta {{date}}.",
     "aiUsage": "Uso IA hoy",
-    "quickTestLimit": "Limite test rapido",
+    "quickTestLimit": "Acceso a tests",
+    "quickTestUnavailable": "Solo Premium",
     "billing": "Precio actual",
     "discountActive": "Codigo activo {{code}} con {{percent}}% de descuento."
   },
@@ -94,11 +97,12 @@
   "comparison": {
     "badge": "Resumen rapido",
     "aiLimit": "Consultas IA / dia",
-    "quickTestLimit": "Preguntas por test",
+    "quickTestLimit": "Acceso a tests",
+    "quickTestUnavailable": "No incluido",
     "items": {
       "sameFeatures": "Ambos planes comparten las mismas funciones base de la plataforma.",
       "aiQuota": "La diferencia real esta en la capacidad de uso diario de IA.",
-      "quickTestQuota": "La diferencia real tambien aplica a la capacidad de test rapido.",
+      "quickTestQuota": "Los tests rapidos solo estan disponibles en Premium.",
       "discounts": "Los descuentos se aplican como porcentaje y por una duracion concreta."
     }
   },
@@ -108,17 +112,37 @@
     "description": "Tu cuenta ya esta creada. Antes de acceder al dashboard, selecciona el plan con el que quieres empezar. Podras cambiarlo mas adelante desde tu cuenta.",
     "cardsBadge": "Seleccion obligatoria",
     "cardsTitle": "Activa tu experiencia",
+    "summaryBadge": "Resumen del pago",
+    "summaryTitle": "Lo que vas a activar",
+    "summaryDescription": "Revisa el plan elegido, el importe mensual y el acceso que quedara activo al continuar.",
+    "summaryPlan": "Plan",
+    "summaryBilling": "Facturacion",
+    "summaryAi": "IA diaria",
+    "summaryTests": "Acceso a tests",
+    "summaryDiscount": "Codigo",
+    "summaryNoDiscount": "Sin codigo",
+    "summaryPendingDiscount": "{{code}} pendiente",
+    "summaryDueToday": "Importe mensual",
+    "summaryCheckoutNote": "El cobro se completa en la pasarela segura antes de activar Premium.",
+    "summaryFreeNote": "Con el plan gratuito entraras directamente sin pago.",
+    "summaryFeaturesTitle": "Incluye ahora",
     "selected": "Seleccionado",
     "choose": "Elegir",
-    "helper": "Necesitamos una eleccion explicita para activar tu plan.",
-    "footer": "La seleccion se aplica al momento. Si eliges Pro, la capa de suscripcion ya queda lista para conectar cobro real mas adelante.",
+    "helper": "Necesitamos una eleccion explicita para activar tu plan y el nivel de acceso disponible.",
+    "footer": "La seleccion se aplica al momento. Si eliges Premium, la capa de suscripcion ya queda lista para conectar cobro real mas adelante.",
+    "discountHintPro": "Puedes dejar el codigo preparado aqui, pero la aplicacion real del descuento se hace cuando Premium ya esta activo.",
+    "discountHintFree": "Los descuentos solo se aplican sobre el plan Premium.",
+    "discountRequiresProTitle": "Codigo solo para Premium",
+    "discountRequiresProDescription": "Selecciona Premium si quieres preparar un descuento para ese plan.",
+    "discountPendingTitle": "Codigo pendiente",
+    "discountPendingDescription": "Todavia no puede vincularse. El descuento se aplica cuando la suscripcion Pro ya esta activa.",
     "cta": "Entrar con este plan",
     "exit": "Salir",
     "highlights": {
       "badge": "Lo que cambia",
       "sameFeatures": "Los dos planes comparten las mismas funcionalidades base de la plataforma.",
-      "freeLimit": "Gratis arranca con acceso base a IA y test rapido.",
-      "proLimit": "Pro mensual amplia la capacidad de uso en IA y test rapido."
+      "freeLimit": "Gratis arranca con acceso base a IA, sin tests rapidos.",
+      "proLimit": "Premium activa los tests rapidos y amplia la capacidad de uso en IA."
     },
     "toasts": {
       "savedTitle": "Plan activado",
@@ -126,24 +150,53 @@
     }
   },
   "upgradeDialog": {
-    "badge": "Desbloquear Pro",
+    "badge": "Desbloquear Premium",
     "currentPlan": "Tu plan actual",
-    "footer": "Cambiar a Pro mensual amplia el limite de esta funcionalidad sin tocar el resto de tu configuracion.",
+    "footer": "Cambiar a Premium amplia el limite de esta funcionalidad sin tocar el resto de tu configuracion.",
     "cancel": "Seguir con mi plan",
     "cta": "Ver y cambiar plan",
     "assistant": {
       "title": "Has agotado las consultas del plan gratuito",
-      "description": "Has alcanzado el uso incluido en tu plan actual. Pro mensual amplia este acceso para que puedas seguir usando la IA hoy.",
+      "description": "Has alcanzado el uso incluido en tu plan actual. Premium amplia este acceso para que puedas seguir usando la IA hoy.",
       "currentValue": "Uso actual: has alcanzado el limite de tu plan.",
       "targetLabel": "Acceso ampliado a la IA",
-      "targetValue": "Con Pro dispones de mayor capacidad diaria."
+      "targetValue": "Con Premium dispones de mayor capacidad diaria."
     },
     "quick-test": {
-      "title": "Este test supera tu limite gratuito",
-      "description": "El test que intentas generar supera la capacidad incluida en tu plan actual. Pro mensual amplia este acceso por intento.",
-      "currentValue": "Uso actual: has alcanzado el limite de tu plan para test rapido.",
-      "targetLabel": "Bloques largos y repaso completo",
-      "targetValue": "Con Pro dispones de mayor capacidad por test."
+      "title": "Los tests estan disponibles solo en Premium",
+      "description": "Tu plan actual no incluye acceso a tests. Cambia a Premium para desbloquearlos.",
+      "currentValue": "Uso actual: este plan no incluye tests.",
+      "targetLabel": "Acceso completo a tests",
+      "targetValue": "Con Premium puedes generar y realizar tests."
+    }
+  },
+  "billingIssue": {
+    "loading": "Cargando el estado de facturacion...",
+    "badge": "Incidencia de cobro",
+    "title": "No hemos podido cobrar tu suscripcion Premium",
+    "description": "Hemos detectado un fallo en el ultimo intento de cobro. Actualiza tu metodo de pago para evitar que el plan se degrade a Basico cuando termine la ventana de reintentos.",
+    "bannerTitle": "Hay un problema con tu metodo de pago",
+    "bannerCta": "Ver detalle",
+    "bannerDismiss": "Cerrar",
+    "errorTitle": "Motivo del fallo detectado",
+    "changePaymentMethod": "Gestionar suscripcion",
+    "retryAttempts": "Intentos realizados",
+    "nextAttempt": "Proximo reintento",
+    "graceUntil": "Premium activo hasta",
+    "notAvailable": "Sin fecha disponible",
+    "errorCode": "Codigo",
+    "declineCode": "Declive",
+    "errorType": "Tipo",
+    "openInvoice": "Abrir factura",
+    "openHelp": "Ver ayuda del error",
+    "backToPlans": "Volver a planes",
+    "emptyTitle": "No hay incidencias de cobro activas",
+    "emptyDescription": "Ahora mismo no hay ningun error de pago pendiente en tu suscripcion.",
+    "toasts": {
+      "portalRedirectTitle": "Abriendo gestion de pagos",
+      "portalRedirectDescription": "Te llevamos al portal seguro para gestionar tu suscripcion.",
+      "portalRedirectErrorTitle": "No se pudo abrir la gestion de pagos",
+      "portalRedirectErrorDescription": "Intentalo de nuevo en unos segundos."
     }
   },
   "toasts": {
@@ -152,7 +205,7 @@
     "planChangedErrorTitle": "No se pudo cambiar el plan",
     "planChangedErrorDescription": "Intentalo de nuevo en unos segundos.",
     "paymentRedirectTitle": "Redirigiendo a la pasarela",
-    "paymentRedirectDescription": "Te llevamos a la pasarela para completar la suscripcion Pro.",
+    "paymentRedirectDescription": "Te llevamos a la pasarela para completar la suscripcion Premium.",
     "checkoutStartErrorTitle": "No se pudo iniciar el pago",
     "checkoutStartErrorDescription": "Intentalo de nuevo en unos segundos.",
     "checkoutSuccessTitle": "Suscripcion confirmada",
@@ -167,27 +220,26 @@
   "plans": {
     "free": {
       "eyebrow": "Acceso base",
-      "name": "Gratis",
+      "name": "Basico",
       "description": "Perfecto para empezar, validar el producto y mantener una rutina ligera sin coste mensual.",
       "ctaGuest": "Crear cuenta gratis",
-      "ctaAuthenticated": "Cambiar a Gratis",
+      "ctaAuthenticated": "Cambiar a Basico",
       "features": [
-        "Mismas funcionalidades principales que Pro.",
         "Acceso base a IA.",
-        "Acceso base a tests rapidos.",
+        "Sin acceso a tests.",
         "Ideal para explorar la plataforma antes de escalar."
       ]
     },
     "pro": {
       "eyebrow": "Mas margen diario",
-      "name": "Pro mensual",
-      "description": "Pensado para quien ya usa la plataforma a diario y necesita mas continuidad con la IA y mas profundidad en test rapido.",
-      "ctaGuest": "Registrarme en Pro",
-      "ctaAuthenticated": "Cambiar a Pro mensual",
+      "name": "Premium",
+      "description": "Pensado para quien ya usa la plataforma a diario y necesita continuidad con la IA, tests y contenido completo por 5,99 EUR al mes.",
+      "ctaGuest": "Registrarme en Premium",
+      "ctaAuthenticated": "Cambiar a Premium",
       "features": [
         "Todas las funciones del plan gratuito sin recortes extra.",
         "Mayor capacidad de uso en IA.",
-        "Mayor capacidad por test rapido.",
+        "Acceso completo a tests rapidos.",
         "Compatible con descuentos porcentuales por meses o por anualidad."
       ]
     }

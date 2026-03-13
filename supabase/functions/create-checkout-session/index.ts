@@ -15,8 +15,10 @@ type RequestPayload = {
 
 type PublicPlanRow = {
   code: string;
+  name: string;
   tier: string;
   billing_interval: string;
+  currency: string;
   price_cents: number;
   stripe_price_id: string | null;
 };
@@ -64,6 +66,14 @@ const getExistingStripeCustomerId = (metadata: unknown): string | null => {
   const record = metadata as Record<string, unknown>;
   const customerId = sanitizeSingleLineText(record.stripe_customer_id, 120);
   return customerId.length > 0 ? customerId : null;
+};
+
+const hasPaidAccessFromSubscription = (
+  status: unknown,
+  _metadata: unknown,
+) => {
+  const normalizedStatus = sanitizeSingleLineText(status, 40).toLowerCase();
+  return normalizedStatus === "active" || normalizedStatus === "trialing";
 };
 
 serve(async (req) => {
@@ -114,7 +124,7 @@ serve(async (req) => {
 
   const { data: planData, error: planError } = await serviceClient
     .from("subscription_plans")
-    .select("code, tier, billing_interval, price_cents, stripe_price_id")
+    .select("code, name, tier, billing_interval, currency, price_cents, stripe_price_id")
     .eq("code", requestedPlanCode)
     .eq("is_active", true)
     .eq("is_public", true)
@@ -133,7 +143,7 @@ serve(async (req) => {
 
   const { data: currentPaid } = await serviceClient
     .from("user_subscriptions")
-    .select("provider, provider_reference, plan_code")
+    .select("provider, provider_reference, plan_code, status, metadata")
     .eq("user_id", user.id)
     .in("status", ["active", "trialing", "past_due"])
     .eq("provider", "stripe")
@@ -141,7 +151,13 @@ serve(async (req) => {
     .limit(1)
     .maybeSingle();
 
+  const isCurrentPaid = hasPaidAccessFromSubscription(
+    currentPaid?.status,
+    currentPaid?.metadata,
+  );
+
   if (
+    isCurrentPaid &&
     currentPaid?.provider_reference
     && sanitizeCode(currentPaid?.plan_code, 60) === requestedPlanCode
   ) 
@@ -160,15 +176,10 @@ serve(async (req) => {
     latestSubscription?.metadata,
   );
 
-  const fallbackPriceId = sanitizeSingleLineText(
-    Deno.env.get("STRIPE_PRICE_ID") ?? "",
-    200,
-  );
-  const stripePriceId = sanitizeSingleLineText(plan.stripe_price_id ?? "", 200)
-    || (requestedPlanCode === "pro-monthly" ? fallbackPriceId : "");
-
-  if (!stripePriceId)
-    return json({ error: "missing_stripe_price_for_plan" }, 500);
+  const stripeCurrency = sanitizeSingleLineText(plan.currency, 10).toLowerCase()
+    || "eur";
+  const stripePlanName = sanitizeSingleLineText(plan.name, 120) || "Premium";
+  const recurringInterval = plan.billing_interval === "yearly" ? "year" : "month";
 
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2024-06-20",
@@ -180,9 +191,26 @@ serve(async (req) => {
   const cancelUrl = `${baseUrl}/perfil/planes?checkout=cancel`;
 
   try {
+    const lineItems =
+      plan.stripe_price_id && plan.stripe_price_id.trim().length > 0
+        ? [{ price: plan.stripe_price_id.trim(), quantity: 1 }]
+        : [{
+          price_data: {
+            currency: stripeCurrency,
+            unit_amount: Number(plan.price_cents ?? 0),
+            product_data: {
+              name: stripePlanName,
+            },
+            recurring: {
+              interval: recurringInterval,
+            },
+          },
+          quantity: 1,
+        }];
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: stripePriceId, quantity: 1 }],
+      line_items: lineItems,
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: user.id,

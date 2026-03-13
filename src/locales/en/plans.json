@@ -2,12 +2,12 @@
   "header": {
     "badge": "Plans",
     "title": "Same product, different limits.",
-    "description": "The free tier lets users try the full experience. Pro monthly expands AI usage, quick-test size, and leaves the system ready for discounts and future renewals.",
+    "description": "The free tier gives base access to the platform and AI. Tests and full syllabus content are reserved for Premium.",
     "metrics": {
       "aiLabel": "AI requests / day",
-      "aiDescription": "Free: 3. Pro monthly: 20.",
-      "quickTestsLabel": "Questions per quick test",
-      "quickTestsDescription": "Free up to 20. Pro monthly up to 100.",
+      "aiDescription": "Free: 3. Premium: 20.",
+      "quickTestsLabel": "Test access",
+      "quickTestsDescription": "Available only with Premium.",
       "billingLabel": "Billing",
       "billingValue": "Monthly",
       "billingDescription": "The system is already prepared for annual billing and temporary discounts."
@@ -28,8 +28,8 @@
         "pro": "AI with expanded capacity for intensive usage."
       },
       "quickTests": {
-        "free": "Quick tests in short format.",
-        "pro": "Quick tests with higher depth per attempt."
+        "free": "No access to quick tests.",
+        "pro": "Full access to quick tests."
       },
       "syllabus": {
         "free": "Limited syllabus view.",
@@ -38,7 +38,7 @@
     },
     "detailsTitle": "What exactly changes",
     "columnFree": "Free",
-    "columnPro": "Pro monthly",
+    "columnPro": "Premium",
     "rows": {
       "ai": {
         "label": "AI usage",
@@ -47,8 +47,8 @@
       },
       "quickTests": {
         "label": "Quick tests",
-        "free": "Best for short reviews and progress checks.",
-        "pro": "Higher per-attempt capacity for longer blocks and realistic simulation."
+        "free": "Not available on this plan.",
+        "pro": "Available for block reviews and longer sessions."
       },
       "syllabus": {
         "label": "Syllabus content",
@@ -72,9 +72,12 @@
   },
   "currentPlan": {
     "badge": "Your active plan",
-    "description": "Right now you have {{aiLimit}} AI requests per day and quick tests up to {{quickTestLimit}} questions.",
+    "descriptionFree": "Right now you have {{aiLimit}} AI requests per day. Quick tests are available only in Premium.",
+    "descriptionPro": "Right now you have {{aiLimit}} AI requests per day and quick tests up to {{quickTestLimit}} questions.",
+    "cancelScheduled": "Cancellation scheduled: you keep Premium until {{date}}.",
     "aiUsage": "AI usage today",
-    "quickTestLimit": "Quick-test limit",
+    "quickTestLimit": "Quick-test access",
+    "quickTestUnavailable": "Premium only",
     "billing": "Current price",
     "discountActive": "Active code {{code}} with {{percent}}% off."
   },
@@ -94,11 +97,12 @@
   "comparison": {
     "badge": "Quick summary",
     "aiLimit": "AI requests / day",
-    "quickTestLimit": "Questions per test",
+    "quickTestLimit": "Quick-test access",
+    "quickTestUnavailable": "Not included",
     "items": {
       "sameFeatures": "Both plans share the same core product capabilities.",
       "aiQuota": "The real difference is the daily AI quota: 3 versus 20.",
-      "quickTestQuota": "The free quick test is capped at 20 questions per topic or block; Pro raises it to 100.",
+      "quickTestQuota": "Quick tests are available only in Premium.",
       "discounts": "Discounts are applied as percentage reductions with explicit duration."
     }
   },
@@ -108,17 +112,37 @@
     "description": "Your account is already created. Before accessing the dashboard, pick the plan you want to start with. You can change it later from your account.",
     "cardsBadge": "Required choice",
     "cardsTitle": "Activate your experience",
+    "summaryBadge": "Payment summary",
+    "summaryTitle": "What you are about to activate",
+    "summaryDescription": "Review the selected plan, monthly amount, and access that will be enabled when you continue.",
+    "summaryPlan": "Plan",
+    "summaryBilling": "Billing",
+    "summaryAi": "Daily AI",
+    "summaryTests": "Test access",
+    "summaryDiscount": "Code",
+    "summaryNoDiscount": "No code",
+    "summaryPendingDiscount": "{{code}} pending",
+    "summaryDueToday": "Monthly amount",
+    "summaryCheckoutNote": "Payment is completed on the secure checkout before Premium is activated.",
+    "summaryFreeNote": "With the free plan you will enter directly with no payment.",
+    "summaryFeaturesTitle": "Included right now",
     "selected": "Selected",
     "choose": "Choose",
-    "helper": "We need an explicit choice to activate your AI and quick-test limits.",
-    "footer": "The selection is applied immediately. If you choose Pro, the subscription layer is already ready for real billing later.",
+    "helper": "We need an explicit choice to activate your plan and available access level.",
+    "footer": "The selection is applied immediately. If you choose Premium, the subscription layer is already ready for real billing later.",
+    "discountHintPro": "You can leave the code prepared here, but the actual discount is applied only after Premium is active.",
+    "discountHintFree": "Discounts only apply to the Premium plan.",
+    "discountRequiresProTitle": "Code only for Premium",
+    "discountRequiresProDescription": "Select Premium if you want to prepare a discount for that plan.",
+    "discountPendingTitle": "Code pending",
+    "discountPendingDescription": "It cannot be attached yet. The discount is applied once the Pro subscription is active.",
     "cta": "Enter with this plan",
     "exit": "Sign out",
     "highlights": {
       "badge": "What changes",
       "sameFeatures": "Both plans keep the same core platform features.",
-      "freeLimit": "Free starts with 3 AI requests per day and quick tests up to 20 questions.",
-      "proLimit": "Pro monthly expands usage to 20 daily AI requests and up to 100 questions per quick test."
+      "freeLimit": "Free starts with 3 AI requests per day and no quick tests.",
+      "proLimit": "Premium unlocks quick tests and expands AI usage to 20 daily requests."
     },
     "toasts": {
       "savedTitle": "Plan activated",
@@ -126,24 +150,53 @@
     }
   },
   "upgradeDialog": {
-    "badge": "Unlock Pro",
+    "badge": "Unlock Premium",
     "currentPlan": "Your current plan",
-    "footer": "Switching to Pro monthly expands this feature limit without changing the rest of your setup.",
+    "footer": "Switching to Premium expands this feature limit without changing the rest of your setup.",
     "cancel": "Keep my plan",
     "cta": "View and change plan",
     "assistant": {
       "title": "You used all free-plan AI requests",
-      "description": "The free tier stops at {{currentLimit}} requests per day. Pro monthly expands that to {{targetLimit}} so you can keep using AI today.",
+      "description": "The free tier stops at {{currentLimit}} requests per day. Premium expands that to {{targetLimit}} so you can keep using AI today.",
       "currentValue": "Current limit: {{value}} daily requests.",
       "targetLabel": "Expanded AI access",
       "targetValue": "New limit: {{value}} requests per day."
     },
     "quick-test": {
-      "title": "This test exceeds your free limit",
-      "description": "With the free tier you can generate quick tests of up to {{currentLimit}} questions. Pro monthly unlocks up to {{targetLimit}} per attempt.",
-      "currentValue": "Current limit: {{value}} questions per test.",
-      "targetLabel": "Longer blocks and deeper revision",
-      "targetValue": "New limit: {{value}} questions per test."
+      "title": "Quick tests are available only in Premium",
+      "description": "Your current plan does not include access to tests. Switch to Premium to unlock them.",
+      "currentValue": "Current access: this plan does not include tests.",
+      "targetLabel": "Full access to tests",
+      "targetValue": "With Premium you can generate and take tests."
+    }
+  },
+  "billingIssue": {
+    "loading": "Loading billing status...",
+    "badge": "Payment issue",
+    "title": "We could not collect your Premium subscription payment",
+    "description": "We detected a failure on the latest charge attempt. Update your payment method to avoid downgrading to the Basic plan when the retry window ends.",
+    "bannerTitle": "There is an issue with your payment method",
+    "bannerCta": "View details",
+    "bannerDismiss": "Dismiss",
+    "errorTitle": "Detected payment failure reason",
+    "changePaymentMethod": "Manage subscription",
+    "retryAttempts": "Attempts made",
+    "nextAttempt": "Next retry",
+    "graceUntil": "Premium active until",
+    "notAvailable": "No date available",
+    "errorCode": "Code",
+    "declineCode": "Decline",
+    "errorType": "Type",
+    "openInvoice": "Open invoice",
+    "openHelp": "Open error help",
+    "backToPlans": "Back to plans",
+    "emptyTitle": "No active payment issues",
+    "emptyDescription": "There is currently no pending payment error on your subscription.",
+    "toasts": {
+      "portalRedirectTitle": "Opening payment management",
+      "portalRedirectDescription": "Taking you to the secure portal to manage your subscription.",
+      "portalRedirectErrorTitle": "Unable to open payment management",
+      "portalRedirectErrorDescription": "Try again in a few seconds."
     }
   },
   "toasts": {
@@ -152,7 +205,7 @@
     "planChangedErrorTitle": "Unable to change plan",
     "planChangedErrorDescription": "Try again in a few seconds.",
     "paymentRedirectTitle": "Redirecting to checkout",
-    "paymentRedirectDescription": "Taking you to checkout to complete Pro subscription.",
+    "paymentRedirectDescription": "Taking you to checkout to complete Premium subscription.",
     "checkoutStartErrorTitle": "Unable to start checkout",
     "checkoutStartErrorDescription": "Try again in a few seconds.",
     "checkoutSuccessTitle": "Subscription confirmed",
@@ -174,20 +227,20 @@
       "features": [
         "Same core features as Pro.",
         "{{aiLimit}} AI requests per day.",
-        "Quick tests up to {{quickTestLimit}} questions.",
+        "No access to quick tests.",
         "Ideal for exploring the platform before scaling up."
       ]
     },
     "pro": {
       "eyebrow": "More daily headroom",
-      "name": "Pro monthly",
-      "description": "Built for users already relying on the product every day and needing more continuity with AI and deeper quick-test sessions.",
-      "ctaGuest": "Join Pro",
-      "ctaAuthenticated": "Switch to Pro monthly",
+      "name": "Premium",
+      "description": "Built for users relying on the product every day and needing continuity with AI, tests, and full syllabus access for 5.99 EUR per month.",
+      "ctaGuest": "Join Premium",
+      "ctaAuthenticated": "Switch to Premium",
       "features": [
         "All free-plan capabilities with no extra cuts.",
         "{{aiLimit}} AI requests per day.",
-        "Quick tests up to {{quickTestLimit}} questions.",
+        "Full access to quick tests.",
         "Compatible with percentage discounts for months or yearly term."
       ]
     }

@@ -13,11 +13,14 @@ import {
 import { useTranslation } from "react-i18next";
 
 type StudyTimerStatus = "idle" | "running" | "paused" | "finished";
+export type StudyTimerPhase = "focus" | "shortBreak" | "longBreak";
 
 type StudyTimerContextValue = {
   durationSeconds: number;
   remainingSeconds: number;
   status: StudyTimerStatus;
+  phase: StudyTimerPhase;
+  completedFocusSessions: number;
   setDurationMinutes: (minutes: number) => void;
   start: () => void;
   pause: () => void;
@@ -27,18 +30,33 @@ type StudyTimerContextValue = {
 };
 
 type PersistedStudyTimer = {
-  durationSeconds: number;
+  focusDurationSeconds?: number;
+  durationSeconds?: number;
   remainingSeconds: number;
   status: StudyTimerStatus;
   endAtMs: number | null;
+  phase?: StudyTimerPhase;
+  completedFocusSessions?: number;
 };
 
 const STORAGE_KEY = "study-timer-state-v1";
-const DEFAULT_DURATION_SECONDS = 25 * 60;
+const DEFAULT_FOCUS_DURATION_SECONDS = 25 * 60;
+const SHORT_BREAK_DURATION_SECONDS = 5 * 60;
+const LONG_BREAK_DURATION_SECONDS = 15 * 60;
+const POMODOROS_BEFORE_LONG_BREAK = 4;
 
 const clampDurationSeconds = (value: number) => {
-  if (!Number.isFinite(value)) return DEFAULT_DURATION_SECONDS;
+  if (!Number.isFinite(value)) return DEFAULT_FOCUS_DURATION_SECONDS;
   return Math.min(Math.max(Math.floor(value), 60), 8 * 60 * 60);
+};
+
+const getPhaseDurationSeconds = (
+  phase: StudyTimerPhase,
+  focusDurationSeconds: number
+) => {
+  if (phase === "shortBreak") return SHORT_BREAK_DURATION_SECONDS;
+  if (phase === "longBreak") return LONG_BREAK_DURATION_SECONDS;
+  return focusDurationSeconds;
 };
 
 const formatSeconds = (seconds: number) => {
@@ -48,21 +66,32 @@ const formatSeconds = (seconds: number) => {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 };
 
+const normalizePhase = (value: unknown): StudyTimerPhase => {
+  if (value === "shortBreak" || value === "longBreak" || value === "focus")
+    return value;
+  return "focus";
+};
+
 const safeParsePersistedState = (
   rawValue: string | null
 ): PersistedStudyTimer | null => {
   if (!rawValue) return null;
   if (rawValue.length > 10_000) return null;
+
   try {
     const parsed = JSON.parse(rawValue) as PersistedStudyTimer;
-    const durationSeconds = clampDurationSeconds(parsed.durationSeconds);
+    const phase = normalizePhase(parsed.phase);
+    const fallbackFocusDuration = clampDurationSeconds(
+      parsed.focusDurationSeconds ?? parsed.durationSeconds ?? DEFAULT_FOCUS_DURATION_SECONDS
+    );
+    const phaseDuration = getPhaseDurationSeconds(phase, fallbackFocusDuration);
     const remainingSeconds = Math.min(
-      durationSeconds,
+      phaseDuration,
       sanitizeInteger(parsed.remainingSeconds, {
         min: 0,
-        max: durationSeconds,
-        fallback: durationSeconds
-      }) ?? durationSeconds
+        max: phaseDuration,
+        fallback: phaseDuration
+      }) ?? phaseDuration
     );
     const status: StudyTimerStatus =
       parsed.status === "running" ||
@@ -77,11 +106,26 @@ const safeParsePersistedState = (
             min: 0,
             max: Number.MAX_SAFE_INTEGER
           });
+    const completedFocusSessions =
+      sanitizeInteger(parsed.completedFocusSessions, {
+        min: 0,
+        max: 999,
+        fallback: 0
+      }) ?? 0;
+
+    const normalizedFocusDurationSeconds = DEFAULT_FOCUS_DURATION_SECONDS;
+    const shouldResetToDefaultFocus =
+      phase === "focus" && (status === "idle" || status === "finished");
+
     return {
-      durationSeconds,
-      remainingSeconds,
+      focusDurationSeconds: normalizedFocusDurationSeconds,
+      remainingSeconds: shouldResetToDefaultFocus
+        ? normalizedFocusDurationSeconds
+        : remainingSeconds,
       status,
-      endAtMs
+      endAtMs,
+      phase,
+      completedFocusSessions
     };
   } catch {
     return null;
@@ -130,11 +174,12 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
     []
   );
 
-  const [durationSeconds, setDurationSeconds] = useState(
-    initialState?.durationSeconds ?? DEFAULT_DURATION_SECONDS
+  const [focusDurationSeconds, setFocusDurationSeconds] = useState(
+    initialState?.focusDurationSeconds ?? DEFAULT_FOCUS_DURATION_SECONDS
   );
+  const [phase, setPhase] = useState<StudyTimerPhase>(initialState?.phase ?? "focus");
   const [remainingSeconds, setRemainingSeconds] = useState(
-    initialState?.remainingSeconds ?? DEFAULT_DURATION_SECONDS
+    initialState?.remainingSeconds ?? DEFAULT_FOCUS_DURATION_SECONDS
   );
   const [status, setStatus] = useState<StudyTimerStatus>(
     initialState?.status ?? "idle"
@@ -142,27 +187,94 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
   const [endAtMs, setEndAtMs] = useState<number | null>(
     initialState?.endAtMs ?? null
   );
+  const [completedFocusSessions, setCompletedFocusSessions] = useState(
+    initialState?.completedFocusSessions ?? 0
+  );
   const lastFinishedAtRef = useRef<number | null>(null);
 
+  const durationSeconds = useMemo(
+    () => getPhaseDurationSeconds(phase, focusDurationSeconds),
+    [focusDurationSeconds, phase]
+  );
+
+  const advancePomodoroPhase = useCallback(
+    (currentPhase: StudyTimerPhase, currentCompletedFocusSessions: number) => {
+      if (currentPhase === "focus") {
+        const nextCompletedFocusSessions = currentCompletedFocusSessions + 1;
+        const nextPhase =
+          nextCompletedFocusSessions % POMODOROS_BEFORE_LONG_BREAK === 0
+            ? "longBreak"
+            : "shortBreak";
+
+        return {
+          nextPhase,
+          nextCompletedFocusSessions
+        };
+      }
+
+      return {
+        nextPhase: "focus" as StudyTimerPhase,
+        nextCompletedFocusSessions: currentCompletedFocusSessions
+      };
+    },
+    []
+  );
+
   const finishCountdown = useCallback(() => {
-    setRemainingSeconds(0);
-    setStatus("finished");
-    setEndAtMs(null);
     const now = Date.now();
+    const currentPhase = phase;
+    const currentCompletedFocusSessions = completedFocusSessions;
+    const { nextPhase, nextCompletedFocusSessions } = advancePomodoroPhase(
+      currentPhase,
+      currentCompletedFocusSessions
+    );
+    const nextDurationSeconds = getPhaseDurationSeconds(
+      nextPhase,
+      focusDurationSeconds
+    );
+
+    setPhase(nextPhase);
+    setRemainingSeconds(nextDurationSeconds);
+    setCompletedFocusSessions(nextCompletedFocusSessions);
+    setStatus("running");
+    setEndAtMs(Date.now() + nextDurationSeconds * 1000);
+
     if (lastFinishedAtRef.current && now - lastFinishedAtRef.current < 1000)
       return;
     lastFinishedAtRef.current = now;
 
+    const nextPhaseLabel = t(`profile:study.phase${nextPhase}`);
+    const toastTitle =
+      currentPhase === "focus"
+        ? t("profile:study.toasts.focusCompleteTitle")
+        : t("profile:study.toasts.breakCompleteTitle");
+    const toastDescription =
+      currentPhase === "focus"
+        ? t("profile:study.toasts.focusCompleteDescription", {
+            nextPhase: nextPhaseLabel
+          })
+        : t("profile:study.toasts.breakCompleteDescription", {
+            nextPhase: nextPhaseLabel
+          });
+
     toast({
-      title: t("profile:study.toasts.breakTitle"),
-      description: t("profile:study.toasts.breakDescription")
+      title: toastTitle,
+      description: toastDescription
     });
+
     try {
       playTimerDoneSound();
     } catch {
       // noop
     }
-  }, [t, toast]);
+  }, [
+    advancePomodoroPhase,
+    completedFocusSessions,
+    focusDurationSeconds,
+    phase,
+    t,
+    toast
+  ]);
 
   useEffect(() => {
     if (status !== "running" || !endAtMs) return;
@@ -183,33 +295,44 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     const persistedState: PersistedStudyTimer = {
+      focusDurationSeconds,
       durationSeconds,
       remainingSeconds,
       status,
-      endAtMs
+      endAtMs,
+      phase,
+      completedFocusSessions
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
-  }, [durationSeconds, endAtMs, remainingSeconds, status]);
+  }, [
+    completedFocusSessions,
+    durationSeconds,
+    endAtMs,
+    focusDurationSeconds,
+    phase,
+    remainingSeconds,
+    status
+  ]);
 
   const setDurationMinutes = useCallback(
     (minutes: number) => {
-      const nextDuration = clampDurationSeconds(minutes * 60);
-      setDurationSeconds(nextDuration);
-      if (status !== "running") {
-        setRemainingSeconds(nextDuration);
+      const nextFocusDuration = clampDurationSeconds(minutes * 60);
+      setFocusDurationSeconds(nextFocusDuration);
+
+      if (phase === "focus" && status !== "running") {
+        setRemainingSeconds(nextFocusDuration);
         if (status === "finished") setStatus("idle");
       }
     },
-    [status]
+    [phase, status]
   );
 
   const start = useCallback(() => {
-    const nextDuration = clampDurationSeconds(durationSeconds);
-    setDurationSeconds(nextDuration);
+    const nextDuration = getPhaseDurationSeconds(phase, focusDurationSeconds);
     setRemainingSeconds(nextDuration);
     setStatus("running");
     setEndAtMs(Date.now() + nextDuration * 1000);
-  }, [durationSeconds]);
+  }, [focusDurationSeconds, phase]);
 
   const pause = useCallback(() => {
     if (status !== "running") return;
@@ -228,16 +351,20 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
   }, [remainingSeconds, status]);
 
   const stop = useCallback(() => {
+    const resetDuration = getPhaseDurationSeconds("focus", focusDurationSeconds);
+    setPhase("focus");
     setStatus("idle");
     setEndAtMs(null);
-    setRemainingSeconds(durationSeconds);
-  }, [durationSeconds]);
+    setRemainingSeconds(resetDuration);
+  }, [focusDurationSeconds]);
 
   const contextValue = useMemo<StudyTimerContextValue>(
     () => ({
       durationSeconds,
       remainingSeconds,
       status,
+      phase,
+      completedFocusSessions,
       setDurationMinutes,
       start,
       pause,
@@ -246,8 +373,10 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
       formattedRemaining: formatSeconds(remainingSeconds)
     }),
     [
+      completedFocusSessions,
       durationSeconds,
       pause,
+      phase,
       remainingSeconds,
       resume,
       setDurationMinutes,

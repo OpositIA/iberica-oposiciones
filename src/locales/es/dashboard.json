@@ -15,10 +15,10 @@
   },
   "plan": {
     "badge": "Plan activo",
-    "description": "Tu plan incluye acceso a IA y tests rapidos.",
+    "description": "Tu plan define el acceso a IA y al resto de funciones Pro.",
     "manage": "Gestionar plan",
     "aiUsage": "Uso IA hoy",
-    "quickTestLimit": "Limite test rapido"
+    "quickTestLimit": "Acceso a test"
   },
   "cards": {
     "completedTests": "Tests completados",

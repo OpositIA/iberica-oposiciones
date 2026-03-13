@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import AppLoading from "@/components/AppLoading";
 import {
   Accordion,
   AccordionContent,
@@ -55,11 +56,7 @@ const ProfileTemario = () => {
   }, [oposicionActiva.temas, oposicionActiva.temasDetalle]);
 
   if (isLoadingOpposition) {
-    return (
-      <div className="border border-border bg-background p-6">
-        <p className="text-sm text-muted-foreground">{t("syllabus.loading")}</p>
-      </div>
-    );
+    return <AppLoading label={t("syllabus.loading")} />;
   }
 
   return (
@@ -79,7 +76,7 @@ const ProfileTemario = () => {
       </section>
 
       <section className="border border-border bg-background p-5 md:p-6">
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-5 flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           <h3 className="text-lg font-serif text-foreground">
             {t("syllabus.topicsList")}
@@ -87,40 +84,46 @@ const ProfileTemario = () => {
         </div>
 
         {temasDetalle.length > 0 ? (
-          <Accordion type="single" collapsible className="w-full space-y-2">
-            {temasDetalle.map((tema) => (
+          <Accordion type="single" collapsible className="w-full space-y-4">
+            {temasDetalle.map((tema, index) => (
               <AccordionItem
                 key={tema.code}
                 value={tema.code}
-                className="rounded-lg border border-border bg-secondary/25 px-3"
+                className="overflow-hidden rounded-[1.25rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-4 shadow-[0_18px_40px_-36px_rgba(15,23,42,0.35)] dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.7),rgba(15,23,42,0.5))]"
               >
-                <AccordionTrigger className="text-left text-sm hover:no-underline">
-                  <span className="pr-4">
-                    <span className="font-semibold text-foreground">
-                      {tema.title}
+                <AccordionTrigger className="py-5 text-left hover:no-underline">
+                  <span className="flex min-w-0 items-start gap-4 pr-4">
+                    <span className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                      {String(index + 1).padStart(2, "0")}
                     </span>
-                    {tema.sectionTitle ? (
-                      <span className="text-muted-foreground">
-                        {`. ${tema.sectionTitle}`}
+
+                    <span className="min-w-0 space-y-1">
+                      <span className="block text-base font-semibold leading-6 text-foreground md:text-lg">
+                        {tema.title}
                       </span>
-                    ) : null}
+                      {tema.sectionTitle ? (
+                        <span className="block text-sm leading-6 text-muted-foreground">
+                          {tema.sectionTitle}
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
                 </AccordionTrigger>
-                <AccordionContent>
+                <AccordionContent className="pb-5">
                   {tema.subtopics.length > 0 ? (
-                    <ul className="space-y-2 pt-1">
+                    <ul className="space-y-3 rounded-[1rem] border border-border/70 bg-secondary/15 p-4">
                       {tema.subtopics.map((subtopic, subtopicIndex) => (
                         <li
                           key={`${tema.code}-subtopic-${subtopicIndex + 1}`}
-                          className="flex items-start gap-2 text-sm text-foreground"
+                          className="flex items-start gap-3 text-sm leading-6 text-foreground"
                         >
-                          <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                          <span>{subtopic}</span>
+                          <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span className="break-words">{subtopic}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="pt-1 text-sm text-muted-foreground">
+                    <p className="rounded-[1rem] border border-dashed border-border/80 bg-secondary/10 px-4 py-3 text-sm leading-6 text-muted-foreground">
                       {t("syllabus.noSubtopics", {
                         defaultValue: "Sin subtemas disponibles por ahora."
                       })}

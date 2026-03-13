@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import AppLoading from "@/components/AppLoading";
 import { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation } from "react-router-dom";
@@ -13,13 +14,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAuthReady, isAuthenticated } = useAuth();
 
   if (!isAuthReady) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">
-          {t("status.validatingSession")}
-        </p>
-      </div>
-    );
+    return <AppLoading variant="fullScreen" label={t("status.validatingSession")} />;
   }
 
   if (!isAuthenticated)

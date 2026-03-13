@@ -18,7 +18,7 @@ import NotFound from "./pages/NotFound";
 import PlanSelection from "./pages/PlanSelection";
 import Plans from "./pages/Plans";
 import PublicPlans from "./pages/PublicPlans";
-import ProfileCalendario from "./pages/ProfileCalendario";
+import ProfileBillingIssue from "./pages/ProfileBillingIssue";
 import ProfileQuickTestSession from "./pages/ProfileQuickTestSession";
 import ProfileStudy from "./pages/ProfileStudy";
 import ProfileTemario from "./pages/ProfileTemario";
@@ -57,23 +57,36 @@ const App = () => (
                 </LandingRouteGuard>
               }
             />
-            <Route path="/login" element={<Login />} />
+            <Route
+              path="/login"
+              element={
+                <LandingRouteGuard>
+                  <Login />
+                </LandingRouteGuard>
+              }
+            />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/registro" element={<Register />} />
-            <Route path="/planes" element={<PublicPlans />} />
+            <Route
+              path="/registro"
+              element={
+                <LandingRouteGuard>
+                  <Register />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/planes"
+              element={
+                <LandingRouteGuard>
+                  <PublicPlans />
+                </LandingRouteGuard>
+              }
+            />
             <Route
               path="/seleccion-plan"
               element={
                 <ProtectedRoute>
                   <PlanSelection />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/perfil/planes"
-              element={
-                <ProtectedRoute>
-                  <Plans />
                 </ProtectedRoute>
               }
             />
@@ -98,6 +111,8 @@ const App = () => (
                 element={<Navigate to="/perfil/mi-perfil" replace />}
               />
               <Route path="/perfil/opositAI" element={<AssistantIA />} />
+              <Route path="/perfil/planes" element={<Plans />} />
+              <Route path="/perfil/pago-fallido" element={<ProfileBillingIssue />} />
               <Route path="/perfil/test" element={<ProfileTest />} />
               <Route
                 path="/perfil/test/:testId"
@@ -105,10 +120,6 @@ const App = () => (
               />
               <Route path="/perfil/temario" element={<ProfileTemario />} />
               <Route path="/perfil/a-estudiar" element={<ProfileStudy />} />
-              <Route
-                path="/perfil/calendario"
-                element={<ProfileCalendario />}
-              />
               <Route path="/perfil/mi-perfil" element={<MiPerfil />} />
               <Route
                 path="/perfil/estadisticas"

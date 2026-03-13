@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { sanitizeCode } from "@/lib/inputSanitization";
+import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
 import { useQuery } from "@tanstack/react-query";
 
 const SUBSCRIPTION_QUERY_STALE_MS = 60 * 1000;
@@ -29,7 +29,8 @@ export const subscriptionQueryConfig = {
 
 export const subscriptionQueryKeys = {
   publicPlans: ["subscriptions", "public-plans"] as const,
-  userPlan: (userId: string) => ["subscriptions", "user-plan", userId] as const
+  userPlan: (userId: string) => ["subscriptions", "user-plan", userId] as const,
+  billingIssue: (userId: string) => ["subscriptions", "billing-issue", userId] as const
 };
 
 export type PublicSubscriptionPlanRow = Pick<
@@ -68,9 +69,32 @@ export type UserPlanStateRow = {
   discount_ends_at: string | null;
 };
 
+export type UserBillingIssueRow = {
+  subscription_id: string;
+  plan_code: string;
+  subscription_status: string;
+  current_period_end: string | null;
+  updated_at: string | null;
+  error_message: string;
+  error_code: string | null;
+  error_type: string | null;
+  decline_code: string | null;
+  doc_url: string | null;
+  hosted_invoice_url: string | null;
+  next_payment_attempt_at: string | null;
+  failed_at: string | null;
+  grace_until: string | null;
+  retry_attempts: number | null;
+};
+
 type CheckoutSessionResponse = {
   checkout_url?: string;
   session_id?: string;
+  error?: string;
+};
+
+type CustomerPortalSessionResponse = {
+  portal_url?: string;
   error?: string;
 };
 
@@ -134,6 +158,32 @@ const normalizePlanStateRow = (row: Record<string, unknown>): UserPlanStateRow =
       : null
 });
 
+const asMetadataRecord = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+};
+
+const readMetadataString = (
+  metadata: Record<string, unknown> | null,
+  key: string,
+  maxLength = 220
+) => {
+  if (!metadata) return null;
+  const value = sanitizeSingleLineText(metadata[key], maxLength);
+  return value.length > 0 ? value : null;
+};
+
+const readMetadataInt = (metadata: Record<string, unknown> | null, key: string) => {
+  if (!metadata) return null;
+  const value = metadata[key];
+  if (typeof value === "number" && Number.isFinite(value))
+    return Math.max(0, Math.floor(value));
+
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, parsed);
+};
+
 export const fetchPublicSubscriptionPlans = async (): Promise<
   PublicSubscriptionPlanRow[]
 > => {
@@ -163,6 +213,57 @@ export const fetchUserPlanState = async (
   const row = data?.[0];
   if (!row || typeof row !== "object") return null;
   return normalizePlanStateRow(row as Record<string, unknown>);
+};
+
+export const fetchUserBillingIssue = async (
+  userId: string
+): Promise<UserBillingIssueRow | null> => {
+  const { data, error } = await supabase
+    .from("user_subscriptions")
+    .select("id, plan_code, status, current_period_end, updated_at, metadata")
+    .eq("user_id", userId)
+    .eq("provider", "stripe")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  if (typeof data.status !== "string" || data.status.trim() !== "past_due")
+    return null;
+
+  const metadata = asMetadataRecord(data.metadata);
+  const errorMessage =
+    readMetadataString(metadata, "stripe_payment_error_message", 320) ??
+    "No hemos podido cobrar tu ultima factura. Actualiza tu metodo de pago para mantener Premium.";
+
+  return {
+    subscription_id: sanitizeCode(data.id, 120),
+    plan_code: sanitizeCode(data.plan_code, 60) || "pro-monthly",
+    subscription_status: sanitizeCode(data.status, 40) || "past_due",
+    current_period_end:
+      typeof data.current_period_end === "string" && data.current_period_end.trim().length > 0
+        ? data.current_period_end.trim()
+        : null,
+    updated_at:
+      typeof data.updated_at === "string" && data.updated_at.trim().length > 0
+        ? data.updated_at.trim()
+        : null,
+    error_message: errorMessage,
+    error_code: readMetadataString(metadata, "stripe_payment_error_code", 120),
+    error_type: readMetadataString(metadata, "stripe_payment_error_type", 120),
+    decline_code: readMetadataString(metadata, "stripe_payment_decline_code", 120),
+    doc_url: readMetadataString(metadata, "stripe_payment_error_doc_url", 500),
+    hosted_invoice_url: readMetadataString(metadata, "stripe_hosted_invoice_url", 500),
+    next_payment_attempt_at: readMetadataString(
+      metadata,
+      "stripe_next_payment_attempt_at",
+      80
+    ),
+    failed_at: readMetadataString(metadata, "billing_failed_at", 80),
+    grace_until: readMetadataString(metadata, "billing_grace_until", 80),
+    retry_attempts: readMetadataInt(metadata, "billing_retry_attempts")
+  };
 };
 
 export const changeUserSubscriptionPlan = async (
@@ -256,6 +357,56 @@ export const createStripeCheckoutSession = async ({
   };
 };
 
+export const createCustomerPortalSession = async ({
+  returnPath = "/perfil/planes"
+}: {
+  returnPath?: string;
+}): Promise<{ portalUrl: string }> => {
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+
+  const accessToken = sessionData.session?.access_token?.trim() ?? "";
+  if (!accessToken)
+    throw new Error("Debes iniciar sesion para gestionar el metodo de pago.");
+
+  const { data, error } =
+    await supabase.functions.invoke<CustomerPortalSessionResponse>(
+      "create-customer-portal-session",
+      {
+        body: {
+          return_path: sanitizeSingleLineText(returnPath, 120)
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+  if (error) {
+    let message = "No se pudo abrir la gestion de pagos.";
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const parsed = (await context.json()) as { error?: unknown };
+        if (typeof parsed?.error === "string" && parsed.error.trim().length > 0)
+          message = parsed.error.trim();
+      } catch {
+        message = error.message || message;
+      }
+    } else if (error.message)
+      message = error.message;
+
+    throw new Error(message);
+  }
+
+  const portalUrl = typeof data?.portal_url === "string" ? data.portal_url.trim() : "";
+  if (!portalUrl)
+    throw new Error("No se pudo generar la URL de gestion de pagos.");
+
+  return { portalUrl };
+};
+
 export const usePublicSubscriptionPlansQuery = () =>
   useQuery({
     queryKey: subscriptionQueryKeys.publicPlans,
@@ -272,6 +423,16 @@ export const useUserPlanStateQuery = (
       ? subscriptionQueryKeys.userPlan(userId)
       : ["subscriptions", "user-plan", "guest"],
     queryFn: () => fetchUserPlanState(userId as string, timezone),
+    enabled: Boolean(userId),
+    ...subscriptionQueryConfig
+  });
+
+export const useUserBillingIssueQuery = (userId: string | null | undefined) =>
+  useQuery({
+    queryKey: userId
+      ? subscriptionQueryKeys.billingIssue(userId)
+      : ["subscriptions", "billing-issue", "guest"],
+    queryFn: () => fetchUserBillingIssue(userId as string),
     enabled: Boolean(userId),
     ...subscriptionQueryConfig
   });
