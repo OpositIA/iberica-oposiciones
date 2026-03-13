@@ -4,7 +4,7 @@ import {
   parseJsonBody,
   sanitizeCode,
   sanitizeInteger,
-  sanitizeSingleLineText,
+  sanitizeSingleLineText
 } from "../_shared/inputSanitization.ts";
 
 type ClaimBankRequest = {
@@ -41,7 +41,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const json = (body: unknown, status = 200) =>
@@ -49,8 +49,8 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 const clampQuestionCount = (value: unknown) =>
@@ -63,9 +63,8 @@ const pickFirstQuestionId = (questions: unknown[]): string | null => {
 
   const candidates = [q.id, q.questionId, q.uid];
   for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim().length > 0) 
+    if (typeof candidate === "string" && candidate.trim().length > 0)
       return candidate.trim();
-    
   }
   return null;
 };
@@ -80,7 +79,7 @@ const normalizeOptionText = (input: unknown): string => {
       maybe.content ??
       maybe.option ??
       maybe.answer ??
-      "",
+      ""
   ).trim();
 };
 
@@ -96,7 +95,7 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
         item &&
         typeof item === "object" &&
         !Array.isArray(item) &&
-        typeof (item as Record<string, unknown>).id === "string",
+        typeof (item as Record<string, unknown>).id === "string"
     );
 
     if (hasIds) {
@@ -110,9 +109,8 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
         const text = normalizeOptionText(rec);
         if (id && text) byId.set(id, text);
       }
-      if (ids.every((id) => byId.has(id))) 
+      if (ids.every((id) => byId.has(id)))
         return ids.map((id) => ({ id, text: byId.get(id)! }));
-      
     }
 
     const texts = arr.map((item) => {
@@ -129,7 +127,7 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
     if (ids.every((id) => Object.prototype.hasOwnProperty.call(rec, id))) {
       const built = ids.map((id) => ({
         id,
-        text: normalizeOptionText(rec[id]) || String(rec[id] ?? "").trim(),
+        text: normalizeOptionText(rec[id]) || String(rec[id] ?? "").trim()
       }));
       if (built.every((option) => option.text)) return built;
     }
@@ -140,7 +138,7 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
 
 const normalizeCorrectOptionId = (
   raw: unknown,
-  options: NormalizedOption[],
+  options: NormalizedOption[]
 ): "A" | "B" | "C" | "D" => {
   const ids: ("A" | "B" | "C" | "D")[] = ["A", "B", "C", "D"];
 
@@ -150,30 +148,39 @@ const normalizeCorrectOptionId = (
       .replace(/[\u0300-\u036f]/g, "")
       .toUpperCase()
       .trim();
-    if (ids.includes(folded as "A" | "B" | "C" | "D")) 
+    if (ids.includes(folded as "A" | "B" | "C" | "D"))
       return folded as "A" | "B" | "C" | "D";
 
     const keywordMatch = folded.match(
-      /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/,
+      /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/
     );
-    if (keywordMatch?.[1] && ids.includes(keywordMatch[1] as "A" | "B" | "C" | "D"))
+    if (
+      keywordMatch?.[1] &&
+      ids.includes(keywordMatch[1] as "A" | "B" | "C" | "D")
+    )
       return keywordMatch[1] as "A" | "B" | "C" | "D";
 
     const compactMatch = folded.match(/(?:^|[^A-Z])([ABCD])\s*[).:-]?\s*$/);
-    if (compactMatch?.[1] && ids.includes(compactMatch[1] as "A" | "B" | "C" | "D"))
+    if (
+      compactMatch?.[1] &&
+      ids.includes(compactMatch[1] as "A" | "B" | "C" | "D")
+    )
       return compactMatch[1] as "A" | "B" | "C" | "D";
 
     const isolatedMatch = folded.match(/\b([ABCD])\b/);
-    if (isolatedMatch?.[1] && ids.includes(isolatedMatch[1] as "A" | "B" | "C" | "D"))
+    if (
+      isolatedMatch?.[1] &&
+      ids.includes(isolatedMatch[1] as "A" | "B" | "C" | "D")
+    )
       return isolatedMatch[1] as "A" | "B" | "C" | "D";
-    
+
     const asNum = Number.parseInt(folded, 10);
     if (Number.isFinite(asNum)) {
       if (asNum >= 0 && asNum <= 3) return ids[asNum];
       if (asNum >= 1 && asNum <= 4) return ids[asNum - 1];
     }
     const byTextIdx = options.findIndex(
-      (opt) => opt.text.toLowerCase() === folded.toLowerCase(),
+      (opt) => opt.text.toLowerCase() === folded.toLowerCase()
     );
     if (byTextIdx >= 0) return ids[byTextIdx];
   }
@@ -188,21 +195,17 @@ const normalizeCorrectOptionId = (
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") 
+  if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
-  
 
-  if (req.method !== "POST") 
-    return json({ error: "Method not allowed" }, 405);
-  
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) 
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey)
     return json({ error: "Missing Supabase environment variables" }, 500);
-  
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
@@ -225,42 +228,47 @@ serve(async (req) => {
       questionCount:
         sanitizeInteger(parsed.questionCount, { min: 1, max: 100 }) ??
         undefined,
-      title: sanitizeSingleLineText(parsed.title, 160),
+      title: sanitizeSingleLineText(parsed.title, 160)
     };
   } catch (error) {
-    if (error instanceof Error && error.message === "Invalid JSON body") 
+    if (error instanceof Error && error.message === "Invalid JSON body")
       return json({ error: error.message }, 400);
-    
+
     throw error;
   }
 
   const oppositionId = String(
-    params.opposition_id ?? params.opposition_name ?? params.oppositionName ?? "",
+    params.opposition_id ??
+      params.opposition_name ??
+      params.oppositionName ??
+      ""
   ).trim();
   const topicId = sanitizeCode(params.topicId ?? params.topic_id ?? "", 120);
-  const count = clampQuestionCount(params.question_count ?? params.questionCount);
+  const count = clampQuestionCount(
+    params.question_count ?? params.questionCount
+  );
   if (!oppositionId || !topicId || count === null) {
     return json(
       {
         error:
-          "Missing or invalid params: opposition_id, topicId, question_count (1..100)",
+          "Missing or invalid params: opposition_id, topicId, question_count (1..100)"
       },
-      400,
+      400
     );
   }
 
   const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
+    global: { headers: { Authorization: authHeader } }
   });
   const {
     data: { user },
-    error: authError,
+    error: authError
   } = await authClient.auth.getUser();
   if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
   const userId = user.id;
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
+    auth: { autoRefreshToken: false, persistSession: false }
   });
 
   const { data: claimedRows, error: claimErr } = await serviceClient.rpc(
@@ -271,21 +279,22 @@ serve(async (req) => {
       p_topic_id: topicId,
       p_question_count: count,
       p_locale: "es",
-      p_include_draft: true,
-    },
+      p_include_draft: true
+    }
   );
 
   if (claimErr) {
     return json(
       { error: `RPC claim_question_bank_questions error: ${claimErr.message}` },
-      500,
+      500
     );
   }
 
-  const rows = (Array.isArray(claimedRows) ? claimedRows : []) as ClaimBankQuestionRow[];
-  if (rows.length === 0) 
+  const rows = (
+    Array.isArray(claimedRows) ? claimedRows : []
+  ) as ClaimBankQuestionRow[];
+  if (rows.length === 0)
     return json({ error: "No bank questions available for this filter" }, 409);
-  
 
   const questions = rows
     .map((row, idx) => {
@@ -295,7 +304,7 @@ serve(async (req) => {
       if (options.length !== 4) return null;
       const correctOptionId = normalizeCorrectOptionId(
         row.correct_option_id,
-        options,
+        options
       );
       const citations = Array.isArray(row.citations) ? row.citations : [];
 
@@ -304,7 +313,10 @@ serve(async (req) => {
         topicId: String(row.topic_id ?? "").trim() || topicId,
         topicLabel:
           sanitizeSingleLineText(row.topic_label, 160) ||
-          sanitizeSingleLineText(params.topicLabel ?? params.topic_label, 160) ||
+          sanitizeSingleLineText(
+            params.topicLabel ?? params.topic_label,
+            160
+          ) ||
           topicId,
         question: statement,
         options,
@@ -312,31 +324,42 @@ serve(async (req) => {
         explanation:
           String(row.explanation ?? "").trim() ||
           "Respuesta basada en el texto legal citado.",
-        citations,
+        citations
       };
     })
-    .filter((question): question is NonNullable<typeof question> => Boolean(question));
+    .filter((question): question is NonNullable<typeof question> =>
+      Boolean(question)
+    );
 
-  if (questions.length === 0) 
+  if (questions.length === 0)
     return json({ error: "Claimed questions could not be normalized" }, 409);
-  
 
   const topicLabel =
     sanitizeSingleLineText(params.topicLabel ?? params.topic_label, 160) ||
     sanitizeSingleLineText(rows[0]?.topic_label, 160) ||
     topicId;
   const oppositionName =
-    sanitizeSingleLineText(params.opposition_name ?? params.oppositionName, 160) ||
+    sanitizeSingleLineText(
+      params.opposition_name ?? params.oppositionName,
+      160
+    ) ||
     sanitizeSingleLineText(rows[0]?.opposition_name, 160) ||
     oppositionId;
-  const servedDifficulties = [...new Set(
-    rows
-      .map((row) => String(row.difficulty ?? "").trim().toLowerCase())
-      .filter((difficulty) => difficulty.length > 0),
-  )];
+  const servedDifficulties = [
+    ...new Set(
+      rows
+        .map((row) =>
+          String(row.difficulty ?? "")
+            .trim()
+            .toLowerCase()
+        )
+        .filter((difficulty) => difficulty.length > 0)
+    )
+  ];
   const modelName =
-    rows.map((row) => String(row.model ?? "").trim()).find((model) => model.length > 0) ??
-    "bank-question-pool";
+    rows
+      .map((row) => String(row.model ?? "").trim())
+      .find((model) => model.length > 0) ?? "bank-question-pool";
   const title =
     sanitizeSingleLineText(params.title, 160) ||
     sanitizeSingleLineText(`Test ${topicLabel}`, 160);
@@ -361,15 +384,15 @@ serve(async (req) => {
         served_from: "question_bank_questions",
         served_at: nowIso,
         served_difficulties: servedDifficulties,
-        question_ids: claimedQuestionIds,
+        question_ids: claimedQuestionIds
       },
       selected_topics: [
         {
           topicId,
-          topicLabel,
-        },
+          topicLabel
+        }
       ],
-      questions,
+      questions
     })
     .select("id")
     .single();
@@ -377,7 +400,7 @@ serve(async (req) => {
   if (quickTestError || !quickTestRow?.id) {
     return json(
       { error: quickTestError?.message ?? "Failed to create quick test" },
-      500,
+      500
     );
   }
 
@@ -392,17 +415,17 @@ serve(async (req) => {
         selected_answers: {},
         active_question_id: firstQuestionId,
         started_at: nowIso,
-        last_interaction_at: nowIso,
+        last_interaction_at: nowIso
       },
       {
-        onConflict: "test_id,user_id",
-      },
+        onConflict: "test_id,user_id"
+      }
     );
 
   if (attemptError) {
     return json(
       { error: `Failed to initialize attempt: ${attemptError.message}` },
-      500,
+      500
     );
   }
 
@@ -416,8 +439,10 @@ serve(async (req) => {
 
     if (claimUpdateError) {
       return json(
-        { error: `Failed to update question claims: ${claimUpdateError.message}` },
-        500,
+        {
+          error: `Failed to update question claims: ${claimUpdateError.message}`
+        },
+        500
       );
     }
   }
@@ -428,6 +453,6 @@ serve(async (req) => {
     topicLabel,
     servedDifficulties,
     questionCount: questions.length,
-    questions,
+    questions
   });
 });

@@ -2,11 +2,6 @@ import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import opositaiLogo from "@/assets/opositai-logo.png";
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
-import { isPaidPlan } from "@/lib/plans";
-import {
-  useUserBillingIssueQuery,
-  useUserPlanStateQuery
-} from "@/queries/subscriptionQueries";
 import {
   Tooltip,
   TooltipContent,
@@ -14,7 +9,12 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip";
 import UserActionsDropdown from "@/components/UserActionsDropdown";
+import { isPaidPlan } from "@/lib/plans";
 import { cn } from "@/lib/utils";
+import {
+  useUserBillingIssueQuery,
+  useUserPlanStateQuery
+} from "@/queries/subscriptionQueries";
 import { useStudyTimer } from "@/study/StudyTimerProvider";
 import {
   AlertTriangle,
@@ -74,7 +74,8 @@ const AuthenticatedSidebarLayout = () => {
   const { data: billingIssue } = useUserBillingIssueQuery(user?.id);
   const isFreePlan = !isPaidPlan(planState);
   const intlLocale = useMemo(
-    () => (i18n.resolvedLanguage?.toLowerCase().startsWith("en") ? "en-US" : "es-ES"),
+    () =>
+      i18n.resolvedLanguage?.toLowerCase().startsWith("en") ? "en-US" : "es-ES",
     [i18n.resolvedLanguage]
   );
   const premiumUntilDateLabel = useMemo(
@@ -83,14 +84,16 @@ const AuthenticatedSidebarLayout = () => {
   );
   const showPremiumUntilNotice = Boolean(
     isPaidPlan(planState) &&
-      planState?.cancel_at_period_end &&
-      premiumUntilDateLabel
+    planState?.cancel_at_period_end &&
+    premiumUntilDateLabel
   );
   const billingIssueFingerprint = billingIssue
     ? `${billingIssue.subscription_id}:${billingIssue.updated_at ?? ""}:${billingIssue.failed_at ?? ""}`
     : "";
-  const [dismissedBillingIssueFingerprint, setDismissedBillingIssueFingerprint] =
-    useState("");
+  const [
+    dismissedBillingIssueFingerprint,
+    setDismissedBillingIssueFingerprint
+  ] = useState("");
 
   const menuGroups = useMemo(
     () => [
@@ -424,7 +427,10 @@ const AuthenticatedSidebarLayout = () => {
                   isSidebarCollapsed && "lg:hidden"
                 )}
               >
-                <div id="assistant-sidebar-history-slot" className="h-full min-h-0" />
+                <div
+                  id="assistant-sidebar-history-slot"
+                  className="h-full min-h-0"
+                />
               </div>
             </nav>
 
@@ -482,7 +488,6 @@ const AuthenticatedSidebarLayout = () => {
                 </CustomButton>
               ) : null}
             </footer>
-
           </div>
 
           <CustomButton

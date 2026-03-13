@@ -226,7 +226,7 @@ const ProfileTest = () => {
       ).length;
 
       if (selectedCount === 0) return [];
-      if (selectedCount === blockTopicIds.length)
+      if (selectedCount === blockTopicIds.length) {
         return [
           {
             id: block.code,
@@ -234,6 +234,7 @@ const ProfileTest = () => {
             scope: "block" as const
           }
         ];
+      }
 
       return block.topics
         .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
@@ -380,9 +381,7 @@ const ProfileTest = () => {
     setIsQuickTestDialogOpen(open);
   };
 
-  if (isLoadingOpposition) {
-    return <AppLoading label={t("test.loading")} />;
-  }
+  if (isLoadingOpposition) return <AppLoading label={t("test.loading")} />;
 
   if (!isCurrentPlanPaid) {
     return (
@@ -394,7 +393,9 @@ const ProfileTest = () => {
           <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">
             {t("test.title")}
           </h2>
-          <p className="text-sm text-muted-foreground">{t("test.description")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("test.description")}
+          </p>
           <div className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
             <span className="font-semibold uppercase tracking-[0.22em]">
               {t(`plans:plans.${currentPlanKey}.name`)}

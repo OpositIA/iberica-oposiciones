@@ -4,7 +4,7 @@ import {
   parseJsonBody,
   sanitizeCode,
   sanitizeInteger,
-  sanitizeSingleLineText,
+  sanitizeSingleLineText
 } from "../_shared/inputSanitization.ts";
 
 type SelectedTopicInput = {
@@ -65,7 +65,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const json = (body: unknown, status = 200) =>
@@ -73,8 +73,8 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 const clampQuestionCount = (value: unknown) =>
@@ -90,7 +90,7 @@ const normalizeOptionText = (input: unknown): string => {
       maybe.content ??
       maybe.option ??
       maybe.answer ??
-      "",
+      ""
   ).trim();
 };
 
@@ -106,7 +106,7 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
         item &&
         typeof item === "object" &&
         !Array.isArray(item) &&
-        typeof (item as Record<string, unknown>).id === "string",
+        typeof (item as Record<string, unknown>).id === "string"
     );
 
     if (hasIds) {
@@ -138,7 +138,7 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
     if (ids.every((id) => Object.prototype.hasOwnProperty.call(rec, id))) {
       const built = ids.map((id) => ({
         id,
-        text: normalizeOptionText(rec[id]) || String(rec[id] ?? "").trim(),
+        text: normalizeOptionText(rec[id]) || String(rec[id] ?? "").trim()
       }));
       if (built.every((option) => option.text)) return built;
     }
@@ -149,7 +149,7 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
 
 const normalizeCorrectOptionId = (
   raw: unknown,
-  options: NormalizedOption[],
+  options: NormalizedOption[]
 ): "A" | "B" | "C" | "D" => {
   const ids: ("A" | "B" | "C" | "D")[] = ["A", "B", "C", "D"];
 
@@ -163,17 +163,26 @@ const normalizeCorrectOptionId = (
       return folded as "A" | "B" | "C" | "D";
 
     const keywordMatch = folded.match(
-      /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/,
+      /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/
     );
-    if (keywordMatch?.[1] && ids.includes(keywordMatch[1] as "A" | "B" | "C" | "D"))
+    if (
+      keywordMatch?.[1] &&
+      ids.includes(keywordMatch[1] as "A" | "B" | "C" | "D")
+    )
       return keywordMatch[1] as "A" | "B" | "C" | "D";
 
     const compactMatch = folded.match(/(?:^|[^A-Z])([ABCD])\s*[).:-]?\s*$/);
-    if (compactMatch?.[1] && ids.includes(compactMatch[1] as "A" | "B" | "C" | "D"))
+    if (
+      compactMatch?.[1] &&
+      ids.includes(compactMatch[1] as "A" | "B" | "C" | "D")
+    )
       return compactMatch[1] as "A" | "B" | "C" | "D";
 
     const isolatedMatch = folded.match(/\b([ABCD])\b/);
-    if (isolatedMatch?.[1] && ids.includes(isolatedMatch[1] as "A" | "B" | "C" | "D"))
+    if (
+      isolatedMatch?.[1] &&
+      ids.includes(isolatedMatch[1] as "A" | "B" | "C" | "D")
+    )
       return isolatedMatch[1] as "A" | "B" | "C" | "D";
 
     const asNum = Number.parseInt(folded, 10);
@@ -182,7 +191,7 @@ const normalizeCorrectOptionId = (
       if (asNum >= 1 && asNum <= 4) return ids[asNum - 1];
     }
     const byTextIdx = options.findIndex(
-      (opt) => opt.text.toLowerCase() === folded.toLowerCase(),
+      (opt) => opt.text.toLowerCase() === folded.toLowerCase()
     );
     if (byTextIdx >= 0) return ids[byTextIdx];
   }
@@ -219,7 +228,7 @@ const tokenizeKey = (value: string) =>
 
 const scoreTopicMatch = (
   selected: NormalizedSelectedTopic,
-  candidate: TopicCandidate,
+  candidate: TopicCandidate
 ): number => {
   let score = 0;
   const selectedId = sanitizeCode(selected.id, 120);
@@ -231,16 +240,15 @@ const scoreTopicMatch = (
     selectedId &&
     candidateId &&
     normalizeKey(selectedId) === normalizeKey(candidateId)
-  ) 
+  )
     score = 1100;
 
   if (
     selectedBlockCode &&
     candidateId &&
     normalizeKey(selectedBlockCode) === normalizeKey(candidateId)
-  ) {
+  )
     score = Math.max(score, 250);
-  }
 
   const selectedLabelKey = normalizeKey(selected.label);
   const candidateLabelKey = normalizeKey(candidate.topicLabel);
@@ -252,7 +260,9 @@ const scoreTopicMatch = (
     candidateLabelKey.startsWith(selectedLabelKey) ||
     selectedLabelKey.startsWith(candidateLabelKey)
   ) {
-    const distance = Math.abs(candidateLabelKey.length - selectedLabelKey.length);
+    const distance = Math.abs(
+      candidateLabelKey.length - selectedLabelKey.length
+    );
     return Math.max(score, 900 - Math.min(250, distance));
   }
 
@@ -266,7 +276,8 @@ const scoreTopicMatch = (
   const overlapRatio = shared.length / selectedTokens.length;
   let tokenScore = Math.round(overlapRatio * 700);
   const selectedNumeric = selectedTokens.filter((token) => /^\d+$/.test(token));
-  if (selectedNumeric.some((token) => candidateTokens.has(token))) tokenScore += 120;
+  if (selectedNumeric.some((token) => candidateTokens.has(token)))
+    tokenScore += 120;
 
   return Math.max(score, tokenScore);
 };
@@ -303,7 +314,7 @@ const normalizeSelectedTopics = (raw: unknown): NormalizedSelectedTopic[] => {
 
 const resolveRequestedTopics = (
   requestedTopics: NormalizedSelectedTopic[],
-  candidates: TopicCandidate[],
+  candidates: TopicCandidate[]
 ): {
   resolved: ResolvedTopicSelection[];
   unresolved: NormalizedSelectedTopic[];
@@ -330,7 +341,7 @@ const resolveRequestedTopics = (
             requestedLabel: requestedTopic.label,
             topicId: blockCandidate.topicId,
             topicLabel: requestedTopic.label || blockCandidate.topicLabel,
-            scope: "block",
+            scope: "block"
           });
         }
         continue;
@@ -356,7 +367,7 @@ const resolveRequestedTopics = (
           requestedLabel: requestedTopic.label,
           topicId: bestCandidate.topicId,
           topicLabel: bestCandidate.topicLabel,
-          scope: "topic",
+          scope: "topic"
         });
       }
       continue;
@@ -367,13 +378,13 @@ const resolveRequestedTopics = (
 
   return {
     resolved: Array.from(resolvedByKey.values()),
-    unresolved,
+    unresolved
   };
 };
 
 const allocatePerTopic = (
   selections: ResolvedTopicSelection[],
-  targetQuestionCount: number,
+  targetQuestionCount: number
 ): Array<ResolvedTopicSelection & { questionCount: number }> => {
   if (selections.length === 0 || targetQuestionCount <= 0) return [];
 
@@ -387,22 +398,22 @@ const allocatePerTopic = (
       if (remainder > 0) remainder -= 1;
       return {
         ...selection,
-        questionCount: base + plusOne,
+        questionCount: base + plusOne
       };
     })
     .filter((entry) => entry.questionCount > 0);
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) 
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey)
     return json({ error: "Missing Supabase environment variables" }, 500);
-  
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
@@ -411,78 +422,78 @@ serve(async (req) => {
   try {
     parsedBody = await parseJsonBody<GenerateQuickTestRequest>(req);
   } catch (error) {
-    if (error instanceof Error && error.message === "Invalid JSON body") 
+    if (error instanceof Error && error.message === "Invalid JSON body")
       return json({ error: error.message }, 400);
-    
+
     throw error;
   }
 
   const oppositionId = sanitizeCode(
     parsedBody.oppositionId ?? parsedBody.opposition_id,
-    120,
+    120
   );
   const oppositionName = sanitizeSingleLineText(
     parsedBody.oppositionName ?? parsedBody.opposition_name,
-    160,
+    160
   );
   const localeRaw = sanitizeCode(parsedBody.locale, 12).toLowerCase();
   const locale = localeRaw === "es" ? "es" : "es";
   const questionCount = clampQuestionCount(
-    parsedBody.questionCount ?? parsedBody.question_count,
+    parsedBody.questionCount ?? parsedBody.question_count
   );
   const requestedTopics = normalizeSelectedTopics(
-    parsedBody.selectedTopics ?? parsedBody.selected_topics,
+    parsedBody.selectedTopics ?? parsedBody.selected_topics
   );
 
   if (!oppositionId || !questionCount || requestedTopics.length === 0) {
     return json(
       {
         error:
-          "Missing or invalid params: oppositionId, questionCount (1..100), selectedTopics[]",
+          "Missing or invalid params: oppositionId, questionCount (1..100), selectedTopics[]"
       },
-      400,
+      400
     );
   }
 
   const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
+    global: { headers: { Authorization: authHeader } }
   });
   const {
     data: { user },
-    error: authError,
+    error: authError
   } = await authClient.auth.getUser();
   if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
   const userId = user.id;
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
+    auth: { autoRefreshToken: false, persistSession: false }
   });
   const { data: planRows, error: planError } = await serviceClient.rpc(
     "get_user_plan_state",
     {
       p_user_id: userId,
-      p_tz: "Europe/Madrid",
-    },
+      p_tz: "Europe/Madrid"
+    }
   );
   if (planError) {
     return json(
       { error: `Could not load user plan state: ${planError.message}` },
-      500,
+      500
     );
   }
 
   const planRow =
-    Array.isArray(planRows) && planRows.length > 0 && planRows[0] &&
-      typeof planRows[0] === "object"
+    Array.isArray(planRows) &&
+    planRows.length > 0 &&
+    planRows[0] &&
+    typeof planRows[0] === "object"
       ? (planRows[0] as Record<string, unknown>)
       : null;
-  const isPaidPlan = Boolean(planRow?.is_paid) ||
+  const isPaidPlan =
+    Boolean(planRow?.is_paid) ||
     sanitizeCode(planRow?.tier, 32).toLowerCase() === "pro";
   if (!isPaidPlan) {
-    return json(
-      { error: "quick_test_requires_paid_plan" },
-      403,
-    );
+    return json({ error: "quick_test_requires_paid_plan" }, 403);
   }
 
   const { data: topicRows, error: topicRowsError } = await serviceClient
@@ -495,8 +506,10 @@ serve(async (req) => {
 
   if (topicRowsError) {
     return json(
-      { error: `Could not load question bank topics: ${topicRowsError.message}` },
-      500,
+      {
+        error: `Could not load question bank topics: ${topicRowsError.message}`
+      },
+      500
     );
   }
 
@@ -505,7 +518,7 @@ serve(async (req) => {
     const topicId = sanitizeCode((row as { topic_id?: unknown }).topic_id, 120);
     const topicLabel = sanitizeSingleLineText(
       (row as { topic_label?: unknown }).topic_label,
-      220,
+      220
     );
     if (!topicId || !topicLabel) continue;
     const candidateKey = `${topicId}::${normalizeKey(topicLabel)}`;
@@ -516,21 +529,21 @@ serve(async (req) => {
   if (topicCandidates.length === 0) {
     return json(
       { error: "No questions available in question bank for this opposition." },
-      409,
+      409
     );
   }
 
   const { resolved: resolvedTopics, unresolved } = resolveRequestedTopics(
     requestedTopics,
-    topicCandidates,
+    topicCandidates
   );
   if (resolvedTopics.length === 0) {
     return json(
       {
         error:
-          "Selected topics did not match any topic in question bank for this opposition.",
+          "Selected topics did not match any topic in question bank for this opposition."
       },
-      409,
+      409
     );
   }
 
@@ -542,13 +555,15 @@ serve(async (req) => {
     const suffix = unresolved.length > 5 ? ", ..." : "";
     return json(
       {
-        error: `No hay preguntas disponibles para los temas seleccionados: ${missingTopics.join(", ")}${suffix}.`,
+        error: `No hay preguntas disponibles para los temas seleccionados: ${missingTopics.join(", ")}${suffix}.`
       },
-      409,
+      409
     );
   }
 
-  const selectedTopicIds = Array.from(new Set(resolvedTopics.map((topic) => topic.topicId)));
+  const selectedTopicIds = Array.from(
+    new Set(resolvedTopics.map((topic) => topic.topicId))
+  );
   const { data: selectedQuestionRows, error: selectedQuestionRowsError } =
     await serviceClient
       .from("question_bank_questions")
@@ -562,26 +577,27 @@ serve(async (req) => {
   if (selectedQuestionRowsError) {
     return json(
       {
-        error: `Could not load question counts for selected topics: ${selectedQuestionRowsError.message}`,
+        error: `Could not load question counts for selected topics: ${selectedQuestionRowsError.message}`
       },
-      500,
+      500
     );
   }
 
   const resolvedTopicKeys = new Set(
-    resolvedTopics.map(
-      (topic) =>
-        topic.scope === "block"
-          ? `block::${topic.topicId}`
-          : `${topic.topicId}::${normalizeKey(topic.topicLabel)}`,
-    ),
+    resolvedTopics.map((topic) =>
+      topic.scope === "block"
+        ? `block::${topic.topicId}`
+        : `${topic.topicId}::${normalizeKey(topic.topicLabel)}`
+    )
   );
   const availableQuestionIds = new Set<number>();
-  for (const row of Array.isArray(selectedQuestionRows) ? selectedQuestionRows : []) {
+  for (const row of Array.isArray(selectedQuestionRows)
+    ? selectedQuestionRows
+    : []) {
     const topicId = sanitizeCode((row as { topic_id?: unknown }).topic_id, 120);
     const topicLabel = sanitizeSingleLineText(
       (row as { topic_label?: unknown }).topic_label,
-      220,
+      220
     );
     const questionId = Number((row as { id?: unknown }).id);
     const matchesBlock = resolvedTopicKeys.has(`block::${topicId}`);
@@ -597,9 +613,9 @@ serve(async (req) => {
   if (availableQuestionIds.size < questionCount) {
     return json(
       {
-        error: `No hay suficientes preguntas para la seleccion actual. Disponibles: ${availableQuestionIds.size}. Solicitadas: ${questionCount}.`,
+        error: `No hay suficientes preguntas para la seleccion actual. Disponibles: ${availableQuestionIds.size}. Solicitadas: ${questionCount}.`
       },
-      409,
+      409
     );
   }
 
@@ -610,39 +626,45 @@ serve(async (req) => {
   const claimForTopic = async (
     topicId: string,
     topicLabel: string | null,
-    count: number,
+    count: number
   ) => {
     if (count <= 0) return;
-    const { data, error } = await serviceClient.rpc("claim_question_bank_questions", {
-      p_user_id: userId,
-      p_opposition_id: oppositionId,
-      p_topic_id: topicId,
-      p_topic_label:
-        typeof topicLabel === "string" && topicLabel.trim().length > 0
-          ? topicLabel
-          : null,
-      p_question_count: count,
-      p_locale: locale,
-      p_include_draft: true,
-    });
+    const { data, error } = await serviceClient.rpc(
+      "claim_question_bank_questions",
+      {
+        p_user_id: userId,
+        p_opposition_id: oppositionId,
+        p_topic_id: topicId,
+        p_topic_label:
+          typeof topicLabel === "string" && topicLabel.trim().length > 0
+            ? topicLabel
+            : null,
+        p_question_count: count,
+        p_locale: locale,
+        p_include_draft: true
+      }
+    );
     if (error) throw new Error(error.message);
 
-    for (const row of Array.isArray(data) ? (data as ClaimBankQuestionRow[]) : []) {
+    for (const row of Array.isArray(data)
+      ? (data as ClaimBankQuestionRow[])
+      : []) {
       const questionId = Number(row.bank_question_id);
-      if (!Number.isFinite(questionId) || seenQuestionIds.has(questionId)) continue;
+      if (!Number.isFinite(questionId) || seenQuestionIds.has(questionId))
+        continue;
       seenQuestionIds.add(questionId);
       claimedRows.push(row);
     }
   };
 
   try {
-    for (const slot of initialAllocation) 
+    for (const slot of initialAllocation) {
       await claimForTopic(
         slot.topicId,
         slot.scope === "block" ? null : slot.topicLabel,
-        slot.questionCount,
+        slot.questionCount
       );
-
+    }
 
     let rounds = 0;
     while (claimedRows.length < questionCount && rounds < 8) {
@@ -656,37 +678,50 @@ serve(async (req) => {
         await claimForTopic(
           topic.topicId,
           topic.scope === "block" ? null : topic.topicLabel,
-          remaining,
+          remaining
         );
       }
 
       if (claimedRows.length === beforeRound) break;
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown claim error";
-    return json({ error: `RPC claim_question_bank_questions error: ${message}` }, 500);
+    const message =
+      error instanceof Error ? error.message : "Unknown claim error";
+    return json(
+      { error: `RPC claim_question_bank_questions error: ${message}` },
+      500
+    );
   }
 
-  if (claimedRows.length === 0) 
-    return json({ error: "No bank questions available for selected topics" }, 409);
+  if (claimedRows.length === 0)
+    return json(
+      { error: "No bank questions available for selected topics" },
+      409
+    );
 
   if (claimedRows.length < questionCount) {
     return json(
       {
-        error: `No se pudieron obtener suficientes preguntas para la seleccion actual. Disponibles: ${claimedRows.length}. Solicitadas: ${questionCount}.`,
+        error: `No se pudieron obtener suficientes preguntas para la seleccion actual. Disponibles: ${claimedRows.length}. Solicitadas: ${questionCount}.`
       },
-      409,
+      409
     );
   }
 
-  const shuffledClaimedRows = shuffleInPlace([...claimedRows]).slice(0, questionCount);
+  const shuffledClaimedRows = shuffleInPlace([...claimedRows]).slice(
+    0,
+    questionCount
+  );
   const questions = shuffledClaimedRows
     .map((row, idx) => {
       const statement = String(row.question ?? "").trim();
       if (!statement) return null;
       const options = normalizeOptions(row.options);
       if (options.length !== 4) return null;
-      const correctOptionId = normalizeCorrectOptionId(row.correct_option_id, options);
+      const correctOptionId = normalizeCorrectOptionId(
+        row.correct_option_id,
+        options
+      );
       const citations = Array.isArray(row.citations) ? row.citations : [];
 
       return {
@@ -699,14 +734,15 @@ serve(async (req) => {
         explanation:
           String(row.explanation ?? "").trim() ||
           "Respuesta basada en el texto legal citado.",
-        citations,
+        citations
       };
     })
-    .filter((question): question is NonNullable<typeof question> => Boolean(question));
+    .filter((question): question is NonNullable<typeof question> =>
+      Boolean(question)
+    );
 
-  if (questions.length === 0) 
+  if (questions.length === 0)
     return json({ error: "Claimed questions could not be normalized" }, 409);
-  
 
   return json({
     testId: crypto.randomUUID(),
@@ -719,8 +755,8 @@ serve(async (req) => {
     selectedTopics: resolvedTopics.map((topic) => ({
       id: topic.topicId,
       label: topic.topicLabel,
-      scope: topic.scope,
+      scope: topic.scope
     })),
-    questions,
+    questions
   });
 });

@@ -120,14 +120,18 @@ const PublicPlans = () => {
                   </p>
                   <p
                     className={`mt-2.5 text-[11px] uppercase tracking-[0.16em] ${
-                      plan.featured ? "text-primary-foreground/65" : "text-muted-foreground"
+                      plan.featured
+                        ? "text-primary-foreground/65"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {t("public.bestForLabel")}
                   </p>
                   <p
                     className={`mt-1 text-sm leading-6 ${
-                      plan.featured ? "text-primary-foreground/85" : "text-foreground/90"
+                      plan.featured
+                        ? "text-primary-foreground/85"
+                        : "text-foreground/90"
                     }`}
                   >
                     {plan.planKey === "pro"
@@ -141,9 +145,7 @@ const PublicPlans = () => {
                     {t("public.includesLabel")}
                   </p>
                   <ul className="space-y-1.5 text-sm">
-                    <li>
-                      {t(`public.planHighlights.ai.${plan.planKey}`)}
-                    </li>
+                    <li>{t(`public.planHighlights.ai.${plan.planKey}`)}</li>
                     <li>
                       {t(`public.planHighlights.quickTests.${plan.planKey}`)}
                     </li>
@@ -158,7 +160,9 @@ const PublicPlans = () => {
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
                       {t("comparison.aiLimit")}
                     </p>
-                    <p className="mt-1.5 text-xl font-serif">{plan.ai_daily_limit}</p>
+                    <p className="mt-1.5 text-xl font-serif">
+                      {plan.ai_daily_limit}
+                    </p>
                   </div>
                   <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
@@ -174,7 +178,10 @@ const PublicPlans = () => {
 
                 <ul className="mt-4 flex-1 space-y-2">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm">
+                    <li
+                      key={feature}
+                      className="flex items-start gap-2 text-sm"
+                    >
                       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                       <span
                         className={

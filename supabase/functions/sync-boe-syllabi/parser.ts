@@ -38,7 +38,7 @@ const parser = new XMLParser({
   preserveOrder: true,
   ignoreAttributes: false,
   trimValues: false,
-  processEntities: true,
+  processEntities: true
 });
 
 const ANNEX_I_RE = /^ANEXO\s+I(?!\.\d)\b/i;
@@ -58,7 +58,7 @@ const CONTENT_LOCALNAMES = new Set([
   "th",
   "td",
   "caption",
-  "anexo",
+  "anexo"
 ]);
 const PUBLISHED_AT_LOCALNAMES = new Set(["fecha_publicacion", "fecha"]);
 const TITLE_LOCALNAMES = new Set(["titulo"]);
@@ -66,7 +66,10 @@ const ANNEX_SCAN_WINDOW = 250;
 const ANNEX_MIN_THEME_MATCHES = 3;
 
 function normalizeLine(text: string): string {
-  return text.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  return text
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function stripAccents(text: string): string {
@@ -102,16 +105,14 @@ function localname(tag: string): string {
 
 function parseXml(xmlText: string): XmlNodeList {
   const parsed = parser.parse(xmlText);
-  if (!Array.isArray(parsed)) 
-    throw new Error("Invalid BOE XML document");
-  
+  if (!Array.isArray(parsed)) throw new Error("Invalid BOE XML document");
+
   return parsed as XmlNodeList;
 }
 
 function getEntryKey(entry: XmlEntry): string | null {
-  for (const key of Object.keys(entry)) 
-    if (key !== ":@") return key;
-  
+  for (const key of Object.keys(entry)) if (key !== ":@") return key;
+
   return null;
 }
 
@@ -130,25 +131,19 @@ function getEntryClassName(entry: XmlEntry): string | null {
   const attrs = getEntryAttributes(entry);
   if (!attrs) return null;
 
-  const classCandidates = [
-    attrs["@_class"],
-    attrs["@class"],
-    attrs["class"],
-  ];
+  const classCandidates = [attrs["@_class"], attrs["@class"], attrs["class"]];
 
   for (const candidate of classCandidates) {
-    if (typeof candidate === "string" && candidate.trim()) 
+    if (typeof candidate === "string" && candidate.trim())
       return candidate.trim();
-    
   }
 
   return null;
 }
 
 function hasContentDescendants(value: unknown): boolean {
-  if (Array.isArray(value)) 
+  if (Array.isArray(value))
     return value.some((item) => hasContentDescendants(item));
-  
 
   if (!value || typeof value !== "object") return false;
 
@@ -213,7 +208,7 @@ function xmlToLines(xmlText: string): ParsedLine[] {
       if (text) {
         chunks.push({
           text,
-          className: getEntryClassName(entry),
+          className: getEntryClassName(entry)
         });
       }
       return;
@@ -224,9 +219,8 @@ function xmlToLines(xmlText: string): ParsedLine[] {
 
   visit(doc);
 
-  if (chunks.length > 0 && chunks.some((line) => ANNEX_I_RE.test(line.text))) 
+  if (chunks.length > 0 && chunks.some((line) => ANNEX_I_RE.test(line.text)))
     return chunks;
-  
 
   const fallback = textContent(doc)
     .split(/\r?\n/)
@@ -237,7 +231,10 @@ function xmlToLines(xmlText: string): ParsedLine[] {
   return fallback.length > 0 ? fallback : chunks;
 }
 
-function findFirstTextByLocalName(value: unknown, names: Set<string>): string | null {
+function findFirstTextByLocalName(
+  value: unknown,
+  names: Set<string>
+): string | null {
   if (Array.isArray(value)) {
     for (const item of value) {
       const found = findFirstTextByLocalName(item, names);
@@ -264,12 +261,11 @@ function extractPublishedAt(doc: XmlNodeList): string | null {
   const raw = findFirstTextByLocalName(doc, PUBLISHED_AT_LOCALNAMES);
   if (!raw) return null;
 
-  if (/^\d{8}$/.test(raw)) 
+  if (/^\d{8}$/.test(raw))
     return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-  
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) 
-    return raw;
-  
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
   return null;
 }
 
@@ -281,49 +277,72 @@ function countThemeMatches(lines: ParsedLine[]): number {
   return lines.filter((line) => THEME_RE.test(line.text)).length;
 }
 
-function findAnnexBounds(lines: ParsedLine[]): { startIdx: number; endIdx: number; themeCount: number } {
+function findAnnexBounds(lines: ParsedLine[]): {
+  startIdx: number;
+  endIdx: number;
+  themeCount: number;
+} {
   const annexCandidates = lines
     .map((line, idx) => ({ line, idx }))
     .filter(({ line }) => ANNEX_I_RE.test(line.text))
     .map(({ idx }) => idx);
 
-  if (annexCandidates.length === 0) 
+  if (annexCandidates.length === 0)
     throw new Error("No se encontro ANEXO I en el XML del BOE.");
-  
 
-  const candidateData: Array<{ startIdx: number; endIdx: number; themeCount: number }> = [];
-  const candidatesBeforeAnnexII: Array<{ startIdx: number; endIdx: number; themeCount: number }> = [];
+  const candidateData: Array<{
+    startIdx: number;
+    endIdx: number;
+    themeCount: number;
+  }> = [];
+  const candidatesBeforeAnnexII: Array<{
+    startIdx: number;
+    endIdx: number;
+    themeCount: number;
+  }> = [];
 
   for (const startIdx of annexCandidates) {
-    const endIdx = lines.findIndex((line, idx) => idx > startIdx && ANNEX_II_RE.test(line.text));
+    const endIdx = lines.findIndex(
+      (line, idx) => idx > startIdx && ANNEX_II_RE.test(line.text)
+    );
     if (endIdx === -1) continue;
 
-    const themeCount = countThemeMatches(lines.slice(startIdx + 1, startIdx + 1 + ANNEX_SCAN_WINDOW));
+    const themeCount = countThemeMatches(
+      lines.slice(startIdx + 1, startIdx + 1 + ANNEX_SCAN_WINDOW)
+    );
     const row = { startIdx, endIdx, themeCount };
     candidateData.push(row);
     candidatesBeforeAnnexII.push(row);
   }
 
-  if (candidateData.length === 0) 
+  if (candidateData.length === 0)
     throw new Error("No se encontro ANEXO II tras ANEXO I en el XML del BOE.");
-  
 
-  const valid = candidateData.filter((row) => row.themeCount >= ANNEX_MIN_THEME_MATCHES);
+  const valid = candidateData.filter(
+    (row) => row.themeCount >= ANNEX_MIN_THEME_MATCHES
+  );
   if (valid.length > 0) {
     return valid.reduce((best, current) => {
       if (current.themeCount > best.themeCount) return current;
-      if (current.themeCount === best.themeCount && current.startIdx < best.startIdx) return current;
+      if (
+        current.themeCount === best.themeCount &&
+        current.startIdx < best.startIdx
+      )
+        return current;
       return best;
     });
   }
 
-  if (candidatesBeforeAnnexII.length > 0) 
+  if (candidatesBeforeAnnexII.length > 0)
     return candidatesBeforeAnnexII[candidatesBeforeAnnexII.length - 1];
-  
 
   return candidateData.reduce((best, current) => {
     if (current.themeCount > best.themeCount) return current;
-    if (current.themeCount === best.themeCount && current.startIdx < best.startIdx) return current;
+    if (
+      current.themeCount === best.themeCount &&
+      current.startIdx < best.startIdx
+    )
+      return current;
     return best;
   });
 }
@@ -335,25 +354,33 @@ function shouldSkipHeading(line: ParsedLine): boolean {
   return false;
 }
 
-function looksLikeThemeContinuation(line: ParsedLine, hasLastTheme: boolean): boolean {
+function looksLikeThemeContinuation(
+  line: ParsedLine,
+  hasLastTheme: boolean
+): boolean {
   if (!hasLastTheme) return false;
-  if (line.className && !["parrafo", "parrafo_2"].includes(line.className)) return false;
+  if (line.className && !["parrafo", "parrafo_2"].includes(line.className))
+    return false;
 
   const stripped = line.text.replace(/^[\s\-]+/, "");
   if (!stripped) return false;
 
   const first = stripped[0];
-  if (first.toLowerCase() === first && first.toUpperCase() !== first) return true;
+  if (first.toLowerCase() === first && first.toUpperCase() !== first)
+    return true;
   if ("([{".includes(first)) return true;
   if (stripped.length >= 80) return true;
   return false;
 }
 
-function parseTopicsAndSubtopics(lines: ParsedLine[]): { topics: TopicRow[]; subtopics: SubtopicRow[] } {
+function parseTopicsAndSubtopics(lines: ParsedLine[]): {
+  topics: TopicRow[];
+  subtopics: SubtopicRow[];
+} {
   const normalizedLines = lines
     .map((line) => ({
       text: normalizeLine(line.text),
-      className: line.className,
+      className: line.className
     }))
     .filter((line) => line.text && !shouldSkipHeading(line));
 
@@ -376,7 +403,7 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): { topics: TopicRow[]; sub
     topics.push({
       topic_title: displayTitle,
       topic_code: code,
-      order_index: topics.length + 1,
+      order_index: topics.length + 1
     });
     subtopicOrderByTopic.set(code, 0);
     currentBlockTitle = rawTitle;
@@ -412,9 +439,7 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): { topics: TopicRow[]; sub
     const themeMatch = line.text.match(THEME_RE);
     if (themeMatch) {
       isAwaitingAnchoredBlockTitle = false;
-      if (!currentTopicCode) 
-        currentTopicCode = createTopic("General");
-      
+      if (!currentTopicCode) currentTopicCode = createTopic("General");
 
       const topicNumber = Number.parseInt(themeMatch[1], 10);
       const themeName = themeMatch[2].trim().replace(/\.+$/, "");
@@ -431,7 +456,7 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): { topics: TopicRow[]; sub
         topic_number: topicNumber,
         subtopic_title: subtopicTitle,
         section_title: currentBlockTitle,
-        order_index: nextOrder,
+        order_index: nextOrder
       };
       subtopics.push(lastTheme);
       continue;
@@ -445,7 +470,9 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): { topics: TopicRow[]; sub
     }
 
     if (looksLikeThemeContinuation(line, Boolean(lastTheme)) && lastTheme) {
-      lastTheme.subtopic_title = normalizeLine(`${lastTheme.subtopic_title} ${line.text}`);
+      lastTheme.subtopic_title = normalizeLine(
+        `${lastTheme.subtopic_title} ${line.text}`
+      );
       continue;
     }
   }
@@ -462,26 +489,37 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): { topics: TopicRow[]; sub
 }
 
 async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
-export async function fetchBoeXml(boeId: string, directXmlUrl?: string | null): Promise<string> {
-  const xmlUrl = directXmlUrl?.trim() || `https://www.boe.es/diario_boe/xml.php?id=${encodeURIComponent(boeId)}`;
+export async function fetchBoeXml(
+  boeId: string,
+  directXmlUrl?: string | null
+): Promise<string> {
+  const xmlUrl =
+    directXmlUrl?.trim() ||
+    `https://www.boe.es/diario_boe/xml.php?id=${encodeURIComponent(boeId)}`;
   const response = await fetch(xmlUrl, {
     headers: {
-      Accept: "application/xml,text/xml;q=0.9,*/*;q=0.8",
-    },
+      Accept: "application/xml,text/xml;q=0.9,*/*;q=0.8"
+    }
   });
 
-  if (!response.ok) 
+  if (!response.ok)
     throw new Error(`BOE XML fetch failed (${response.status}) for ${boeId}`);
-  
 
   return await response.text();
 }
 
-export async function parseBoeSyllabusXml(xmlText: string): Promise<ParsedSyllabus> {
+export async function parseBoeSyllabusXml(
+  xmlText: string
+): Promise<ParsedSyllabus> {
   const doc = parseXml(xmlText);
   const lines = xmlToLines(xmlText);
   const { startIdx, endIdx, themeCount } = findAnnexBounds(lines);
@@ -499,6 +537,6 @@ export async function parseBoeSyllabusXml(xmlText: string): Promise<ParsedSyllab
     subtopics,
     startLineIdx: startIdx,
     endLineIdx: endIdx,
-    numThemesDetected: themeCount,
+    numThemesDetected: themeCount
   };
 }

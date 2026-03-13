@@ -82,7 +82,9 @@ const safeParsePersistedState = (
     const parsed = JSON.parse(rawValue) as PersistedStudyTimer;
     const phase = normalizePhase(parsed.phase);
     const fallbackFocusDuration = clampDurationSeconds(
-      parsed.focusDurationSeconds ?? parsed.durationSeconds ?? DEFAULT_FOCUS_DURATION_SECONDS
+      parsed.focusDurationSeconds ??
+        parsed.durationSeconds ??
+        DEFAULT_FOCUS_DURATION_SECONDS
     );
     const phaseDuration = getPhaseDurationSeconds(phase, fallbackFocusDuration);
     const remainingSeconds = Math.min(
@@ -177,7 +179,9 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
   const [focusDurationSeconds, setFocusDurationSeconds] = useState(
     initialState?.focusDurationSeconds ?? DEFAULT_FOCUS_DURATION_SECONDS
   );
-  const [phase, setPhase] = useState<StudyTimerPhase>(initialState?.phase ?? "focus");
+  const [phase, setPhase] = useState<StudyTimerPhase>(
+    initialState?.phase ?? "focus"
+  );
   const [remainingSeconds, setRemainingSeconds] = useState(
     initialState?.remainingSeconds ?? DEFAULT_FOCUS_DURATION_SECONDS
   );
@@ -351,7 +355,10 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
   }, [remainingSeconds, status]);
 
   const stop = useCallback(() => {
-    const resetDuration = getPhaseDurationSeconds("focus", focusDurationSeconds);
+    const resetDuration = getPhaseDurationSeconds(
+      "focus",
+      focusDurationSeconds
+    );
     setPhase("focus");
     setStatus("idle");
     setEndAtMs(null);

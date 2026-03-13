@@ -3,29 +3,50 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
 };
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")?.trim() || "";
-const OPENROUTER_BASE_URL = Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
-const OPENROUTER_APP_URL = Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
-const OPENROUTER_APP_NAME = Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
+const OPENROUTER_BASE_URL =
+  Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
+const OPENROUTER_APP_URL =
+  Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+const OPENROUTER_APP_NAME =
+  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
 const OPENROUTER_CHAT_MODEL =
   Deno.env.get("OPENROUTER_CHAT_MODEL")?.trim() || "qwen/qwen3-235b-a22b-2507";
-const OPENROUTER_TIMEOUT_MS = Math.max(5000, Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "20000"));
+const OPENROUTER_TIMEOUT_MS = Math.max(
+  5000,
+  Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "20000")
+);
 
 const OPENROUTER_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
 const EMBEDDING_DIM = 4096;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")?.trim() || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
 
-const LAW_MATCH_THRESHOLD = Number(Deno.env.get("ASK_LAW_MATCH_THRESHOLD") ?? "0.22");
-const LAW_MATCH_COUNT = Math.max(8, Number(Deno.env.get("ASK_LAW_MATCH_COUNT") ?? "18"));
-const ARTICLE_MATCH_THRESHOLD = Number(Deno.env.get("ASK_ARTICLE_MATCH_THRESHOLD") ?? "0.16");
-const ARTICLE_MATCH_COUNT = Math.max(8, Number(Deno.env.get("ASK_ARTICLE_MATCH_COUNT") ?? "18"));
-const MAX_CONTEXT_HITS = Math.max(6, Number(Deno.env.get("ASK_MAX_CONTEXT_HITS") ?? "9"));
+const LAW_MATCH_THRESHOLD = Number(
+  Deno.env.get("ASK_LAW_MATCH_THRESHOLD") ?? "0.22"
+);
+const LAW_MATCH_COUNT = Math.max(
+  8,
+  Number(Deno.env.get("ASK_LAW_MATCH_COUNT") ?? "18")
+);
+const ARTICLE_MATCH_THRESHOLD = Number(
+  Deno.env.get("ASK_ARTICLE_MATCH_THRESHOLD") ?? "0.16"
+);
+const ARTICLE_MATCH_COUNT = Math.max(
+  8,
+  Number(Deno.env.get("ASK_ARTICLE_MATCH_COUNT") ?? "18")
+);
+const MAX_CONTEXT_HITS = Math.max(
+  6,
+  Number(Deno.env.get("ASK_MAX_CONTEXT_HITS") ?? "9")
+);
 const MIN_GENERAL_CONTEXT_HITS = 2;
 const MAX_MESSAGE_CHARS = 3000;
 const MAX_HISTORY_ITEMS = 6;
@@ -78,15 +99,20 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 const stripAccents = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 const safeText = (value: unknown, max = 12000) => {
-  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return "";
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  )
+    return "";
   return String(value)
     .replace(/\r\n?/g, "\n")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
@@ -156,7 +182,7 @@ const extractArticleRefs = (question: string): ArticleRef[] => {
       raw,
       normalized,
       base,
-      variants,
+      variants
     });
     match = regex.exec(stripAccents(question));
   }
@@ -179,13 +205,16 @@ const inferLawAlias = (question: string) => {
     return {
       boeId: "BOE-A-2003-23186",
       hint: "ley general tributaria lgt",
-      label: "LGT",
+      label: "LGT"
     };
   }
   return null;
 };
 
-const extractHistory = (rawHistory: unknown, maxItems = MAX_HISTORY_ITEMS): HistoryLine[] => {
+const extractHistory = (
+  rawHistory: unknown,
+  maxItems = MAX_HISTORY_ITEMS
+): HistoryLine[] => {
   if (!Array.isArray(rawHistory)) return [];
 
   const lines: HistoryLine[] = [];
@@ -197,14 +226,17 @@ const extractHistory = (rawHistory: unknown, maxItems = MAX_HISTORY_ITEMS): Hist
       rawRole === "assistant" || rawRole === "model"
         ? "assistant"
         : rawRole === "system"
-        ? "system"
-        : "user";
+          ? "system"
+          : "user";
 
     const texts: string[] = [];
     if (Array.isArray(row.parts)) {
       for (const part of row.parts) {
         if (!part || typeof part !== "object") continue;
-        const text = safeCompactText((part as Record<string, unknown>).text, 1500);
+        const text = safeCompactText(
+          (part as Record<string, unknown>).text,
+          1500
+        );
         if (text) texts.push(text);
       }
     }
@@ -236,7 +268,7 @@ const buildContextualQuestion = (question: string, history: HistoryLine[]) => {
 
   return safeText(
     `Contexto conversacional:\n${historyText}\n\nPregunta actual:\n${question}`,
-    MAX_CONTEXTUAL_QUESTION_CHARS,
+    MAX_CONTEXTUAL_QUESTION_CHARS
   );
 };
 
@@ -256,7 +288,7 @@ const buildRetrievalQueries = (
   question: string,
   contextualQuestion: string,
   articleRefs: ArticleRef[],
-  lawHint: string,
+  lawHint: string
 ) => {
   const semanticQueries = dedupeStrings([
     question,
@@ -264,7 +296,7 @@ const buildRetrievalQueries = (
     lawHint ? `${question} ${lawHint}` : "",
     articleRefs.length > 0
       ? `${question} referencias ${articleRefs.map((ref) => ref.normalized).join(" ")}`
-      : "",
+      : ""
   ]).slice(0, 4);
 
   const articleQueries: ArticleQuery[] = [];
@@ -274,22 +306,23 @@ const buildRetrievalQueries = (
       const key = `${ref.normalized}|${variant}`;
       if (seenArticleQueries.has(key)) continue;
       seenArticleQueries.add(key);
-      const mode: ArticleQuery["mode"] = variant === ref.normalized ? "exact" : "base";
+      const mode: ArticleQuery["mode"] =
+        variant === ref.normalized ? "exact" : "base";
       articleQueries.push({
         requested: ref.normalized,
         filter: variant,
         mode,
         query: safeText(
           [`articulo ${variant}`, lawHint, question].filter(Boolean).join(" "),
-          600,
-        ),
+          600
+        )
       });
     }
   }
 
   const allQueries = dedupeStrings([
     ...semanticQueries,
-    ...articleQueries.map((item) => item.query),
+    ...articleQueries.map((item) => item.query)
   ]);
 
   return { semanticQueries, articleQueries, allQueries };
@@ -302,10 +335,12 @@ function extractErrorMessage(data: unknown, fallback: string) {
   const direct = safeText(record.message, 500);
   if (direct) return direct;
 
-  if (typeof record.error === "string") return safeText(record.error, 500) || fallback;
+  if (typeof record.error === "string")
+    return safeText(record.error, 500) || fallback;
   if (record.error && typeof record.error === "object") {
     const nested = record.error as Record<string, unknown>;
-    const nestedMessage = safeText(nested.message, 500) || safeText(nested.code, 500);
+    const nestedMessage =
+      safeText(nested.message, 500) || safeText(nested.code, 500);
     if (nestedMessage) return nestedMessage;
   }
 
@@ -319,31 +354,34 @@ async function callOpenRouter(path: string, payload: Record<string, unknown>) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "HTTP-Referer": OPENROUTER_APP_URL,
-      "X-Title": OPENROUTER_APP_NAME,
+      "X-Title": OPENROUTER_APP_NAME
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
+    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS)
   });
 
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(extractErrorMessage(data, `OpenRouter error (${response.status})`));
-  }
+  if (!response.ok)
+    throw new Error(
+      extractErrorMessage(data, `OpenRouter error (${response.status})`)
+    );
+
   return data;
 }
 
 const validateEmbedding = (vector: unknown, index: number) => {
-  if (!Array.isArray(vector)) {
+  if (!Array.isArray(vector))
     throw new Error(`Embedding invalido en indice ${index}: vector ausente`);
-  }
 
   const numeric = vector.map((value) => Number(value));
-  if (!numeric.every((value) => Number.isFinite(value))) {
-    throw new Error(`Embedding invalido en indice ${index}: contiene valores no numericos`);
-  }
+  if (!numeric.every((value) => Number.isFinite(value)))
+    throw new Error(
+      `Embedding invalido en indice ${index}: contiene valores no numericos`
+    );
+
   if (numeric.length !== EMBEDDING_DIM) {
     throw new Error(
-      `Embedding con dimension invalida en indice ${index}: ${numeric.length} (esperada ${EMBEDDING_DIM})`,
+      `Embedding con dimension invalida en indice ${index}: ${numeric.length} (esperada ${EMBEDDING_DIM})`
     );
   }
 
@@ -352,7 +390,7 @@ const validateEmbedding = (vector: unknown, index: number) => {
 
 const normalizeRpcRows = (
   rows: Array<Record<string, unknown>>,
-  source: "buscar_ley" | "buscar_articulos",
+  source: "buscar_ley" | "buscar_articulos"
 ): RetrievalHit[] =>
   rows
     .map((row) => {
@@ -376,14 +414,17 @@ const normalizeRpcRows = (
         similarity,
         source,
         score: similarity,
-        article_matches: [],
+        article_matches: []
       } as RetrievalHit;
     })
     .filter((row): row is RetrievalHit => row !== null);
 
 type ArticleMatchKind = "exact" | "child" | "base" | "none";
 
-const detectArticleMatch = (hit: RetrievalHit, ref: ArticleRef): ArticleMatchKind => {
+const detectArticleMatch = (
+  hit: RetrievalHit,
+  ref: ArticleRef
+): ArticleMatchKind => {
   const article = normalizeArticleToken(hit.articulo_num ?? "");
   const unitId = normalizeCompactText(hit.unit_id ?? "");
   const path = normalizeCompactText(hit.apartado_path ?? "");
@@ -391,21 +432,34 @@ const detectArticleMatch = (hit: RetrievalHit, ref: ArticleRef): ArticleMatchKin
   const compactBase = normalizeCompactText(ref.base);
 
   if (article && article === ref.normalized) return "exact";
-  if (compactRequested && (unitId === `a${compactRequested}` || path === `a${compactRequested}`)) {
+  if (
+    compactRequested &&
+    (unitId === `a${compactRequested}` || path === `a${compactRequested}`)
+  )
     return "exact";
-  }
+
   if (article && article.startsWith(`${ref.normalized}.`)) return "child";
-  if (compactRequested && (unitId.includes(compactRequested) || path.includes(compactRequested))) {
+  if (
+    compactRequested &&
+    (unitId.includes(compactRequested) || path.includes(compactRequested))
+  )
     return "child";
-  }
+
   if (!ref.base) return "none";
-  if (article && (article === ref.base || article.startsWith(`${ref.base}.`))) return "base";
-  if (compactBase && (unitId.includes(compactBase) || path.includes(compactBase))) return "base";
+  if (article && (article === ref.base || article.startsWith(`${ref.base}.`)))
+    return "base";
+  if (
+    compactBase &&
+    (unitId.includes(compactBase) || path.includes(compactBase))
+  )
+    return "base";
   return "none";
 };
 
 const isConcreteArticleRef = (value: string) =>
-  /^\d+(?:\.\d+)?(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies)?$/.test(value);
+  /^\d+(?:\.\d+)?(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies)?$/.test(
+    value
+  );
 
 const extractHitReference = (hit: RetrievalHit): string | null => {
   const candidates = [hit.apartado_path, hit.articulo_num, hit.unit_id];
@@ -421,8 +475,8 @@ const tokenizeForOverlap = (value: string) =>
     new Set(
       normalizeLooseText(value)
         .split(" ")
-        .filter((token) => token.length >= 4),
-    ),
+        .filter((token) => token.length >= 4)
+    )
   );
 
 const lexicalOverlapScore = (question: string, hit: RetrievalHit) => {
@@ -430,13 +484,15 @@ const lexicalOverlapScore = (question: string, hit: RetrievalHit) => {
   if (questionTokens.length === 0) return 0;
 
   const haystack = normalizeLooseText(
-    [hit.titulo_ley, hit.articulo_num, hit.apartado_path, hit.contenido].filter(Boolean).join(" "),
+    [hit.titulo_ley, hit.articulo_num, hit.apartado_path, hit.contenido]
+      .filter(Boolean)
+      .join(" ")
   );
 
   let matches = 0;
-  for (const token of questionTokens) {
+  for (const token of questionTokens)
     if (haystack.includes(token)) matches += 1;
-  }
+
   return matches / questionTokens.length;
 };
 
@@ -457,7 +513,7 @@ const mergeAndRankHits = (
   semanticHits: RetrievalHit[],
   articleHitsByQuery: Array<ArticleQuery & { hits: RetrievalHit[] }>,
   articleRefs: ArticleRef[],
-  boeFilter: string | null,
+  boeFilter: string | null
 ) => {
   const merged = new Map<string, RetrievalHit>();
 
@@ -465,12 +521,17 @@ const mergeAndRankHits = (
     const matches = articleRefs
       .map((ref) => ({ ref, kind: detectArticleMatch(hit, ref) }))
       .filter((item) => item.kind !== "none");
-    const articleBoost = matches.reduce((max, item) => Math.max(max, articleMatchBoost(item.kind)), 0);
+    const articleBoost = matches.reduce(
+      (max, item) => Math.max(max, articleMatchBoost(item.kind)),
+      0
+    );
     const boeBoost = boeFilter && hit.id_boe === boeFilter ? 0.12 : 0;
     const sourceBoost = hit.source === "buscar_articulos" ? 0.04 : 0;
     return {
       score: hit.similarity + articleBoost + boeBoost + sourceBoost,
-      articleMatches: Array.from(new Set(matches.map((item) => item.ref.normalized))),
+      articleMatches: Array.from(
+        new Set(matches.map((item) => item.ref.normalized))
+      )
     };
   };
 
@@ -480,7 +541,7 @@ const mergeAndRankHits = (
     const next: RetrievalHit = {
       ...hit,
       score: scored.score,
-      article_matches: scored.articleMatches,
+      article_matches: scored.articleMatches
     };
 
     const previous = merged.get(key);
@@ -490,7 +551,7 @@ const mergeAndRankHits = (
     }
 
     previous.article_matches = Array.from(
-      new Set([...previous.article_matches, ...next.article_matches]),
+      new Set([...previous.article_matches, ...next.article_matches])
     );
     previous.score = Math.max(previous.score, next.score);
     previous.similarity = Math.max(previous.similarity, next.similarity);
@@ -501,7 +562,7 @@ const mergeAndRankHits = (
     for (const hit of articleQuery.hits) {
       upsert({
         ...hit,
-        source: "buscar_articulos",
+        source: "buscar_articulos"
       });
     }
   }
@@ -510,7 +571,9 @@ const mergeAndRankHits = (
     (left, right) =>
       right.score - left.score ||
       right.similarity - left.similarity ||
-      (right.fecha_actualizacion ?? "").localeCompare(left.fecha_actualizacion ?? ""),
+      (right.fecha_actualizacion ?? "").localeCompare(
+        left.fecha_actualizacion ?? ""
+      )
   );
 };
 
@@ -518,7 +581,7 @@ const buildReferenceResolutions = (
   question: string,
   ranked: RetrievalHit[],
   articleRefs: ArticleRef[],
-  articleHitsByQuery: Array<ArticleQuery & { hits: RetrievalHit[] }>,
+  articleHitsByQuery: Array<ArticleQuery & { hits: RetrievalHit[] }>
 ): ReferenceResolution[] =>
   articleRefs.map((ref) => {
     const relevantHits = articleHitsByQuery
@@ -526,46 +589,63 @@ const buildReferenceResolutions = (
       .flatMap((query) => query.hits);
     const hitPool = relevantHits.length > 0 ? relevantHits : ranked;
 
-    const requestedExact = hitPool.find((hit) => detectArticleMatch(hit, ref) === "exact");
-    const requestedChild = hitPool.find((hit) => detectArticleMatch(hit, ref) === "child");
-    const requestedBase = hitPool.find((hit) => detectArticleMatch(hit, ref) === "base");
-    const requestedBest = requestedExact ?? requestedChild ?? requestedBase ?? null;
+    const requestedExact = hitPool.find(
+      (hit) => detectArticleMatch(hit, ref) === "exact"
+    );
+    const requestedChild = hitPool.find(
+      (hit) => detectArticleMatch(hit, ref) === "child"
+    );
+    const requestedBase = hitPool.find(
+      (hit) => detectArticleMatch(hit, ref) === "base"
+    );
+    const requestedBest =
+      requestedExact ?? requestedChild ?? requestedBase ?? null;
 
-    const candidates = new Map<string, { score: number; overlap: number; hits: RetrievalHit[] }>();
+    const candidates = new Map<
+      string,
+      { score: number; overlap: number; hits: RetrievalHit[] }
+    >();
     for (const hit of hitPool) {
       const candidateRef = extractHitReference(hit);
       if (!candidateRef || candidateRef === ref.normalized) continue;
-      const existing = candidates.get(candidateRef) ?? { score: 0, overlap: 0, hits: [] };
+      const existing = candidates.get(candidateRef) ?? {
+        score: 0,
+        overlap: 0,
+        hits: []
+      };
       const overlap = lexicalOverlapScore(question, hit);
-      existing.score += hit.score + overlap * 0.25 + (candidateRef.includes(".") ? 0.08 : 0);
+      existing.score +=
+        hit.score + overlap * 0.25 + (candidateRef.includes(".") ? 0.08 : 0);
       existing.overlap = Math.max(existing.overlap, overlap);
       if (existing.hits.length < 2) existing.hits.push(hit);
       candidates.set(candidateRef, existing);
     }
 
-    const topAlternative = Array.from(candidates.entries())
-      .sort(
-        (left, right) =>
-          right[1].score - left[1].score || right[1].overlap - left[1].overlap,
-      )[0];
+    const topAlternative = Array.from(candidates.entries()).sort(
+      (left, right) =>
+        right[1].score - left[1].score || right[1].overlap - left[1].overlap
+    )[0];
 
     const requestedScore = requestedBest?.score ?? 0;
     const requestedSimilarity = requestedBest?.similarity ?? 0;
-    const requestedOverlap = requestedBest ? lexicalOverlapScore(question, requestedBest) : 0;
+    const requestedOverlap = requestedBest
+      ? lexicalOverlapScore(question, requestedBest)
+      : 0;
     const alternativeWins = Boolean(
       topAlternative &&
-        (
-          !requestedBest ||
-          topAlternative[1].score >= requestedScore + 0.18 ||
-          (requestedSimilarity < 0.32 && topAlternative[1].score >= requestedScore + 0.08) ||
-          (topAlternative[1].overlap >= requestedOverlap + 0.2 && topAlternative[1].score >= requestedScore)
-        ),
+      (!requestedBest ||
+        topAlternative[1].score >= requestedScore + 0.18 ||
+        (requestedSimilarity < 0.32 &&
+          topAlternative[1].score >= requestedScore + 0.08) ||
+        (topAlternative[1].overlap >= requestedOverlap + 0.2 &&
+          topAlternative[1].score >= requestedScore))
     );
 
     if (
       topAlternative &&
       alternativeWins &&
-      (topAlternative[1].overlap >= 0.18 || topAlternative[1].score >= requestedScore + 0.22)
+      (topAlternative[1].overlap >= 0.18 ||
+        topAlternative[1].score >= requestedScore + 0.22)
     ) {
       const alternativeRef = topAlternative[0];
       return {
@@ -574,20 +654,23 @@ const buildReferenceResolutions = (
         note:
           `La referencia solicitada ${ref.normalized} no encaja bien con el contexto recuperado. ` +
           `La referencia juridica que mejor encaja con la pregunta es ${alternativeRef}. ` +
-          `Debe plantearse como una posible correccion prudente del usuario y explicarse sin afirmar que la referencia original es imposible.`,
+          `Debe plantearse como una posible correccion prudente del usuario y explicarse sin afirmar que la referencia original es imposible.`
       };
     }
 
     return {
       requested: ref,
       forcedHits: [requestedExact, requestedChild, requestedBase].filter(
-        (hit): hit is RetrievalHit => Boolean(hit),
+        (hit): hit is RetrievalHit => Boolean(hit)
       ),
-      note: null,
+      note: null
     };
   });
 
-const selectContextHits = (ranked: RetrievalHit[], resolutions: ReferenceResolution[]) => {
+const selectContextHits = (
+  ranked: RetrievalHit[],
+  resolutions: ReferenceResolution[]
+) => {
   const selected: RetrievalHit[] = [];
   const seen = new Set<string>();
 
@@ -599,17 +682,16 @@ const selectContextHits = (ranked: RetrievalHit[], resolutions: ReferenceResolut
     selected.push(hit);
   };
 
-  for (const resolution of resolutions) {
+  for (const resolution of resolutions)
     for (const hit of resolution.forcedHits) add(hit);
-  }
 
   const generalCandidates = ranked.filter(
-    (hit) => hit.source === "buscar_ley" || hit.article_matches.length === 0,
+    (hit) => hit.source === "buscar_ley" || hit.article_matches.length === 0
   );
   for (const hit of generalCandidates) {
     if (selected.length >= MAX_CONTEXT_HITS) break;
     const generalCount = selected.filter(
-      (row) => row.source === "buscar_ley" || row.article_matches.length === 0,
+      (row) => row.source === "buscar_ley" || row.article_matches.length === 0
     ).length;
     if (generalCount >= MIN_GENERAL_CONTEXT_HITS) break;
     add(hit);
@@ -627,17 +709,17 @@ const buildRetrievalNotes = (
   articleRefs: ArticleRef[],
   contextHits: RetrievalHit[],
   inferredLaw: ReturnType<typeof inferLawAlias>,
-  resolutions: ReferenceResolution[],
+  resolutions: ReferenceResolution[]
 ) => {
   const notes: string[] = [];
 
-  if (inferredLaw) {
-    notes.push(`Se ha priorizado ${inferredLaw.label} por la referencia detectada en la pregunta.`);
-  }
+  if (inferredLaw)
+    notes.push(
+      `Se ha priorizado ${inferredLaw.label} por la referencia detectada en la pregunta.`
+    );
 
-  for (const resolution of resolutions) {
+  for (const resolution of resolutions)
     if (resolution.note) notes.push(resolution.note);
-  }
 
   for (const ref of articleRefs) {
     const bestKind = contextHits.reduce<ArticleMatchKind>((current, hit) => {
@@ -648,11 +730,11 @@ const buildRetrievalNotes = (
 
     if (bestKind === "base" && ref.base && ref.base !== ref.normalized) {
       notes.push(
-        `No hubo coincidencia exacta para el articulo ${ref.normalized}; se recuperaron fragmentos del articulo base ${ref.base} y apartados relacionados.`,
+        `No hubo coincidencia exacta para el articulo ${ref.normalized}; se recuperaron fragmentos del articulo base ${ref.base} y apartados relacionados.`
       );
     } else if (bestKind === "none") {
       notes.push(
-        `No se recupero una coincidencia clara para el articulo ${ref.normalized}; la respuesta debe apoyarse solo en el contexto tematico encontrado.`,
+        `No se recupero una coincidencia clara para el articulo ${ref.normalized}; la respuesta debe apoyarse solo en el contexto tematico encontrado.`
       );
     }
   }
@@ -661,7 +743,8 @@ const buildRetrievalNotes = (
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response("ok", { headers: corsHeaders });
 
   if (req.method === "GET") {
     return json({
@@ -670,139 +753,178 @@ serve(async (req) => {
       search_mode: "rag_only",
       embedding_model: OPENROUTER_EMBEDDING_MODEL,
       embedding_dim: EMBEDDING_DIM,
-      has_openrouter_key: Boolean(OPENROUTER_API_KEY),
+      has_openrouter_key: Boolean(OPENROUTER_API_KEY)
     });
   }
 
   if (req.method !== "POST") return json({ code: "METHOD_NOT_ALLOWED" }, 405);
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return json({ code: "CONFIG_ERROR", message: "Missing Supabase env vars" }, 500);
-  }
-  if (!OPENROUTER_API_KEY) {
-    return json({ code: "CONFIG_ERROR", message: "Missing OPENROUTER_API_KEY" }, 500);
-  }
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY)
+    return json(
+      { code: "CONFIG_ERROR", message: "Missing Supabase env vars" },
+      500
+    );
+
+  if (!OPENROUTER_API_KEY)
+    return json(
+      { code: "CONFIG_ERROR", message: "Missing OPENROUTER_API_KEY" },
+      500
+    );
 
   let stage = "init";
 
   try {
     stage = "parse_body";
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const question = safeText(body.message ?? body.question ?? body.pregunta, MAX_MESSAGE_CHARS);
-    if (!question) {
-      return json({ code: "BAD_REQUEST", message: "Debes enviar message/question/pregunta" }, 400);
-    }
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    const question = safeText(
+      body.message ?? body.question ?? body.pregunta,
+      MAX_MESSAGE_CHARS
+    );
+    if (!question)
+      return json(
+        {
+          code: "BAD_REQUEST",
+          message: "Debes enviar message/question/pregunta"
+        },
+        400
+      );
 
     stage = "parse_history";
     const history = extractHistory(body.history);
     const contextualQuestion = buildContextualQuestion(question, history);
-    const articleRefs = extractArticleRefs(`${question}\n${contextualQuestion}`);
+    const articleRefs = extractArticleRefs(
+      `${question}\n${contextualQuestion}`
+    );
     const boeRefs = extractBoeRefs(`${question}\n${contextualQuestion}`);
     const inferredLaw = inferLawAlias(`${question}\n${contextualQuestion}`);
     const boeFilter = boeRefs[0] ?? inferredLaw?.boeId ?? null;
     const lawHint = inferredLaw?.hint ?? "";
 
-    const { semanticQueries, articleQueries, allQueries } = buildRetrievalQueries(
-      question,
-      contextualQuestion,
-      articleRefs,
-      lawHint,
-    );
+    const { semanticQueries, articleQueries, allQueries } =
+      buildRetrievalQueries(question, contextualQuestion, articleRefs, lawHint);
 
     stage = "bearer";
     const token = bearer(req.headers.get("Authorization"));
-    if (!token) return json({ code: "UNAUTHORIZED", message: "Missing bearer token" }, 401);
+    if (!token)
+      return json(
+        { code: "UNAUTHORIZED", message: "Missing bearer token" },
+        401
+      );
 
     stage = "supabase_client";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
+      auth: { persistSession: false, autoRefreshToken: false }
     });
 
     stage = "auth_get_user";
     const {
       data: { user },
-      error: authError,
+      error: authError
     } = await supabase.auth.getUser(token);
-    if (authError || !user) return json({ code: "UNAUTHORIZED", message: "Invalid session" }, 401);
+    if (authError || !user)
+      return json({ code: "UNAUTHORIZED", message: "Invalid session" }, 401);
 
     stage = "embedding_request";
     const emb = await callOpenRouter("/embeddings", {
       model: OPENROUTER_EMBEDDING_MODEL,
       input: allQueries,
       dimensions: EMBEDDING_DIM,
-      encoding_format: "float",
+      encoding_format: "float"
     });
 
     stage = "embedding_parse";
     const embData = (emb as Record<string, unknown>).data;
     if (!Array.isArray(embData) || embData.length !== allQueries.length) {
       throw new Error(
-        `Embeddings payload invalido: recibidos ${Array.isArray(embData) ? embData.length : 0}, esperados ${allQueries.length}`,
+        `Embeddings payload invalido: recibidos ${Array.isArray(embData) ? embData.length : 0}, esperados ${allQueries.length}`
       );
     }
 
     const embeddingsByQuery = new Map<string, number[]>();
     for (let index = 0; index < allQueries.length; index += 1) {
       const item = embData[index];
-      if (!item || typeof item !== "object") {
+      if (!item || typeof item !== "object")
         throw new Error(`Embeddings payload invalido en indice ${index}`);
-      }
-      const vector = validateEmbedding((item as Record<string, unknown>).embedding, index);
+
+      const vector = validateEmbedding(
+        (item as Record<string, unknown>).embedding,
+        index
+      );
       embeddingsByQuery.set(allQueries[index], vector);
     }
 
     stage = "rpc_buscar_ley";
     const semanticCalls = semanticQueries.map(async (query) => {
       const embedding = embeddingsByQuery.get(query);
-      if (!embedding) throw new Error(`Embedding no encontrado para query semantica: ${query}`);
+      if (!embedding)
+        throw new Error(
+          `Embedding no encontrado para query semantica: ${query}`
+        );
 
       const { data, error } = await supabase.rpc("buscar_ley", {
         query_embedding: embedding,
         match_threshold: LAW_MATCH_THRESHOLD,
         match_count: LAW_MATCH_COUNT,
         filter_id_boe: boeFilter,
-        filter_unit_type: null,
+        filter_unit_type: null
       });
 
       if (error) throw new Error(`buscar_ley failed: ${error.message}`);
-      return normalizeRpcRows((data ?? []) as Array<Record<string, unknown>>, "buscar_ley");
+      return normalizeRpcRows(
+        (data ?? []) as Array<Record<string, unknown>>,
+        "buscar_ley"
+      );
     });
 
     stage = "rpc_buscar_articulos";
     const articleCalls = articleQueries.map(async (item) => {
       const embedding = embeddingsByQuery.get(item.query);
-      if (!embedding) throw new Error(`Embedding no encontrado para query de articulo: ${item.query}`);
+      if (!embedding)
+        throw new Error(
+          `Embedding no encontrado para query de articulo: ${item.query}`
+        );
 
       const { data, error } = await supabase.rpc("buscar_articulos", {
         query_embedding: embedding,
         match_threshold: ARTICLE_MATCH_THRESHOLD,
         match_count: ARTICLE_MATCH_COUNT,
         filter_id_boe: boeFilter,
-        filter_article: item.filter,
+        filter_article: item.filter
       });
 
       if (error) throw new Error(`buscar_articulos failed: ${error.message}`);
       return {
         ...item,
-        hits: normalizeRpcRows((data ?? []) as Array<Record<string, unknown>>, "buscar_articulos"),
+        hits: normalizeRpcRows(
+          (data ?? []) as Array<Record<string, unknown>>,
+          "buscar_articulos"
+        )
       };
     });
 
     const semanticResults = (await Promise.all(semanticCalls)).flat();
     const articleResults = await Promise.all(articleCalls);
-    const ranked = mergeAndRankHits(semanticResults, articleResults, articleRefs, boeFilter);
+    const ranked = mergeAndRankHits(
+      semanticResults,
+      articleResults,
+      articleRefs,
+      boeFilter
+    );
     const referenceResolutions = buildReferenceResolutions(
       question,
       ranked,
       articleRefs,
-      articleResults,
+      articleResults
     );
     const contextHits = selectContextHits(ranked, referenceResolutions);
     const retrievalNotes = buildRetrievalNotes(
       articleRefs,
       contextHits,
       inferredLaw,
-      referenceResolutions,
+      referenceResolutions
     );
 
     const debug = {
@@ -813,20 +935,26 @@ serve(async (req) => {
       queries: {
         total: allQueries.length,
         semantic: semanticQueries.length,
-        article: articleQueries.length,
+        article: articleQueries.length
       },
       refs: {
         boe: boeRefs,
         inferred_boe: inferredLaw?.boeId ?? null,
-        article: articleRefs.map((ref) => ({ requested: ref.normalized, base: ref.base })),
+        article: articleRefs.map((ref) => ({
+          requested: ref.normalized,
+          base: ref.base
+        }))
       },
       hits: {
         semantic_raw: semanticResults.length,
-        article_raw: articleResults.reduce((acc, item) => acc + item.hits.length, 0),
+        article_raw: articleResults.reduce(
+          (acc, item) => acc + item.hits.length,
+          0
+        ),
         ranked: ranked.length,
-        context: contextHits.length,
+        context: contextHits.length
       },
-      notes: retrievalNotes,
+      notes: retrievalNotes
     };
 
     if (contextHits.length === 0) {
@@ -837,7 +965,7 @@ serve(async (req) => {
         citations: [],
         refused: true,
         mindMap: false,
-        ...(body.debug === true ? { debug } : {}),
+        ...(body.debug === true ? { debug } : {})
       });
     }
 
@@ -856,29 +984,35 @@ serve(async (req) => {
       similarity: hit.similarity,
       score: hit.score,
       source: hit.source,
-      article_matches: hit.article_matches,
+      article_matches: hit.article_matches
     }));
 
     let contextBudget = MAX_TOTAL_CONTEXT_CHARS;
     const context = contextHits
       .map((hit, index) => {
         if (contextBudget <= 0) return "";
-        const title = hit.articulo_num || hit.titulo_ley || `Fragmento ${index + 1}`;
+        const title =
+          hit.articulo_num || hit.titulo_ley || `Fragmento ${index + 1}`;
         const meta = [
           hit.titulo_ley ? `Norma: ${hit.titulo_ley}` : "",
           hit.unit_type ? `Tipo: ${hit.unit_type}` : "",
           hit.unit_id ? `Unidad: ${hit.unit_id}` : "",
           hit.apartado_path ? `Ruta: ${hit.apartado_path}` : "",
           hit.fecha_vigencia ? `Vigencia: ${hit.fecha_vigencia}` : "",
-          hit.fecha_actualizacion ? `Actualizacion: ${hit.fecha_actualizacion}` : "",
-          hit.eli ? `ELI: ${hit.eli}` : "",
+          hit.fecha_actualizacion
+            ? `Actualizacion: ${hit.fecha_actualizacion}`
+            : "",
+          hit.eli ? `ELI: ${hit.eli}` : ""
         ]
           .filter(Boolean)
           .join(" | ");
         const contentLimit = hit.article_matches.length > 0 ? 3200 : 1500;
         const available = Math.max(0, contextBudget - 400);
         if (available <= 0) return "";
-        const content = safeText(hit.contenido, Math.min(contentLimit, available));
+        const content = safeText(
+          hit.contenido,
+          Math.min(contentLimit, available)
+        );
         const block = `Contexto ${index + 1}\nTitulo: ${title}\n${meta}\nContenido:\n${content}`;
         contextBudget = Math.max(0, contextBudget - block.length);
         return block;
@@ -929,7 +1063,7 @@ serve(async (req) => {
             `- Dar respuestas larguisimas cuando la pregunta es simple.\n` +
             `- Ignorar errores en las referencias del usuario; corrigelos siempre con tacto.\n` +
             `- Repetir la pregunta del usuario antes de responder.\n\n` +
-            `El historial es solo contexto conversacional auxiliar.`,
+            `El historial es solo contexto conversacional auxiliar.`
         },
         {
           role: "user",
@@ -937,9 +1071,9 @@ serve(async (req) => {
             `Historial auxiliar:\n${history.map((item) => `${item.role}: ${item.text}`).join("\n") || "(sin historial)"}\n\n` +
             `Notas de recuperacion:\n${retrievalNotes.join("\n") || "(sin notas)"}\n\n` +
             `Pregunta:\n${question}\n\n` +
-            `Contexto juridico recuperado:\n${context}`,
-        },
-      ],
+            `Contexto juridico recuperado:\n${context}`
+        }
+      ]
     });
 
     stage = "chat_parse";
@@ -956,8 +1090,8 @@ serve(async (req) => {
         new Set(
           contextHits
             .map((hit) => hit.articulo_num || hit.titulo_ley || hit.id_boe)
-            .filter((value): value is string => Boolean(value)),
-        ),
+            .filter((value): value is string => Boolean(value))
+        )
       ).slice(0, 4);
       answer =
         `Si hay contexto recuperado en RAG (${labels.join(", ")}), pero no suficiente para cubrir toda la pregunta con precision completa. ` +
@@ -973,18 +1107,19 @@ serve(async (req) => {
       citations,
       refused: answer === REFUSAL_MESSAGE,
       mindMap: false,
-      ...(body.debug === true ? { debug } : {}),
+      ...(body.debug === true ? { debug } : {})
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown ask failure";
+    const message =
+      error instanceof Error ? error.message : "Unknown ask failure";
     console.error("[ask:error]", { stage, message });
     return json(
       {
         code: "ASK_FAILED",
         stage,
-        message,
+        message
       },
-      502,
+      502
     );
   }
 });

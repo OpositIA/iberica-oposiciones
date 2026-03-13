@@ -48,7 +48,9 @@ const AppLoading = ({
         <div className="space-y-1.5">
           <h2 className="text-sm font-medium text-foreground">{label}</h2>
           {description ? (
-            <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              {description}
+            </p>
           ) : null}
         </div>
       </div>

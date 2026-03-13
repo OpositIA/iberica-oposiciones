@@ -23,6 +23,26 @@ export type OppositionOption = {
   body: string;
 };
 
+type OppositionSyllabusRow = {
+  id: number;
+  raw_text: string | null;
+};
+
+type OppositionTopicRow = {
+  id: number;
+  topic_code: string;
+  topic_title: string | null;
+  order_index: number;
+};
+
+type OppositionSubtopicRow = {
+  opposition_topic_id: number;
+  subtopic_code: string;
+  subtopic_title: string | null;
+  section_title: string | null;
+  order_index: number;
+};
+
 type ResolveOppositionParams = {
   preferredOppositionId: string | null | undefined;
   preferredOppositionName: string | null | undefined;
@@ -129,10 +149,9 @@ export const fetchOppositionById = async (
   if (!normalizedId) return null;
 
   const locale = normalizeLocale(localeValue);
-  const untypedSupabase = supabase as any;
   await ensureOppositionNamespace();
 
-  const { data: oppositionRow, error: oppositionError } = await untypedSupabase
+  const { data: oppositionRow, error: oppositionError } = await supabase
     .from("oppositions")
     .select("id")
     .eq("id", normalizedId)
@@ -141,26 +160,29 @@ export const fetchOppositionById = async (
 
   if (oppositionError || !oppositionRow) return null;
 
-  const { data: currentSyllabusRow } = await untypedSupabase
-    .from("opposition_syllabi")
+  const { data: currentSyllabusRow } = await supabase
+    .from("opposition_syllabi" as never)
     .select("id")
     .eq("opposition_id", normalizedId)
     .eq("is_current", true)
-    .maybeSingle();
+    .maybeSingle()
+    .overrideTypes<Pick<OppositionSyllabusRow, "id">, { merge: false }>();
 
   const { data: topicRows } = currentSyllabusRow
-    ? await untypedSupabase
+    ? await supabase
         .from("opposition_topics")
         .select("id, topic_code, topic_title, order_index")
         .eq("syllabus_id", currentSyllabusRow.id)
         .order("order_index", { ascending: true })
         .order("id", { ascending: true })
-    : await untypedSupabase
+        .overrideTypes<OppositionTopicRow[], { merge: false }>()
+    : await supabase
         .from("opposition_topics")
         .select("id, topic_code, topic_title, order_index")
         .eq("opposition_id", normalizedId)
         .order("order_index", { ascending: true })
-        .order("id", { ascending: true });
+        .order("id", { ascending: true })
+        .overrideTypes<OppositionTopicRow[], { merge: false }>();
 
   const topicIds = (topicRows ?? []).map((row) => row.id);
   const topicCodeById = new Map(
@@ -168,7 +190,7 @@ export const fetchOppositionById = async (
   );
   const { data: subtopicRows } =
     topicIds.length > 0
-      ? await untypedSupabase
+      ? await supabase
           // Supabase generated TS types are stale versus the real schema.
           // Use the runtime columns already verified in the database.
           .from("opposition_subtopics")
@@ -178,24 +200,23 @@ export const fetchOppositionById = async (
           .in("opposition_topic_id", topicIds)
           .order("order_index", { ascending: true })
           .order("id", { ascending: true })
+          .overrideTypes<OppositionSubtopicRow[], { merge: false }>()
       : {
-          data: [] as Array<{
-            opposition_topic_id: number;
-            subtopic_code: string;
-            subtopic_title: string | null;
-            section_title: string | null;
-            order_index: number;
-          }>
+          data: [] as OppositionSubtopicRow[]
         };
 
-  const { data: paidSyllabusContentRows } = await untypedSupabase
-    .from("opposition_syllabi")
+  const { data: paidSyllabusContentRows } = await supabase
+    .from("opposition_syllabi" as never)
     .select("raw_text")
     .eq("opposition_id", normalizedId)
     .eq("is_current", true)
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("extracted_at", { ascending: false })
-    .limit(1);
+    .limit(1)
+    .overrideTypes<
+      Pick<OppositionSyllabusRow, "raw_text">[],
+      { merge: false }
+    >();
 
   const paidSyllabusContent = String(
     paidSyllabusContentRows?.[0]?.raw_text ?? ""
@@ -205,9 +226,9 @@ export const fetchOppositionById = async (
   const sectionTitleByTopicId = new Map<number, string>();
   (subtopicRows ?? []).forEach((row) => {
     const sectionTitle = String(row.section_title ?? "").trim();
-    if (sectionTitle && !sectionTitleByTopicId.has(row.opposition_topic_id)) 
+    if (sectionTitle && !sectionTitleByTopicId.has(row.opposition_topic_id))
       sectionTitleByTopicId.set(row.opposition_topic_id, sectionTitle);
-    
+
     if (!subtopicsByTopicId.has(row.opposition_topic_id))
       subtopicsByTopicId.set(row.opposition_topic_id, []);
     subtopicsByTopicId
@@ -223,20 +244,22 @@ export const fetchOppositionById = async (
       );
   });
 
-  const temasDetalle = (topicRows ?? []).map((row) => ({
-    code: row.topic_code,
-    title:
-      String(row.topic_title ?? "").trim() ||
-      translateTopic(locale, oppositionRow.id, row.topic_code),
-    displayTitle: "",
-    sectionTitle: sectionTitleByTopicId.get(row.id) ?? null,
-    subtopics: subtopicsByTopicId.get(row.id) ?? []
-  })).map((topic) => ({
-    ...topic,
-    displayTitle: topic.sectionTitle
-      ? `${topic.title}. ${topic.sectionTitle}`
-      : topic.title
-  }));
+  const temasDetalle = (topicRows ?? [])
+    .map((row) => ({
+      code: row.topic_code,
+      title:
+        String(row.topic_title ?? "").trim() ||
+        translateTopic(locale, oppositionRow.id, row.topic_code),
+      displayTitle: "",
+      sectionTitle: sectionTitleByTopicId.get(row.id) ?? null,
+      subtopics: subtopicsByTopicId.get(row.id) ?? []
+    }))
+    .map((topic) => ({
+      ...topic,
+      displayTitle: topic.sectionTitle
+        ? `${topic.title}. ${topic.sectionTitle}`
+        : topic.title
+    }));
 
   return {
     id: oppositionRow.id,
