@@ -6,8 +6,8 @@ import {
   AccordionItem,
   AccordionTrigger
 } from "@/components/ui/accordion";
-import { type Oposicion } from "@/data/oposicionesDb";
 import CustomButton from "@/components/ui/custom-button";
+import { type Oposicion } from "@/data/oposicionesDb";
 import { isPaidPlan } from "@/lib/plans";
 import { usePreferredOppositionQuery } from "@/queries/profileQueries";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
@@ -55,9 +55,7 @@ const ProfileTemario = () => {
     }));
   }, [oposicionActiva.temas, oposicionActiva.temasDetalle]);
 
-  if (isLoadingOpposition) {
-    return <AppLoading label={t("syllabus.loading")} />;
-  }
+  if (isLoadingOpposition) return <AppLoading label={t("syllabus.loading")} />;
 
   return (
     <div className="space-y-4">

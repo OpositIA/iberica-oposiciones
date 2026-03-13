@@ -4,8 +4,9 @@ import { XMLParser } from "https://esm.sh/fast-xml-parser@4.5.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-edge-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, content-type, apikey, x-edge-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const parser = new XMLParser({
@@ -14,23 +15,29 @@ const parser = new XMLParser({
   removeNSPrefix: true,
   trimValues: true,
   parseTagValue: false,
-  processEntities: true,
+  processEntities: true
 });
 
-const OPENROUTER_BASE_URL = Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
+const OPENROUTER_BASE_URL =
+  Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
 const OPENROUTER_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
-const OPENROUTER_APP_URL = Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
-const OPENROUTER_APP_NAME = Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
-const OPENROUTER_TIMEOUT_MS = Math.max(5000, Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "45000"));
+const OPENROUTER_APP_URL =
+  Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+const OPENROUTER_APP_NAME =
+  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
+const OPENROUTER_TIMEOUT_MS = Math.max(
+  5000,
+  Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "45000")
+);
 const EMBEDDING_DIM = 4096;
 const EMBEDDING_BATCH_SIZE = Math.max(
   1,
-  Math.min(64, Number(Deno.env.get("OPENROUTER_EMBEDDING_BATCH_SIZE") ?? "8")),
+  Math.min(64, Number(Deno.env.get("OPENROUTER_EMBEDDING_BATCH_SIZE") ?? "8"))
 );
 const UPSERT_BATCH_SIZE = 100;
 const MAX_CHUNKS_PER_RUN_DEFAULT = Math.max(
   1,
-  Math.min(200, Number(Deno.env.get("SYNC_LAWS_MAX_CHUNKS_PER_RUN") ?? "200")),
+  Math.min(200, Number(Deno.env.get("SYNC_LAWS_MAX_CHUNKS_PER_RUN") ?? "200"))
 );
 
 const json = (body: unknown, status = 200) =>
@@ -38,15 +45,20 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const safeText = (value: unknown, max = 5000) => {
-  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return "";
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  )
+    return "";
   return String(value)
     .replace(/\r\n?/g, "\n")
     .replace(/[\u0000-\u001F\u007F]/g, "")
@@ -69,13 +81,20 @@ const asArray = <T>(value: T | T[] | null | undefined): T[] =>
 
 function textContent(value: unknown): string {
   if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  )
     return String(value).trim();
-  }
 
-  if (Array.isArray(value)) {
-    return normalizeText(value.map((item) => textContent(item)).filter(Boolean).join(" "));
-  }
+  if (Array.isArray(value))
+    return normalizeText(
+      value
+        .map((item) => textContent(item))
+        .filter(Boolean)
+        .join(" ")
+    );
 
   if (!isRecord(value)) return "";
 
@@ -88,7 +107,11 @@ function textContent(value: unknown): string {
   return normalizeText(parts.join(" "));
 }
 
-function collectByKey(value: unknown, targetKey: string, out: Record<string, unknown>[]): void {
+function collectByKey(
+  value: unknown,
+  targetKey: string,
+  out: Record<string, unknown>[]
+): void {
   if (Array.isArray(value)) {
     for (const item of value) collectByKey(item, targetKey, out);
     return;
@@ -97,16 +120,18 @@ function collectByKey(value: unknown, targetKey: string, out: Record<string, unk
   if (!isRecord(value)) return;
   for (const [key, child] of Object.entries(value)) {
     if (key === targetKey) {
-      for (const item of asArray(child)) {
-        if (isRecord(item)) out.push(item);
-      }
+      for (const item of asArray(child)) if (isRecord(item)) out.push(item);
     }
 
     if (!key.startsWith("@_")) collectByKey(child, targetKey, out);
   }
 }
 
-function collectTextsByKey(value: unknown, targetKey: string, out: string[]): void {
+function collectTextsByKey(
+  value: unknown,
+  targetKey: string,
+  out: string[]
+): void {
   if (Array.isArray(value)) {
     for (const item of value) collectTextsByKey(item, targetKey, out);
     return;
@@ -155,15 +180,21 @@ function findFirstTextByKeys(value: unknown, keys: Set<string>): string | null {
 const normalizeDateToIso = (value: string | null): string | null => {
   const raw = safeText(value, 20);
   if (!raw) return null;
-  if (/^\d{8}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  if (/^\d{8}$/.test(raw))
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
   const m = raw.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
   if (!m) return null;
   return `${m[1]}-${m[2]}-${m[3]}`;
 };
 
-const sanitizeCode = (value: unknown, max = 80) => safeText(value, max).replace(/[^A-Za-z0-9._:-]/g, "");
+const sanitizeCode = (value: unknown, max = 80) =>
+  safeText(value, max).replace(/[^A-Za-z0-9._:-]/g, "");
 
-function splitIntoChunks(text: string, maxChars = 7000, overlap = 800): string[] {
+function splitIntoChunks(
+  text: string,
+  maxChars = 7000,
+  overlap = 800
+): string[] {
   const normalized = normalizeText(text);
   if (!normalized) return [];
   if (normalized.length <= maxChars) return [normalized];
@@ -184,9 +215,10 @@ function splitIntoChunks(text: string, maxChars = 7000, overlap = 800): string[]
     }
 
     chunks.push(current);
-    current = overlap > 0 && current.length > overlap
-      ? `${current.slice(-overlap)} ${word}`.trim()
-      : word;
+    current =
+      overlap > 0 && current.length > overlap
+        ? `${current.slice(-overlap)} ${word}`.trim()
+        : word;
   }
 
   if (current) chunks.push(current);
@@ -196,7 +228,9 @@ function splitIntoChunks(text: string, maxChars = 7000, overlap = 800): string[]
 async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function parseXml(xmlText: string): Record<string, unknown> {
@@ -213,17 +247,18 @@ async function fetchTextWithRetry(url: string): Promise<string> {
       const response = await fetch(url, {
         headers: {
           Accept: "application/xml,text/xml,*/*",
-          "User-Agent": "study-brilliance-law-sync/1.0",
-        },
+          "User-Agent": "study-brilliance-law-sync/1.0"
+        }
       });
 
       if (response.status === 404) throw new Error(`404 Not Found: ${url}`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      if (!response.ok)
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
       return await response.text();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (lastError.message.includes("404 Not Found")) throw lastError;
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** attempt)));
+      await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
     }
   }
 
@@ -232,13 +267,29 @@ async function fetchTextWithRetry(url: string): Promise<string> {
 
 type SyncTarget = { boeId: string; label: string };
 type ParagraphNode = { text: string; className: string | null };
-type LawUnit = { unitId: string; unitTitle: string; content: string; paragraphs: ParagraphNode[] };
-type Chunk = { chunkIndex: number; title: string; content: string; contentHash: string; metadata: Record<string, unknown> };
+type LawUnit = {
+  unitId: string;
+  unitTitle: string;
+  content: string;
+  paragraphs: ParagraphNode[];
+};
+type Chunk = {
+  chunkIndex: number;
+  title: string;
+  content: string;
+  contentHash: string;
+  metadata: Record<string, unknown>;
+};
 
-const ARTICLE_REFERENCE_RE = /\barticulo\s+(\d+(?:[.,]\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies))?)/i;
+const ARTICLE_REFERENCE_RE =
+  /\barticulo\s+(\d+(?:[.,]\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies))?)/i;
 const PARAGRAPH_REFERENCE_RE = /^(\d+)\.\s*(.*)$/;
 
-function collectParagraphNodes(value: unknown, out: ParagraphNode[], insideNote = false): void {
+function collectParagraphNodes(
+  value: unknown,
+  out: ParagraphNode[],
+  insideNote = false
+): void {
   if (Array.isArray(value)) {
     for (const item of value) collectParagraphNodes(item, out, insideNote);
     return;
@@ -253,28 +304,36 @@ function collectParagraphNodes(value: unknown, out: ParagraphNode[], insideNote 
       for (const item of asArray(child)) {
         const text = normalizeText(textContent(item));
         if (!text) continue;
-        const className = isRecord(item) ? safeText(item["@_class"], 80) || null : null;
-        if (nextInsideNote || (className && /^nota_/i.test(className))) continue;
+        const className = isRecord(item)
+          ? safeText(item["@_class"], 80) || null
+          : null;
+        if (nextInsideNote || (className && /^nota_/i.test(className)))
+          continue;
         out.push({ text, className });
       }
     }
 
-    if (!key.startsWith("@_")) collectParagraphNodes(child, out, nextInsideNote);
+    if (!key.startsWith("@_"))
+      collectParagraphNodes(child, out, nextInsideNote);
   }
 }
 
-function selectLatestVersionNode(value: unknown): Record<string, unknown> | null {
+function selectLatestVersionNode(
+  value: unknown
+): Record<string, unknown> | null {
   const versions: Record<string, unknown>[] = [];
   collectByKey(value, "version", versions);
   if (versions.length === 0) return null;
 
   const sortable = versions.map((node, idx) => {
     const vigencia = normalizeDateToIso(safeText(node["@_fecha_vigencia"], 20));
-    const publicacion = normalizeDateToIso(safeText(node["@_fecha_publicacion"], 20));
+    const publicacion = normalizeDateToIso(
+      safeText(node["@_fecha_publicacion"], 20)
+    );
     return {
       node,
       idx,
-      sortDate: vigencia || publicacion || "0000-00-00",
+      sortDate: vigencia || publicacion || "0000-00-00"
     };
   });
 
@@ -310,22 +369,33 @@ const chunkUnitIdForParagraph = (unitId: string, paragraphRef: string) =>
 function createServiceClient() {
   const url = Deno.env.get("SUPABASE_URL")?.trim();
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
-  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key)
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-async function getRuntimeSecret(supabase: ReturnType<typeof createServiceClient>, name: string): Promise<string | null> {
-  const { data, error } = await supabase.rpc("get_runtime_secret", { p_name: name });
-  if (error) throw new Error(`get_runtime_secret(${name}) failed: ${error.message}`);
+async function getRuntimeSecret(
+  supabase: ReturnType<typeof createServiceClient>,
+  name: string
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("get_runtime_secret", {
+    p_name: name
+  });
+  if (error)
+    throw new Error(`get_runtime_secret(${name}) failed: ${error.message}`);
   return typeof data === "string" && data.trim() ? data.trim() : null;
 }
 
-async function ensureEdgeSecret(req: Request, supabase: ReturnType<typeof createServiceClient>): Promise<Response | null> {
+async function ensureEdgeSecret(
+  req: Request,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<Response | null> {
   const expected = await getRuntimeSecret(supabase, "rag_edge_secret");
   if (!expected) return json({ error: "Missing rag_edge_secret" }, 500);
 
   const received = req.headers.get("x-edge-secret")?.trim();
-  if (!received || received !== expected) return json({ error: "Unauthorized (x-edge-secret)" }, 401);
+  if (!received || received !== expected)
+    return json({ error: "Unauthorized (x-edge-secret)" }, 401);
   return null;
 }
 
@@ -333,7 +403,7 @@ async function getTargets(
   supabase: ReturnType<typeof createServiceClient>,
   boeIds: string[],
   cursorBoeId: string | null,
-  maxLaws: number,
+  maxLaws: number
 ): Promise<{ targets: SyncTarget[]; hasMore: boolean }> {
   const cleanIds = boeIds.map((v) => sanitizeCode(v, 40)).filter(Boolean);
 
@@ -346,11 +416,14 @@ async function getTargets(
 
     if (error) throw new Error(`Load explicit laws failed: ${error.message}`);
     const byId = new Map<string, string>();
-    for (const row of data ?? []) byId.set(String(row.boe_id), String(row.label));
+    for (const row of data ?? [])
+      byId.set(String(row.boe_id), String(row.label));
 
     return {
-      targets: cleanIds.filter((id) => byId.has(id)).map((id) => ({ boeId: id, label: byId.get(id) ?? id })),
-      hasMore: false,
+      targets: cleanIds
+        .filter((id) => byId.has(id))
+        .map((id) => ({ boeId: id, label: byId.get(id) ?? id })),
+      hasMore: false
     };
   }
 
@@ -367,12 +440,17 @@ async function getTargets(
 
   const rows = data ?? [];
   return {
-    targets: rows.slice(0, maxLaws).map((row) => ({ boeId: String(row.boe_id), label: String(row.label) })),
-    hasMore: rows.length > maxLaws,
+    targets: rows
+      .slice(0, maxLaws)
+      .map((row) => ({ boeId: String(row.boe_id), label: String(row.label) })),
+    hasMore: rows.length > maxLaws
   };
 }
 
-async function callOpenRouterEmbeddings(apiKey: string, texts: string[]): Promise<number[][]> {
+async function callOpenRouterEmbeddings(
+  apiKey: string,
+  texts: string[]
+): Promise<number[][]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
 
@@ -383,36 +461,42 @@ async function callOpenRouterEmbeddings(apiKey: string, texts: string[]): Promis
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
         "HTTP-Referer": OPENROUTER_APP_URL,
-        "X-Title": OPENROUTER_APP_NAME,
+        "X-Title": OPENROUTER_APP_NAME
       },
       body: JSON.stringify({
         model: OPENROUTER_EMBEDDING_MODEL,
         input: texts,
-        dimensions: EMBEDDING_DIM,
+        dimensions: EMBEDDING_DIM
       }),
-      signal: controller.signal,
+      signal: controller.signal
     });
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       const p = isRecord(payload) ? payload : {};
       const e = isRecord(p.error) ? p.error : {};
-      const detail = safeText(e.message, 500) || safeText(p.message, 500) || `HTTP ${response.status}`;
+      const detail =
+        safeText(e.message, 500) ||
+        safeText(p.message, 500) ||
+        `HTTP ${response.status}`;
       throw new Error(`OpenRouter embeddings failed: ${detail}`);
     }
 
-    if (!isRecord(payload) || !Array.isArray(payload.data)) {
+    if (!isRecord(payload) || !Array.isArray(payload.data))
       throw new Error("OpenRouter embeddings payload invalido");
-    }
 
     const byIndex = new Map<number, number[]>();
     for (let i = 0; i < payload.data.length; i += 1) {
       const item = payload.data[i];
-      if (!isRecord(item) || !Array.isArray(item.embedding)) throw new Error("OpenRouter item invalido");
+      if (!isRecord(item) || !Array.isArray(item.embedding))
+        throw new Error("OpenRouter item invalido");
       const vector = item.embedding.map((v) => Number(v));
-      if (vector.length !== EMBEDDING_DIM || vector.some((v) => !Number.isFinite(v))) {
+      if (
+        vector.length !== EMBEDDING_DIM ||
+        vector.some((v) => !Number.isFinite(v))
+      )
         throw new Error(`Embedding invalido: dim=${vector.length}`);
-      }
+
       const index = typeof item.index === "number" ? Math.floor(item.index) : i;
       byIndex.set(index, vector);
     }
@@ -425,49 +509,60 @@ async function callOpenRouterEmbeddings(apiKey: string, texts: string[]): Promis
     }
     return ordered;
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new Error("OpenRouter embeddings timeout");
+    if (error instanceof Error && error.name === "AbortError")
+      throw new Error("OpenRouter embeddings timeout");
     throw error;
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-async function embedWithRetry(apiKey: string, texts: string[]): Promise<number[][]> {
+async function embedWithRetry(
+  apiKey: string,
+  texts: string[]
+): Promise<number[][]> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       return await callOpenRouterEmbeddings(apiKey, texts);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      await new Promise((resolve) => setTimeout(resolve, 1200 * (2 ** attempt)));
+      await new Promise((resolve) => setTimeout(resolve, 1200 * 2 ** attempt));
     }
   }
-  throw new Error(`OpenRouter embeddings retry failed: ${lastError?.message ?? "unknown"}`);
+  throw new Error(
+    `OpenRouter embeddings retry failed: ${lastError?.message ?? "unknown"}`
+  );
 }
 
 async function fetchLawData(target: SyncTarget) {
   const boeId = target.boeId;
 
   const metadataXml = await fetchTextWithRetry(
-    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`,
+    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`
   );
   const metadataRoot = parseXml(metadataXml);
 
   const title = findFirstTextByKeys(metadataRoot, new Set(["titulo"])) || boeId;
-  const fechaActualizacion = findFirstTextByKeys(metadataRoot, new Set(["fecha_actualizacion"]));
-  const fechaVigencia = normalizeDateToIso(
-    findFirstTextByKeys(metadataRoot, new Set(["fecha_vigencia"])),
-  ) || "";
-  const fechaPublicacion = normalizeDateToIso(
-    findFirstTextByKeys(metadataRoot, new Set(["fecha_publicacion"])),
-  ) || "";
+  const fechaActualizacion = findFirstTextByKeys(
+    metadataRoot,
+    new Set(["fecha_actualizacion"])
+  );
+  const fechaVigencia =
+    normalizeDateToIso(
+      findFirstTextByKeys(metadataRoot, new Set(["fecha_vigencia"]))
+    ) || "";
+  const fechaPublicacion =
+    normalizeDateToIso(
+      findFirstTextByKeys(metadataRoot, new Set(["fecha_publicacion"]))
+    ) || "";
   const urlNorma =
     findFirstTextByKeys(metadataRoot, new Set(["url_html_consolidada"])) ||
     `https://www.boe.es/buscar/act.php?id=${encodeURIComponent(boeId)}`;
   const eli = findFirstTextByKeys(metadataRoot, new Set(["eli"])) || "";
 
   const indexXml = await fetchTextWithRetry(
-    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/texto/indice`,
+    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/texto/indice`
   );
   const indexRoot = parseXml(indexXml);
 
@@ -482,7 +577,8 @@ async function fetchLawData(target: SyncTarget) {
     if (!id || seen.has(id)) continue;
     seen.add(id);
 
-    const blockTitle = textContent(block.titulo) || safeText(block["@_titulo"], 250) || id;
+    const blockTitle =
+      textContent(block.titulo) || safeText(block["@_titulo"], 250) || id;
     const blockUrl =
       textContent(block.url) ||
       `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/texto/bloque/${encodeURIComponent(id)}`;
@@ -499,22 +595,30 @@ async function fetchLawData(target: SyncTarget) {
       const currentVersion = selectLatestVersionNode(blockRoot) ?? blockRoot;
       const paragraphs: ParagraphNode[] = [];
       collectParagraphNodes(currentVersion, paragraphs);
-      const content = normalizeText(paragraphs.map((item) => item.text).join("\n"));
+      const content = normalizeText(
+        paragraphs.map((item) => item.text).join("\n")
+      );
       if (!content) continue;
-      unitTexts.push({ unitId: block.id, unitTitle: block.title, content, paragraphs });
+      unitTexts.push({
+        unitId: block.id,
+        unitTitle: block.title,
+        content,
+        paragraphs
+      });
     } catch (error) {
       console.warn(
         JSON.stringify({
           msg: "sync_block_error",
           boe_id: boeId,
           block_id: block.id,
-          error: error instanceof Error ? error.message : String(error),
-        }),
+          error: error instanceof Error ? error.message : String(error)
+        })
       );
     }
   }
 
-  if (unitTexts.length === 0) throw new Error(`No content extracted for ${boeId}`);
+  if (unitTexts.length === 0)
+    throw new Error(`No content extracted for ${boeId}`);
 
   return {
     boeId,
@@ -527,17 +631,19 @@ async function fetchLawData(target: SyncTarget) {
     urlNorma,
     eli,
     units: unitTexts,
-    blocksTotal: blocks.length,
+    blocksTotal: blocks.length
   };
 }
 
-async function buildChunks(law: Awaited<ReturnType<typeof fetchLawData>>): Promise<Chunk[]> {
+async function buildChunks(
+  law: Awaited<ReturnType<typeof fetchLawData>>
+): Promise<Chunk[]> {
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
   const pushChunk = async (
     title: string,
     content: string,
-    metadata: Record<string, unknown>,
+    metadata: Record<string, unknown>
   ) => {
     const normalizedContent = normalizeText(content);
     if (!normalizedContent) return;
@@ -549,44 +655,52 @@ async function buildChunks(law: Awaited<ReturnType<typeof fetchLawData>>): Promi
       metadata: {
         boe_id: law.boeId,
         titulo_ley: law.title,
-        ...metadata,
-      },
+        ...metadata
+      }
     });
     chunkIndex += 1;
   };
 
   for (const unit of law.units) {
-    const articleRef = extractArticleRef(unit.unitTitle) ?? extractArticleRef(unit.content);
+    const articleRef =
+      extractArticleRef(unit.unitTitle) ?? extractArticleRef(unit.content);
 
     if (!articleRef) {
       const parts = splitIntoChunks(unit.content, 4500, 300);
       for (let i = 0; i < parts.length; i += 1) {
         await pushChunk(
-          parts.length === 1 ? unit.unitTitle : `${unit.unitTitle} (${i + 1}/${parts.length})`,
+          parts.length === 1
+            ? unit.unitTitle
+            : `${unit.unitTitle} (${i + 1}/${parts.length})`,
           `${unit.unitTitle}\n${parts[i]}`,
           {
             unit_id: unit.unitId,
             unit_type: "estructura",
             article: unit.unitTitle,
-            apartado_path: unit.unitId,
-          },
+            apartado_path: unit.unitId
+          }
         );
       }
       continue;
     }
 
-    const articleContent = [unit.unitTitle, ...unit.paragraphs.map((item) => item.text)].join("\n");
+    const articleContent = [
+      unit.unitTitle,
+      ...unit.paragraphs.map((item) => item.text)
+    ].join("\n");
     const articleParts = splitIntoChunks(articleContent, 5500, 250);
     for (let i = 0; i < articleParts.length; i += 1) {
       await pushChunk(
-        articleParts.length === 1 ? unit.unitTitle : `${unit.unitTitle} (${i + 1}/${articleParts.length})`,
+        articleParts.length === 1
+          ? unit.unitTitle
+          : `${unit.unitTitle} (${i + 1}/${articleParts.length})`,
         articleParts[i],
         {
           unit_id: unit.unitId,
           unit_type: "article",
           article: articleRef,
-          apartado_path: articleRef,
-        },
+          apartado_path: articleRef
+        }
       );
     }
 
@@ -602,8 +716,8 @@ async function buildChunks(law: Awaited<ReturnType<typeof fetchLawData>>): Promi
           unit_id: chunkUnitIdForParagraph(unit.unitId, currentParagraphRef),
           unit_type: "article_paragraph",
           article: currentParagraphRef,
-          apartado_path: currentParagraphRef,
-        },
+          apartado_path: currentParagraphRef
+        }
       );
       currentParagraphRef = null;
       currentParagraphLines = [];
@@ -623,9 +737,7 @@ async function buildChunks(law: Awaited<ReturnType<typeof fetchLawData>>): Promi
         continue;
       }
 
-      if (currentParagraphRef) {
-        currentParagraphLines.push(text);
-      }
+      if (currentParagraphRef) currentParagraphLines.push(text);
     }
 
     await flushParagraph();
@@ -635,8 +747,15 @@ async function buildChunks(law: Awaited<ReturnType<typeof fetchLawData>>): Promi
   return chunks;
 }
 
-async function sourceHashFromChunks(boeId: string, chunks: Chunk[]): Promise<string> {
-  const payload = chunks.map((c) => ({ boe_id: boeId, chunk_index: c.chunkIndex, content_hash: c.contentHash }));
+async function sourceHashFromChunks(
+  boeId: string,
+  chunks: Chunk[]
+): Promise<string> {
+  const payload = chunks.map((c) => ({
+    boe_id: boeId,
+    chunk_index: c.chunkIndex,
+    content_hash: c.contentHash
+  }));
   return await sha256Hex(JSON.stringify(payload));
 }
 
@@ -644,7 +763,7 @@ async function upsertSource(
   supabase: ReturnType<typeof createServiceClient>,
   law: Awaited<ReturnType<typeof fetchLawData>>,
   sourceHash: string,
-  chunksTotal: number,
+  chunksTotal: number
 ): Promise<{ sourceId: number; created: boolean }> {
   const { data: existing, error: existingError } = await supabase
     .from("rag_sources")
@@ -655,7 +774,8 @@ async function upsertSource(
     .limit(1)
     .maybeSingle();
 
-  if (existingError) throw new Error(`Load rag_source failed: ${existingError.message}`);
+  if (existingError)
+    throw new Error(`Load rag_source failed: ${existingError.message}`);
 
   if (existing) {
     const sourceId = Number(existing.id);
@@ -669,8 +789,8 @@ async function upsertSource(
           fecha_actualizacion: law.fechaActualizacion,
           fecha_iso: law.fechaIso,
           fecha_vigencia: law.fechaVigencia,
-          fecha_publicacion: law.fechaPublicacion,
-        },
+          fecha_publicacion: law.fechaPublicacion
+        }
       })
       .eq("id", sourceId);
 
@@ -694,8 +814,8 @@ async function upsertSource(
         fecha_actualizacion: law.fechaActualizacion,
         fecha_iso: law.fechaIso,
         fecha_vigencia: law.fechaVigencia,
-        fecha_publicacion: law.fechaPublicacion,
-      },
+        fecha_publicacion: law.fechaPublicacion
+      }
     })
     .select("id")
     .single();
@@ -709,8 +829,12 @@ async function upsertChunksPartial(
   sourceId: number,
   chunks: Chunk[],
   apiKey: string,
-  maxChunksPerRun: number,
-): Promise<{ embeddedNow: number; pendingBefore: number; remainingAfter: number }> {
+  maxChunksPerRun: number
+): Promise<{
+  embeddedNow: number;
+  pendingBefore: number;
+  remainingAfter: number;
+}> {
   const existingRows: Record<string, unknown>[] = [];
   const pageSize = 1000;
 
@@ -722,7 +846,8 @@ async function upsertChunksPartial(
       .order("chunk_index", { ascending: true })
       .range(from, from + pageSize - 1);
 
-    if (error) throw new Error(`Load existing chunk indexes failed: ${error.message}`);
+    if (error)
+      throw new Error(`Load existing chunk indexes failed: ${error.message}`);
 
     const page = (data ?? []) as Record<string, unknown>[];
     existingRows.push(...page);
@@ -732,7 +857,8 @@ async function upsertChunksPartial(
   const existingByIndex = new Map<number, Record<string, unknown>>();
   for (const row of existingRows) {
     const idx = Number((row as Record<string, unknown>).chunk_index);
-    if (Number.isFinite(idx)) existingByIndex.set(idx, row as Record<string, unknown>);
+    if (Number.isFinite(idx))
+      existingByIndex.set(idx, row as Record<string, unknown>);
   }
 
   const pending = chunks.filter((chunk) => {
@@ -748,7 +874,10 @@ async function upsertChunksPartial(
 
   for (let i = 0; i < toEmbed.length; i += EMBEDDING_BATCH_SIZE) {
     const batch = toEmbed.slice(i, i + EMBEDDING_BATCH_SIZE);
-    const vectors = await embedWithRetry(apiKey, batch.map((c) => c.content));
+    const vectors = await embedWithRetry(
+      apiKey,
+      batch.map((c) => c.content)
+    );
     const nowIso = new Date().toISOString();
 
     const payload = batch.map((chunk, idx) => ({
@@ -767,11 +896,11 @@ async function upsertChunksPartial(
       embedding_updated_at: nowIso,
       embedding_error: null,
       metadata: chunk.metadata,
-      is_current: true,
+      is_current: true
     }));
 
     const { error } = await supabase.from("rag_chunks").upsert(payload, {
-      onConflict: "rag_source_id,chunk_index",
+      onConflict: "rag_source_id,chunk_index"
     });
 
     if (error) throw new Error(`Upsert rag_chunks failed: ${error.message}`);
@@ -805,7 +934,7 @@ async function upsertChunksPartial(
 async function markCurrentSource(
   supabase: ReturnType<typeof createServiceClient>,
   boeId: string,
-  sourceId: number,
+  sourceId: number
 ): Promise<void> {
   const { data: oldRows, error: oldError } = await supabase
     .from("rag_sources")
@@ -815,56 +944,67 @@ async function markCurrentSource(
     .neq("id", sourceId)
     .eq("is_current", true);
 
-  if (oldError) throw new Error(`Load previous sources failed: ${oldError.message}`);
+  if (oldError)
+    throw new Error(`Load previous sources failed: ${oldError.message}`);
   const oldIds = (oldRows ?? []).map((r) => Number(r.id));
 
   const { error: setNewSourceError } = await supabase
     .from("rag_sources")
     .update({ is_current: true })
     .eq("id", sourceId);
-  if (setNewSourceError) throw new Error(`Set new source current failed: ${setNewSourceError.message}`);
+  if (setNewSourceError)
+    throw new Error(
+      `Set new source current failed: ${setNewSourceError.message}`
+    );
 
   const { error: setNewChunksError } = await supabase
     .from("rag_chunks")
     .update({ is_current: true })
     .eq("rag_source_id", sourceId);
-  if (setNewChunksError) throw new Error(`Set new chunks current failed: ${setNewChunksError.message}`);
+  if (setNewChunksError)
+    throw new Error(
+      `Set new chunks current failed: ${setNewChunksError.message}`
+    );
 
   if (oldIds.length > 0) {
     const { error: oldSourceError } = await supabase
       .from("rag_sources")
       .update({ is_current: false })
       .in("id", oldIds);
-    if (oldSourceError) throw new Error(`Unset old sources current failed: ${oldSourceError.message}`);
+    if (oldSourceError)
+      throw new Error(
+        `Unset old sources current failed: ${oldSourceError.message}`
+      );
 
     const { error: oldChunksError } = await supabase
       .from("rag_chunks")
       .update({ is_current: false })
       .in("rag_source_id", oldIds);
-    if (oldChunksError) throw new Error(`Unset old chunks current failed: ${oldChunksError.message}`);
+    if (oldChunksError)
+      throw new Error(
+        `Unset old chunks current failed: ${oldChunksError.message}`
+      );
   }
 }
 
 async function upsertSyncLog(
   supabase: ReturnType<typeof createServiceClient>,
   law: Awaited<ReturnType<typeof fetchLawData>>,
-  chunksTotal: number,
+  chunksTotal: number
 ): Promise<void> {
-  const { error } = await supabase
-    .from("law_sync_log")
-    .upsert(
-      {
-        boe_id: law.boeId,
-        titulo_ley: law.title,
-        fecha_actualizacion: law.fechaActualizacion,
-        fecha_iso: law.fechaIso,
-        url_norma: law.urlNorma,
-        eli: law.eli,
-        chunks_total: chunksTotal,
-        last_sync_at: new Date().toISOString(),
-      },
-      { onConflict: "boe_id" },
-    );
+  const { error } = await supabase.from("law_sync_log").upsert(
+    {
+      boe_id: law.boeId,
+      titulo_ley: law.title,
+      fecha_actualizacion: law.fechaActualizacion,
+      fecha_iso: law.fechaIso,
+      url_norma: law.urlNorma,
+      eli: law.eli,
+      chunks_total: chunksTotal,
+      last_sync_at: new Date().toISOString()
+    },
+    { onConflict: "boe_id" }
+  );
 
   if (error) throw new Error(`Upsert law_sync_log failed: ${error.message}`);
 }
@@ -873,15 +1013,18 @@ async function enqueueNextBatch(
   supabase: ReturnType<typeof createServiceClient>,
   lastBoeId: string,
   force: boolean,
-  maxLaws: number,
+  maxLaws: number
 ): Promise<number | null> {
   const { data, error } = await supabase.rpc("invoke_internal_edge_function", {
     p_function_name: "sync-laws-rag",
     p_body: { force, cursor_boe_id: lastBoeId, max_laws: maxLaws },
-    p_timeout_milliseconds: 300000,
+    p_timeout_milliseconds: 300000
   });
 
-  if (error) throw new Error(`Enqueue next sync-laws-rag batch failed: ${error.message}`);
+  if (error)
+    throw new Error(
+      `Enqueue next sync-laws-rag batch failed: ${error.message}`
+    );
   return typeof data === "number" ? data : null;
 }
 
@@ -889,7 +1032,7 @@ async function enqueueSameLaw(
   supabase: ReturnType<typeof createServiceClient>,
   boeId: string,
   force: boolean,
-  maxChunksPerRun: number,
+  maxChunksPerRun: number
 ): Promise<number | null> {
   const { data, error } = await supabase.rpc("invoke_internal_edge_function", {
     p_function_name: "sync-laws-rag",
@@ -897,17 +1040,19 @@ async function enqueueSameLaw(
       force,
       boe_ids: [boeId],
       max_laws: 1,
-      max_chunks_per_run: maxChunksPerRun,
+      max_chunks_per_run: maxChunksPerRun
     },
-    p_timeout_milliseconds: 300000,
+    p_timeout_milliseconds: 300000
   });
 
-  if (error) throw new Error(`Enqueue same-law continuation failed: ${error.message}`);
+  if (error)
+    throw new Error(`Enqueue same-law continuation failed: ${error.message}`);
   return typeof data === "number" ? data : null;
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
@@ -915,7 +1060,10 @@ serve(async (req) => {
     const authError = await ensureEdgeSecret(req, supabase);
     if (authError) return authError;
 
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
     const boeIds = Array.isArray(body.boe_ids)
       ? body.boe_ids.map((v) => sanitizeCode(v, 40)).filter(Boolean)
       : [];
@@ -923,27 +1071,49 @@ serve(async (req) => {
     const dryRun = body.dry_run === true;
     const cursorBoeId = sanitizeCode(body.cursor_boe_id, 40) || null;
     const maxLawsRaw = Number(body.max_laws ?? 1);
-    const maxLaws = Number.isFinite(maxLawsRaw) ? Math.max(1, Math.min(5, Math.floor(maxLawsRaw))) : 1;
-    const maxChunksRaw = Number(body.max_chunks_per_run ?? MAX_CHUNKS_PER_RUN_DEFAULT);
+    const maxLaws = Number.isFinite(maxLawsRaw)
+      ? Math.max(1, Math.min(5, Math.floor(maxLawsRaw)))
+      : 1;
+    const maxChunksRaw = Number(
+      body.max_chunks_per_run ?? MAX_CHUNKS_PER_RUN_DEFAULT
+    );
     const maxChunksPerRun = Number.isFinite(maxChunksRaw)
       ? Math.max(1, Math.min(200, Math.floor(maxChunksRaw)))
       : MAX_CHUNKS_PER_RUN_DEFAULT;
 
-    const targetBatch = await getTargets(supabase, boeIds, cursorBoeId, maxLaws);
+    const targetBatch = await getTargets(
+      supabase,
+      boeIds,
+      cursorBoeId,
+      maxLaws
+    );
     const targets = targetBatch.targets;
 
-    if (targets.length === 0) {
-      return json({ ok: true, force, dry_run: dryRun, laws_processed: 0, has_more: false, results: [] });
-    }
+    if (targets.length === 0)
+      return json({
+        ok: true,
+        force,
+        dry_run: dryRun,
+        laws_processed: 0,
+        has_more: false,
+        results: []
+      });
 
     const openRouterApiKey =
-      (await getRuntimeSecret(supabase, "openrouter_api_key").catch(() => null)) ||
-      (Deno.env.get("OPENROUTER_API_KEY")?.trim() || "");
+      (await getRuntimeSecret(supabase, "openrouter_api_key").catch(
+        () => null
+      )) ||
+      Deno.env.get("OPENROUTER_API_KEY")?.trim() ||
+      "";
 
     if (!dryRun && !openRouterApiKey) {
       return json(
-        { ok: false, error: "Missing OPENROUTER_API_KEY (env) or runtime secret openrouter_api_key" },
-        500,
+        {
+          ok: false,
+          error:
+            "Missing OPENROUTER_API_KEY (env) or runtime secret openrouter_api_key"
+        },
+        500
       );
     }
 
@@ -960,15 +1130,21 @@ serve(async (req) => {
           .select("fecha_actualizacion")
           .eq("boe_id", target.boeId)
           .maybeSingle();
-        if (syncLog.error) throw new Error(`Load law_sync_log failed: ${syncLog.error.message}`);
+        if (syncLog.error)
+          throw new Error(`Load law_sync_log failed: ${syncLog.error.message}`);
 
-        const previousFecha = safeText(syncLog.data?.fecha_actualizacion, 20) || null;
-        if (!force && previousFecha && previousFecha === law.fechaActualizacion) {
+        const previousFecha =
+          safeText(syncLog.data?.fecha_actualizacion, 20) || null;
+        if (
+          !force &&
+          previousFecha &&
+          previousFecha === law.fechaActualizacion
+        ) {
           results.push({
             boe_id: target.boeId,
             label: target.label,
             status: "unchanged",
-            fecha_actualizacion: law.fechaActualizacion,
+            fecha_actualizacion: law.fechaActualizacion
           });
           continue;
         }
@@ -986,18 +1162,23 @@ serve(async (req) => {
             units_total: law.units.length,
             chunks_total: chunks.length,
             embedding_model: OPENROUTER_EMBEDDING_MODEL,
-            embedding_dim: EMBEDDING_DIM,
+            embedding_dim: EMBEDDING_DIM
           });
           continue;
         }
 
-        const { sourceId, created } = await upsertSource(supabase, law, sourceHash, chunks.length);
+        const { sourceId, created } = await upsertSource(
+          supabase,
+          law,
+          sourceHash,
+          chunks.length
+        );
         const chunkRun = await upsertChunksPartial(
           supabase,
           sourceId,
           chunks,
           openRouterApiKey,
-          maxChunksPerRun,
+          maxChunksPerRun
         );
 
         if (chunkRun.remainingAfter === 0) {
@@ -1016,12 +1197,18 @@ serve(async (req) => {
             embedded_chunks: chunkRun.embeddedNow,
             embedding_model: OPENROUTER_EMBEDDING_MODEL,
             embedding_dim: EMBEDDING_DIM,
-            created_new_source: created,
+            created_new_source: created
           });
         } else {
           hasPartial = true;
-          const continuationId = await enqueueSameLaw(supabase, law.boeId, true, maxChunksPerRun);
-          if (partialNextRequestId == null && continuationId != null) partialNextRequestId = continuationId;
+          const continuationId = await enqueueSameLaw(
+            supabase,
+            law.boeId,
+            true,
+            maxChunksPerRun
+          );
+          if (partialNextRequestId == null && continuationId != null)
+            partialNextRequestId = continuationId;
 
           results.push({
             boe_id: target.boeId,
@@ -1039,7 +1226,7 @@ serve(async (req) => {
             next_request_id: continuationId,
             embedding_model: OPENROUTER_EMBEDDING_MODEL,
             embedding_dim: EMBEDDING_DIM,
-            created_new_source: created,
+            created_new_source: created
           });
         }
       } catch (error) {
@@ -1047,14 +1234,20 @@ serve(async (req) => {
           boe_id: target.boeId,
           label: target.label,
           status: "error",
-          error: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     }
 
-    const shouldChain = !dryRun && boeIds.length === 0 && targetBatch.hasMore && !hasPartial;
+    const shouldChain =
+      !dryRun && boeIds.length === 0 && targetBatch.hasMore && !hasPartial;
     const nextRequestId = shouldChain
-      ? await enqueueNextBatch(supabase, targets[targets.length - 1].boeId, force, maxLaws)
+      ? await enqueueNextBatch(
+          supabase,
+          targets[targets.length - 1].boeId,
+          force,
+          maxLaws
+        )
       : (partialNextRequestId ?? null);
 
     return json({
@@ -1064,13 +1257,15 @@ serve(async (req) => {
       laws_processed: targets.length,
       has_more: targetBatch.hasMore || hasPartial,
       next_request_id: nextRequestId,
-      results,
+      results
     });
   } catch (error) {
-    return json({
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    }, 500);
+    return json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error)
+      },
+      500
+    );
   }
 });
-

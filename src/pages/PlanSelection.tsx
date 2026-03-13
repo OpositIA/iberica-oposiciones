@@ -380,7 +380,9 @@ const PlanSelection = () => {
                     type="button"
                     styleType="primary"
                     className="h-12 min-w-[170px] rounded-2xl px-5"
-                    disabled={isApplyingDiscount || normalizedDiscountCode.length === 0}
+                    disabled={
+                      isApplyingDiscount || normalizedDiscountCode.length === 0
+                    }
                     onClick={() => {
                       void handleApplyDiscount();
                     }}
@@ -438,25 +440,33 @@ const PlanSelection = () => {
 
                 <div className="mt-5 space-y-3 border-t border-white/10 pt-5 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-400">{t("selector.summaryPlan")}</span>
+                    <span className="text-slate-400">
+                      {t("selector.summaryPlan")}
+                    </span>
                     <span className="font-medium text-slate-100">
                       {selectedPlan?.name ?? "--"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-400">{t("selector.summaryBilling")}</span>
+                    <span className="text-slate-400">
+                      {t("selector.summaryBilling")}
+                    </span>
                     <span className="font-medium text-slate-100">
                       {t("header.metrics.billingValue")}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-400">{t("selector.summaryAi")}</span>
+                    <span className="text-slate-400">
+                      {t("selector.summaryAi")}
+                    </span>
                     <span className="font-medium text-slate-100">
                       {selectedPlan?.ai_daily_limit ?? "--"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-400">{t("selector.summaryTests")}</span>
+                    <span className="text-slate-400">
+                      {t("selector.summaryTests")}
+                    </span>
                     <span className="font-medium text-slate-100">
                       {selectedPlan
                         ? selectedPlan.planKey === "pro"
@@ -466,7 +476,9 @@ const PlanSelection = () => {
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-slate-400">{t("selector.summaryDiscount")}</span>
+                    <span className="text-slate-400">
+                      {t("selector.summaryDiscount")}
+                    </span>
                     <span className="font-medium text-slate-100">
                       {normalizedDiscountCode
                         ? t("selector.summaryPendingDiscount", {

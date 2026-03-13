@@ -17,12 +17,12 @@ import MiPerfil from "./pages/MiPerfil";
 import NotFound from "./pages/NotFound";
 import PlanSelection from "./pages/PlanSelection";
 import Plans from "./pages/Plans";
-import PublicPlans from "./pages/PublicPlans";
 import ProfileBillingIssue from "./pages/ProfileBillingIssue";
 import ProfileQuickTestSession from "./pages/ProfileQuickTestSession";
 import ProfileStudy from "./pages/ProfileStudy";
 import ProfileTemario from "./pages/ProfileTemario";
 import ProfileTest from "./pages/ProfileTest";
+import PublicPlans from "./pages/PublicPlans";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
 import { StudyTimerProvider } from "./study/StudyTimerProvider";
@@ -112,7 +112,10 @@ const App = () => (
               />
               <Route path="/perfil/opositAI" element={<AssistantIA />} />
               <Route path="/perfil/planes" element={<Plans />} />
-              <Route path="/perfil/pago-fallido" element={<ProfileBillingIssue />} />
+              <Route
+                path="/perfil/pago-fallido"
+                element={<ProfileBillingIssue />}
+              />
               <Route path="/perfil/test" element={<ProfileTest />} />
               <Route
                 path="/perfil/test/:testId"

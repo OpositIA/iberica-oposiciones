@@ -37,7 +37,8 @@ const ProfileBillingIssue = () => {
   const [isOpeningPortal, setIsOpeningPortal] = useState(false);
 
   const intlLocale = useMemo(
-    () => (i18n.resolvedLanguage?.toLowerCase().startsWith("en") ? "en-US" : "es-ES"),
+    () =>
+      i18n.resolvedLanguage?.toLowerCase().startsWith("en") ? "en-US" : "es-ES",
     [i18n.resolvedLanguage]
   );
 
@@ -70,7 +71,12 @@ const ProfileBillingIssue = () => {
   };
 
   if (isLoading) {
-    return <AppLoading label={t("billingIssue.loading")} className="mx-auto max-w-4xl" />;
+    return (
+      <AppLoading
+        label={t("billingIssue.loading")}
+        className="mx-auto max-w-4xl"
+      />
+    );
   }
 
   if (!billingIssue) {
