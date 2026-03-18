@@ -182,9 +182,7 @@ export const getQuickTestProgress = (
   if (fromSession) return fromSession;
 
   return normalizeQuickTestProgress(
-    safeParseJson<QuickTestProgress>(
-      safeGetStorageItem(getLocalStorage(), key)
-    )
+    safeParseJson<QuickTestProgress>(safeGetStorageItem(getLocalStorage(), key))
   );
 };
 

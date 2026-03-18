@@ -2,7 +2,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
-import { sanitizeCode, sanitizeSingleLineText } from "../_shared/inputSanitization.ts";
+import {
+  sanitizeCode,
+  sanitizeSingleLineText
+} from "../_shared/inputSanitization.ts";
 
 type ExistingSubscriptionRow = {
   user_id: string;
@@ -20,8 +23,9 @@ type SyncOptions = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, stripe-signature, apikey, authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "content-type, stripe-signature, apikey, authorization",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const json = (body: unknown, status = 200) =>
@@ -29,8 +33,8 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 const toIso = (unixSeconds: number | null | undefined) =>
@@ -44,14 +48,15 @@ const asString = (value: unknown, maxLength = 160): string | null => {
 };
 
 const resolveObjectId = (value: string | { id: string } | null) =>
-  typeof value === "string" ? value : value?.id ?? null;
+  typeof value === "string" ? value : (value?.id ?? null);
 
-const resolveCustomerId = (value: string | Stripe.Customer | Stripe.DeletedCustomer | null) =>
-  typeof value === "string" ? value : value?.id ?? null;
+const resolveCustomerId = (
+  value: string | Stripe.Customer | Stripe.DeletedCustomer | null
+) => (typeof value === "string" ? value : (value?.id ?? null));
 
 const resolvePlanCodeFromPrice = async (
   serviceClient: ReturnType<typeof createClient>,
-  stripePriceId: string | null,
+  stripePriceId: string | null
 ) => {
   if (!stripePriceId) return null;
 
@@ -68,7 +73,7 @@ const resolvePlanCodeFromPrice = async (
 
 const loadExistingBySubscriptionId = async (
   serviceClient: ReturnType<typeof createClient>,
-  stripeSubscriptionId: string,
+  stripeSubscriptionId: string
 ) => {
   const { data, error } = await serviceClient
     .from("user_subscriptions")
@@ -76,13 +81,14 @@ const loadExistingBySubscriptionId = async (
     .eq("provider_reference", stripeSubscriptionId)
     .maybeSingle();
 
-  if (error) throw new Error(`load_existing_subscription_failed:${error.message}`);
+  if (error)
+    throw new Error(`load_existing_subscription_failed:${error.message}`);
   return (data ?? null) as ExistingSubscriptionRow | null;
 };
 
 const loadExistingByCustomerId = async (
   serviceClient: ReturnType<typeof createClient>,
-  stripeCustomerId: string,
+  stripeCustomerId: string
 ) => {
   const { data, error } = await serviceClient
     .from("user_subscriptions")
@@ -93,13 +99,14 @@ const loadExistingByCustomerId = async (
     .limit(1)
     .maybeSingle();
 
-  if (error) throw new Error(`load_existing_by_customer_failed:${error.message}`);
+  if (error)
+    throw new Error(`load_existing_by_customer_failed:${error.message}`);
   return (data ?? null) as ExistingSubscriptionRow | null;
 };
 
 const resolveUserIdFromProfileEmail = async (
   serviceClient: ReturnType<typeof createClient>,
-  email: string | null,
+  email: string | null
 ) => {
   if (!email) return null;
 
@@ -115,7 +122,7 @@ const resolveUserIdFromProfileEmail = async (
 };
 
 const resolveDefaultPaidPlanCode = async (
-  serviceClient: ReturnType<typeof createClient>,
+  serviceClient: ReturnType<typeof createClient>
 ) => {
   const { data, error } = await serviceClient
     .from("subscription_plans")
@@ -126,7 +133,8 @@ const resolveDefaultPaidPlanCode = async (
     .limit(1)
     .maybeSingle();
 
-  if (error) throw new Error(`default_paid_plan_lookup_failed:${error.message}`);
+  if (error)
+    throw new Error(`default_paid_plan_lookup_failed:${error.message}`);
   return asString(data?.code, 60);
 };
 
@@ -134,19 +142,18 @@ const syncSubscriptionState = async (
   serviceClient: ReturnType<typeof createClient>,
   stripe: Stripe,
   subscription: Stripe.Subscription,
-  options: SyncOptions,
+  options: SyncOptions
 ) => {
   const stripeSubscriptionId = asString(subscription.id, 120);
-  if (!stripeSubscriptionId)
-    throw new Error("stripe_subscription_id_missing");
+  if (!stripeSubscriptionId) throw new Error("stripe_subscription_id_missing");
 
   const existing = await loadExistingBySubscriptionId(
     serviceClient,
-    stripeSubscriptionId,
+    stripeSubscriptionId
   );
   const stripeCustomerId = asString(
     resolveCustomerId(subscription.customer),
-    120,
+    120
   );
   const existingByCustomer = stripeCustomerId
     ? await loadExistingByCustomerId(serviceClient, stripeCustomerId)
@@ -158,25 +165,27 @@ const syncSubscriptionState = async (
   const fallbackPlanCode = sanitizeCode(options.fallbackPlanCode, 60);
 
   const stripePriceId = asString(subscription.items.data[0]?.price?.id, 200);
-  let resolvedPlanCode = metadataPlanCode
-    || fallbackPlanCode
-    || (await resolvePlanCodeFromPrice(serviceClient, stripePriceId))
-    || asString(existing?.plan_code, 60)
-    || asString(existingByCustomer?.plan_code, 60);
-  let resolvedUserId = metadataUserId
-    || fallbackUserId
-    || asString(existing?.user_id, 80)
-    || asString(existingByCustomer?.user_id, 80);
+  let resolvedPlanCode =
+    metadataPlanCode ||
+    fallbackPlanCode ||
+    (await resolvePlanCodeFromPrice(serviceClient, stripePriceId)) ||
+    asString(existing?.plan_code, 60) ||
+    asString(existingByCustomer?.plan_code, 60);
+  let resolvedUserId =
+    metadataUserId ||
+    fallbackUserId ||
+    asString(existing?.user_id, 80) ||
+    asString(existingByCustomer?.user_id, 80);
 
   if (!resolvedUserId && stripeCustomerId) {
     const customer = await stripe.customers.retrieve(stripeCustomerId);
     const customerEmail = asString(
       typeof customer === "string" ? null : customer.email,
-      180,
+      180
     );
     resolvedUserId = await resolveUserIdFromProfileEmail(
       serviceClient,
-      customerEmail,
+      customerEmail
     );
   }
 
@@ -184,13 +193,20 @@ const syncSubscriptionState = async (
     resolvedPlanCode = await resolveDefaultPaidPlanCode(serviceClient);
 
   if (!resolvedUserId)
-    throw new Error(`stripe_user_id_missing_for_subscription:${stripeSubscriptionId}`);
+    throw new Error(
+      `stripe_user_id_missing_for_subscription:${stripeSubscriptionId}`
+    );
 
   if (!resolvedPlanCode)
-    throw new Error(`stripe_plan_code_missing_for_subscription:${stripeSubscriptionId}`);
+    throw new Error(
+      `stripe_plan_code_missing_for_subscription:${stripeSubscriptionId}`
+    );
 
   const status = asString(subscription.status, 40) ?? "pending";
-  const latestInvoiceId = asString(resolveObjectId(subscription.latest_invoice), 120);
+  const latestInvoiceId = asString(
+    resolveObjectId(subscription.latest_invoice),
+    120
+  );
 
   const metadata = {
     stripe_event_type: options.eventType,
@@ -199,7 +215,7 @@ const syncSubscriptionState = async (
     stripe_latest_invoice_id: latestInvoiceId,
     stripe_collection_method: asString(subscription.collection_method, 60),
     stripe_synced_from_webhook_at: new Date().toISOString(),
-    ...(options.metadata ?? {}),
+    ...(options.metadata ?? {})
   };
 
   const { error } = await serviceClient.rpc(
@@ -216,27 +232,35 @@ const syncSubscriptionState = async (
       p_canceled_at: toIso(subscription.canceled_at),
       p_ended_at: toIso(subscription.ended_at),
       p_checkout_session_id: asString(options.checkoutSessionId, 120),
-      p_metadata: metadata,
-    },
+      p_metadata: metadata
+    }
   );
 
   if (error)
-    throw new Error(`upsert_user_subscription_from_stripe_failed:${error.message}`);
+    throw new Error(
+      `upsert_user_subscription_from_stripe_failed:${error.message}`
+    );
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
 
-  if (req.method !== "POST")
-    return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim();
-  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+  const supabaseServiceRoleKey = Deno.env
+    .get("SUPABASE_SERVICE_ROLE_KEY")
+    ?.trim();
   const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
   const stripeWebhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim();
 
-  if (!supabaseUrl || !supabaseServiceRoleKey || !stripeSecretKey || !stripeWebhookSecret)
+  if (
+    !supabaseUrl ||
+    !supabaseServiceRoleKey ||
+    !stripeSecretKey ||
+    !stripeWebhookSecret
+  )
     return json({ error: "Missing required environment variables" }, 500);
 
   const stripeSignature = req.headers.get("stripe-signature");
@@ -246,7 +270,7 @@ serve(async (req) => {
   const rawBody = await req.text();
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2024-06-20",
-    httpClient: Stripe.createFetchHttpClient(),
+    httpClient: Stripe.createFetchHttpClient()
   });
   const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
@@ -257,7 +281,7 @@ serve(async (req) => {
       stripeSignature,
       stripeWebhookSecret,
       undefined,
-      cryptoProvider,
+      cryptoProvider
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -265,7 +289,7 @@ serve(async (req) => {
   }
 
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false },
+    auth: { persistSession: false }
   });
 
   const eventPayload = (() => {
@@ -281,15 +305,17 @@ serve(async (req) => {
     {
       p_event_id: event.id,
       p_event_type: event.type,
-      p_payload: eventPayload,
-    },
+      p_payload: eventPayload
+    }
   );
 
   if (claimError)
-    return json({ error: `claim_webhook_event_failed:${claimError.message}` }, 500);
+    return json(
+      { error: `claim_webhook_event_failed:${claimError.message}` },
+      500
+    );
 
-  if (claimed !== true)
-    return json({ received: true, duplicate: true });
+  if (claimed !== true) return json({ received: true, duplicate: true });
 
   try {
     switch (event.type) {
@@ -298,18 +324,21 @@ serve(async (req) => {
         const stripeSubscriptionId = resolveObjectId(session.subscription);
         if (!stripeSubscriptionId) break;
 
-        const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
-          expand: ["items.data.price"],
-        });
+        const subscription = await stripe.subscriptions.retrieve(
+          stripeSubscriptionId,
+          {
+            expand: ["items.data.price"]
+          }
+        );
 
         await syncSubscriptionState(serviceClient, stripe, subscription, {
           eventType: event.type,
           fallbackUserId: sanitizeCode(
             session.metadata?.user_id ?? session.client_reference_id,
-            80,
+            80
           ),
           fallbackPlanCode: sanitizeCode(session.metadata?.plan_code, 60),
-          checkoutSessionId: asString(session.id, 120),
+          checkoutSessionId: asString(session.id, 120)
         });
         break;
       }
@@ -319,7 +348,7 @@ serve(async (req) => {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         await syncSubscriptionState(serviceClient, stripe, subscription, {
-          eventType: event.type,
+          eventType: event.type
         });
         break;
       }
@@ -337,13 +366,17 @@ serve(async (req) => {
         let paymentDeclineCode: string | null = null;
         let paymentErrorDocUrl: string | null = null;
         const stripePaymentIntentId = asString(
-          resolveObjectId(invoice.payment_intent as string | { id: string } | null),
-          120,
+          resolveObjectId(
+            invoice.payment_intent as string | { id: string } | null
+          ),
+          120
         );
 
         if (stripePaymentIntentId) {
           try {
-            const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
+            const paymentIntent = await stripe.paymentIntents.retrieve(
+              stripePaymentIntentId
+            );
             const lastPaymentError = paymentIntent.last_payment_error;
             paymentErrorMessage = asString(lastPaymentError?.message, 300);
             paymentErrorCode = asString(lastPaymentError?.code, 120);
@@ -355,36 +388,50 @@ serve(async (req) => {
           }
         }
 
-        const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
-          expand: ["items.data.price"],
-        });
+        const subscription = await stripe.subscriptions.retrieve(
+          stripeSubscriptionId,
+          {
+            expand: ["items.data.price"]
+          }
+        );
 
         await syncSubscriptionState(serviceClient, stripe, subscription, {
           eventType: event.type,
           invoiceId: asString(invoice.id, 120),
           metadata: {
             stripe_invoice_attempt_count:
-              typeof invoice.attempt_count === "number" && Number.isFinite(invoice.attempt_count)
+              typeof invoice.attempt_count === "number" &&
+              Number.isFinite(invoice.attempt_count)
                 ? Math.max(0, Math.floor(invoice.attempt_count))
                 : null,
             stripe_next_payment_attempt_at: toIso(invoice.next_payment_attempt),
-            stripe_hosted_invoice_url: asString(invoice.hosted_invoice_url, 500),
+            stripe_hosted_invoice_url: asString(
+              invoice.hosted_invoice_url,
+              500
+            ),
             stripe_payment_intent_id: stripePaymentIntentId,
             stripe_payment_error_message:
-              event.type === "invoice.payment_failed" ? paymentErrorMessage : null,
+              event.type === "invoice.payment_failed"
+                ? paymentErrorMessage
+                : null,
             stripe_payment_error_code:
               event.type === "invoice.payment_failed" ? paymentErrorCode : null,
             stripe_payment_error_type:
               event.type === "invoice.payment_failed" ? paymentErrorType : null,
             stripe_payment_decline_code:
-              event.type === "invoice.payment_failed" ? paymentDeclineCode : null,
-            stripe_payment_error_doc_url:
-              event.type === "invoice.payment_failed" ? paymentErrorDocUrl : null,
-            stripe_payment_recovered_at:
-              (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded")
-                ? new Date().toISOString()
+              event.type === "invoice.payment_failed"
+                ? paymentDeclineCode
                 : null,
-          },
+            stripe_payment_error_doc_url:
+              event.type === "invoice.payment_failed"
+                ? paymentErrorDocUrl
+                : null,
+            stripe_payment_recovered_at:
+              event.type === "invoice.paid" ||
+              event.type === "invoice.payment_succeeded"
+                ? new Date().toISOString()
+                : null
+          }
         });
         break;
       }
@@ -395,17 +442,20 @@ serve(async (req) => {
 
     const { error: processedError } = await serviceClient.rpc(
       "mark_stripe_webhook_event_processed",
-      { p_event_id: event.id },
+      { p_event_id: event.id }
     );
     if (processedError)
-      return json({ error: `mark_processed_failed:${processedError.message}` }, 500);
+      return json(
+        { error: `mark_processed_failed:${processedError.message}` },
+        500
+      );
 
     return json({ received: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await serviceClient.rpc("mark_stripe_webhook_event_failed", {
       p_event_id: event.id,
-      p_error: message,
+      p_error: message
     });
     return json({ error: message }, 500);
   }

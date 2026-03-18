@@ -30,7 +30,8 @@ export const subscriptionQueryConfig = {
 export const subscriptionQueryKeys = {
   publicPlans: ["subscriptions", "public-plans"] as const,
   userPlan: (userId: string) => ["subscriptions", "user-plan", userId] as const,
-  billingIssue: (userId: string) => ["subscriptions", "billing-issue", userId] as const
+  billingIssue: (userId: string) =>
+    ["subscriptions", "billing-issue", userId] as const
 };
 
 export type PublicSubscriptionPlanRow = Pick<
@@ -98,7 +99,9 @@ type CustomerPortalSessionResponse = {
   error?: string;
 };
 
-const normalizePlanStateRow = (row: Record<string, unknown>): UserPlanStateRow => ({
+const normalizePlanStateRow = (
+  row: Record<string, unknown>
+): UserPlanStateRow => ({
   plan_code: sanitizeCode(row.plan_code, 60) || "free-monthly",
   plan_name:
     typeof row.plan_name === "string" && row.plan_name.trim().length > 0
@@ -173,7 +176,10 @@ const readMetadataString = (
   return value.length > 0 ? value : null;
 };
 
-const readMetadataInt = (metadata: Record<string, unknown> | null, key: string) => {
+const readMetadataInt = (
+  metadata: Record<string, unknown> | null,
+  key: string
+) => {
   if (!metadata) return null;
   const value = metadata[key];
   if (typeof value === "number" && Number.isFinite(value))
@@ -242,7 +248,8 @@ export const fetchUserBillingIssue = async (
     plan_code: sanitizeCode(data.plan_code, 60) || "pro-monthly",
     subscription_status: sanitizeCode(data.status, 40) || "past_due",
     current_period_end:
-      typeof data.current_period_end === "string" && data.current_period_end.trim().length > 0
+      typeof data.current_period_end === "string" &&
+      data.current_period_end.trim().length > 0
         ? data.current_period_end.trim()
         : null,
     updated_at:
@@ -252,9 +259,17 @@ export const fetchUserBillingIssue = async (
     error_message: errorMessage,
     error_code: readMetadataString(metadata, "stripe_payment_error_code", 120),
     error_type: readMetadataString(metadata, "stripe_payment_error_type", 120),
-    decline_code: readMetadataString(metadata, "stripe_payment_decline_code", 120),
+    decline_code: readMetadataString(
+      metadata,
+      "stripe_payment_decline_code",
+      120
+    ),
     doc_url: readMetadataString(metadata, "stripe_payment_error_doc_url", 500),
-    hosted_invoice_url: readMetadataString(metadata, "stripe_hosted_invoice_url", 500),
+    hosted_invoice_url: readMetadataString(
+      metadata,
+      "stripe_hosted_invoice_url",
+      500
+    ),
     next_payment_attempt_at: readMetadataString(
       metadata,
       "stripe_next_payment_attempt_at",
@@ -313,18 +328,19 @@ export const createStripeCheckoutSession = async ({
   if (!accessToken)
     throw new Error("Debes iniciar sesion para iniciar la pasarela de pago.");
 
-  const { data, error } = await supabase.functions.invoke<CheckoutSessionResponse>(
-    "create-checkout-session",
-    {
-      body: {
-        plan_code: sanitizeCode(planCode, 60),
-        source: sanitizeCode(source, 60)
-      },
-      headers: {
-        Authorization: `Bearer ${accessToken}`
+  const { data, error } =
+    await supabase.functions.invoke<CheckoutSessionResponse>(
+      "create-checkout-session",
+      {
+        body: {
+          plan_code: sanitizeCode(planCode, 60),
+          source: sanitizeCode(source, 60)
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
       }
-    }
-  );
+    );
 
   if (error) {
     let message = "No se pudo iniciar la pasarela de pago.";
@@ -337,16 +353,15 @@ export const createStripeCheckoutSession = async ({
       } catch {
         message = error.message || message;
       }
-    } else if (error.message) 
-      message = error.message;
-    
+    } else if (error.message) message = error.message;
 
     throw new Error(message);
   }
 
   const checkoutUrl =
     typeof data?.checkout_url === "string" ? data.checkout_url.trim() : "";
-  const sessionId = typeof data?.session_id === "string" ? data.session_id.trim() : "";
+  const sessionId =
+    typeof data?.session_id === "string" ? data.session_id.trim() : "";
 
   if (!checkoutUrl)
     throw new Error("La pasarela de pago no devolvio una URL valida.");
@@ -394,13 +409,13 @@ export const createCustomerPortalSession = async ({
       } catch {
         message = error.message || message;
       }
-    } else if (error.message)
-      message = error.message;
+    } else if (error.message) message = error.message;
 
     throw new Error(message);
   }
 
-  const portalUrl = typeof data?.portal_url === "string" ? data.portal_url.trim() : "";
+  const portalUrl =
+    typeof data?.portal_url === "string" ? data.portal_url.trim() : "";
   if (!portalUrl)
     throw new Error("No se pudo generar la URL de gestion de pagos.");
 

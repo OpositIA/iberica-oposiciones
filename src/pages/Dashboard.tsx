@@ -65,25 +65,23 @@ const Dashboard = () => {
     return fullName || profile?.email || t("defaults.user");
   }, [profile, t]);
 
-  const historyItems = dashboardBundle?.historyItems ?? [];
-  const historialTests = useMemo<DashboardHistoryRow[]>(
-    () =>
-      historyItems.map((item, idx) => {
-        const previousItem = historyItems[idx + 1];
-        const trend: TestTrend = !previousItem
-          ? "flat"
-          : item.accuracy > previousItem.accuracy
-            ? "up"
-            : item.accuracy < previousItem.accuracy
-              ? "down"
-              : "flat";
-        return {
-          ...item,
-          trend
-        };
-      }),
-    [historyItems]
-  );
+  const historialTests = useMemo<DashboardHistoryRow[]>(() => {
+    const historyItems = dashboardBundle?.historyItems ?? [];
+    return historyItems.map((item, idx) => {
+      const previousItem = historyItems[idx + 1];
+      const trend: TestTrend = !previousItem
+        ? "flat"
+        : item.accuracy > previousItem.accuracy
+          ? "up"
+          : item.accuracy < previousItem.accuracy
+            ? "down"
+            : "flat";
+      return {
+        ...item,
+        trend
+      };
+    });
+  }, [dashboardBundle?.historyItems]);
   const visibleHistoryItems = useMemo(
     () => historialTests.slice(0, visibleHistoryCount),
     [historialTests, visibleHistoryCount]

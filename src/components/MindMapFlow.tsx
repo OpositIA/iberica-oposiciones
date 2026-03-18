@@ -44,6 +44,8 @@ type FlowNodeData = {
   onToggle: (nodeId: string) => void;
 };
 
+type FlowNode = Node<FlowNodeData, "mindmap">;
+
 type MindMapFlowProps = {
   topic: string;
   className?: string;
@@ -72,7 +74,7 @@ const buildMockChildren = async (
   });
 };
 
-const MindMapNodeCard = memo(({ id, data }: NodeProps<FlowNodeData>) => {
+const MindMapNodeCard = memo(({ id, data }: NodeProps<FlowNode>) => {
   const onNodeClick = () => data.onToggle(id);
 
   return (
@@ -317,7 +319,7 @@ const MindMapFlow = ({
       });
     });
 
-    const nextFlowNodes: Node<FlowNodeData>[] = visibleNodeIds.map((nodeId) => {
+    const nextFlowNodes: FlowNode[] = visibleNodeIds.map((nodeId) => {
       const node = nodeMap[nodeId];
       const position = positionById.get(nodeId) ?? { x: 0, y: 0 };
       const canToggle =

@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 import {
   parseJsonBody,
-  sanitizeSingleLineText,
+  sanitizeSingleLineText
 } from "../_shared/inputSanitization.ts";
 
 type RequestPayload = {
@@ -13,8 +13,9 @@ type RequestPayload = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const json = (body: unknown, status = 200) =>
@@ -22,15 +23,15 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 const getBaseUrl = (req: Request) => {
   const candidates = [
     req.headers.get("origin")?.trim() ?? "",
     Deno.env.get("APP_BASE_URL")?.trim() ?? "",
-    "http://localhost:8080",
+    "http://localhost:8080"
   ];
 
   for (const candidate of candidates) {
@@ -59,7 +60,7 @@ const normalizeReturnPath = (value: unknown) => {
 const resolveStripeCustomerId = async ({
   serviceClient,
   stripe,
-  userId,
+  userId
 }: {
   serviceClient: ReturnType<typeof createClient>;
   stripe: Stripe;
@@ -77,30 +78,31 @@ const resolveStripeCustomerId = async ({
   if (error) throw new Error(`load_user_subscription_failed:${error.message}`);
 
   const metadata =
-    latestSubscription?.metadata
-      && typeof latestSubscription.metadata === "object"
-      && !Array.isArray(latestSubscription.metadata)
+    latestSubscription?.metadata &&
+    typeof latestSubscription.metadata === "object" &&
+    !Array.isArray(latestSubscription.metadata)
       ? (latestSubscription.metadata as Record<string, unknown>)
       : null;
 
   const metadataCustomerId = sanitizeSingleLineText(
     metadata?.stripe_customer_id,
-    120,
+    120
   );
   if (metadataCustomerId) return metadataCustomerId;
 
   const stripeSubscriptionId = sanitizeSingleLineText(
     latestSubscription?.provider_reference,
-    120,
+    120
   );
   if (!stripeSubscriptionId) return null;
 
-  const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const stripeSubscription =
+    await stripe.subscriptions.retrieve(stripeSubscriptionId);
   const customerId = sanitizeSingleLineText(
     typeof stripeSubscription.customer === "string"
       ? stripeSubscription.customer
       : stripeSubscription.customer?.id,
-    120,
+    120
   );
 
   return customerId || null;
@@ -110,20 +112,25 @@ serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
 
-  if (req.method !== "POST")
-    return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim();
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")?.trim();
-  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+  const supabaseServiceRoleKey = Deno.env
+    .get("SUPABASE_SERVICE_ROLE_KEY")
+    ?.trim();
   const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
 
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey || !stripeSecretKey)
+  if (
+    !supabaseUrl ||
+    !supabaseAnonKey ||
+    !supabaseServiceRoleKey ||
+    !stripeSecretKey
+  )
     return json({ error: "Missing required environment variables" }, 500);
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader)
-    return json({ error: "Missing Authorization header" }, 401);
+  if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
 
   let payload: RequestPayload;
   try {
@@ -137,36 +144,34 @@ serve(async (req) => {
 
   const authClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false },
-    global: { headers: { Authorization: authHeader } },
+    global: { headers: { Authorization: authHeader } }
   });
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false },
+    auth: { persistSession: false }
   });
 
   const { data: authData, error: authError } = await authClient.auth.getUser();
-  if (authError || !authData?.user)
-    return json({ error: "Unauthorized" }, 401);
+  if (authError || !authData?.user) return json({ error: "Unauthorized" }, 401);
 
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2024-06-20",
-    httpClient: Stripe.createFetchHttpClient(),
+    httpClient: Stripe.createFetchHttpClient()
   });
 
   try {
     const customerId = await resolveStripeCustomerId({
       serviceClient,
       stripe,
-      userId: authData.user.id,
+      userId: authData.user.id
     });
 
-    if (!customerId)
-      return json({ error: "stripe_customer_not_found" }, 404);
+    if (!customerId) return json({ error: "stripe_customer_not_found" }, 404);
 
     const baseUrl = getBaseUrl(req);
     const returnPath = normalizeReturnPath(payload.return_path);
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${baseUrl}${returnPath}`,
+      return_url: `${baseUrl}${returnPath}`
     });
 
     return json({ portal_url: session.url });

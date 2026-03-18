@@ -26,7 +26,8 @@ import {
   isUuid,
   upsertQuickTestSession,
   type InProgressQuickTestSummary,
-  type QuickTestSessionPayload
+  type QuickTestSessionPayload,
+  type QuickTestTopicSelection
 } from "@/queries/testQueries";
 import { ArrowRight, FileText, ListChecks, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -221,30 +222,37 @@ const ProfileTest = () => {
     }
 
     const selectedTopicIdSetForPayload = new Set(selectedTopicIds);
-    const selectedTopicsPayload = quickBlocks.flatMap((block) => {
-      const blockTopicIds = block.topics.map((topic) => topic.id);
-      const selectedCount = blockTopicIds.filter((topicId) =>
-        selectedTopicIdSetForPayload.has(topicId)
-      ).length;
+    const selectedTopicsPayload = quickBlocks.reduce<QuickTestTopicSelection[]>(
+      (acc, block) => {
+        const blockTopicIds = block.topics.map((topic) => topic.id);
+        const selectedCount = blockTopicIds.filter((topicId) =>
+          selectedTopicIdSetForPayload.has(topicId)
+        ).length;
 
-      if (selectedCount === 0) return [];
-      if (selectedCount === blockTopicIds.length)
-        return [
-          {
+        if (selectedCount === 0) return acc;
+        if (selectedCount === blockTopicIds.length) {
+          acc.push({
             id: block.code,
             label: block.displayTitle || block.title,
             scope: "block" as const
-          }
-        ];
+          });
+          return acc;
+        }
 
-      return block.topics
-        .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
-        .map((topic) => ({
-          id: topic.id,
-          label: topic.label,
-          scope: "topic" as const
-        }));
-    });
+        acc.push(
+          ...block.topics
+            .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
+            .map((topic) => ({
+              id: topic.id,
+              label: topic.label,
+              scope: "topic" as const
+            }))
+        );
+
+        return acc;
+      },
+      []
+    );
 
     setIsGeneratingQuickTest(true);
 
@@ -382,9 +390,7 @@ const ProfileTest = () => {
     setIsQuickTestDialogOpen(open);
   };
 
-  if (isLoadingOpposition) {
-    return <AppLoading label={t("test.loading")} />;
-  }
+  if (isLoadingOpposition) return <AppLoading label={t("test.loading")} />;
 
   if (!isCurrentPlanPaid) {
     return (
@@ -396,7 +402,9 @@ const ProfileTest = () => {
           <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">
             {t("test.title")}
           </h2>
-          <p className="text-sm text-muted-foreground">{t("test.description")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("test.description")}
+          </p>
           <div className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
             <span className="font-semibold uppercase tracking-[0.22em]">
               {t(`plans:plans.${currentPlanKey}.name`)}
@@ -470,7 +478,7 @@ const ProfileTest = () => {
             type="button"
             onClick={iniciarSimulacro}
             styleType="menu"
-            className="w-full"
+            className="w-full !mt-[48px]"
           >
             {t("test.startMock")}
           </CustomButton>

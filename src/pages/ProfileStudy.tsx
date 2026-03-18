@@ -97,7 +97,9 @@ const ProfileStudy = () => {
               cy="140"
               r={TIMER_RING_RADIUS}
               fill="none"
-              stroke={isBreakPhase ? "hsl(var(--accent))" : "hsl(var(--primary))"}
+              stroke={
+                isBreakPhase ? "hsl(var(--accent))" : "hsl(var(--primary))"
+              }
               strokeWidth="14"
               strokeLinecap="round"
               strokeDasharray={TIMER_RING_CIRCUMFERENCE}

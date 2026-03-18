@@ -1,9 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import {
-  sanitizeCode,
-  sanitizeSingleLineText
-} from "@/lib/inputSanitization";
+import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
 
 export type QuickTestTopicSelection = {
   id: string;
@@ -102,8 +99,9 @@ const buildClientUuid = () => {
 
   const hex = "0123456789abcdef";
   const randomHex = (size: number) =>
-    Array.from({ length: size }, () =>
-      hex[Math.floor(Math.random() * hex.length)]
+    Array.from(
+      { length: size },
+      () => hex[Math.floor(Math.random() * hex.length)]
     ).join("");
 
   return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-a${randomHex(3)}-${randomHex(12)}`;
@@ -156,9 +154,7 @@ const hasMatchingTopics = (
 const normalizeQuestions = (raw: unknown): unknown[] =>
   Array.isArray(raw) ? raw : [];
 
-const normalizeSelectedAnswers = (
-  raw: unknown
-): Record<string, number> => {
+const normalizeSelectedAnswers = (raw: unknown): Record<string, number> => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const maybeRecord = raw as Record<string, unknown>;
   const normalized: Record<string, number> = {};
@@ -195,7 +191,13 @@ const normalizeOptionEntry = (
 
   if (!isRecord(input)) return null;
 
-  const text = pickString(input, ["text", "label", "content", "option", "answer"]);
+  const text = pickString(input, [
+    "text",
+    "label",
+    "content",
+    "option",
+    "answer"
+  ]);
   if (!text) return null;
   const id =
     pickString(input, ["id", "optionId", "value", "key"]) ?? fallbackId;
@@ -210,9 +212,7 @@ const normalizeQuestionOptions = (
       .map((option, idx) =>
         normalizeOptionEntry(option, String.fromCharCode(65 + idx))
       )
-      .filter(
-        (entry): entry is { text: string; id: string } => Boolean(entry)
-      );
+      .filter((entry): entry is { text: string; id: string } => Boolean(entry));
 
     return {
       options: entries.map((entry) => entry.text),
@@ -227,9 +227,7 @@ const normalizeQuestionOptions = (
     const ordered = letterKeys.sort((a, b) => a.localeCompare(b));
     const entries = ordered
       .map((key) => normalizeOptionEntry(input[key], key))
-      .filter(
-        (entry): entry is { text: string; id: string } => Boolean(entry)
-      );
+      .filter((entry): entry is { text: string; id: string } => Boolean(entry));
     return {
       options: entries.map((entry) => entry.text),
       optionIds: entries.map((entry) => entry.id)
@@ -296,9 +294,7 @@ type EvaluatedQuestion = {
   correctIndex: number | null;
 };
 
-const normalizeQuestionsForEvaluation = (
-  raw: unknown
-): EvaluatedQuestion[] => {
+const normalizeQuestionsForEvaluation = (raw: unknown): EvaluatedQuestion[] => {
   if (!Array.isArray(raw)) return [];
 
   return raw
@@ -348,8 +344,11 @@ const evaluateAttempt = (
     questionIdSet.has(questionId)
   ).length;
 
-  const gradeable = questions.filter((question) => question.correctIndex !== null);
-  const denominator = gradeable.length > 0 ? gradeable.length : questions.length;
+  const gradeable = questions.filter(
+    (question) => question.correctIndex !== null
+  );
+  const denominator =
+    gradeable.length > 0 ? gradeable.length : questions.length;
   if (denominator === 0) {
     return {
       answeredCount,
@@ -597,8 +596,14 @@ export const cloneQuickTestSession = async ({
 
   const quickTestsTable = supabase.from("quick_tests") as unknown as {
     select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        eq: (column: string, value: string) => {
+      eq: (
+        column: string,
+        value: string
+      ) => {
+        eq: (
+          column: string,
+          value: string
+        ) => {
           maybeSingle: () => Promise<{
             data: Record<string, unknown> | null;
             error: { message: string } | null;
@@ -695,9 +700,7 @@ export const fetchLatestInProgressQuickTest = async (
         lastInteractionAt: row.last_interaction_at
       };
     })
-    .filter(
-      (attempt) => attempt.answeredCount > 0 && isUuid(attempt.testId)
-    );
+    .filter((attempt) => attempt.answeredCount > 0 && isUuid(attempt.testId));
 
   return withAnswers[0] ?? null;
 };
@@ -766,7 +769,10 @@ const mapCompletedAttemptToHistoryRecord = (
       ? Math.max(1, Math.round(Math.max(0, finishMs - startMs) / 60000))
       : 1;
 
-  const evaluated = evaluateAttempt(linkedQuickTest.questions, row.selected_answers);
+  const evaluated = evaluateAttempt(
+    linkedQuickTest.questions,
+    row.selected_answers
+  );
 
   return {
     testId: row.test_id,
@@ -792,29 +798,33 @@ export const fetchQuickTestsDashboardBundle = async (
     )
     .eq("user_id", userId)
     .order("last_interaction_at", { ascending: false })
-    .limit(DASHBOARD_BUNDLE_MAX_ROWS);
+    .limit(DASHBOARD_BUNDLE_MAX_ROWS)
+    .overrideTypes<QuickTestAttemptJoinedRow[], { merge: false }>();
 
   if (error) throw error;
 
-  const rows = (Array.isArray(data) ? data : []) as QuickTestAttemptJoinedRow[];
+  const rows = Array.isArray(data) ? data : [];
 
-  const inProgress = rows
-    .filter((row) => !row.finished_at)
-    .map((row) => {
-      const normalizedAnswers = normalizeSelectedAnswers(row.selected_answers);
-      return {
-        testId: row.test_id,
-        answeredCount: Object.keys(normalizedAnswers).length,
-        startedAt: row.started_at,
-        lastInteractionAt: row.last_interaction_at
-      } satisfies InProgressQuickTestSummary;
-    })
-    .filter((attempt) => attempt.answeredCount > 0 && isUuid(attempt.testId))
-    .sort(
-      (a, b) =>
-        new Date(b.lastInteractionAt).valueOf() -
-        new Date(a.lastInteractionAt).valueOf()
-    )[0] ?? null;
+  const inProgress =
+    rows
+      .filter((row) => !row.finished_at)
+      .map((row) => {
+        const normalizedAnswers = normalizeSelectedAnswers(
+          row.selected_answers
+        );
+        return {
+          testId: row.test_id,
+          answeredCount: Object.keys(normalizedAnswers).length,
+          startedAt: row.started_at,
+          lastInteractionAt: row.last_interaction_at
+        } satisfies InProgressQuickTestSummary;
+      })
+      .filter((attempt) => attempt.answeredCount > 0 && isUuid(attempt.testId))
+      .sort(
+        (a, b) =>
+          new Date(b.lastInteractionAt).valueOf() -
+          new Date(a.lastInteractionAt).valueOf()
+      )[0] ?? null;
 
   const historyItems = rows
     .filter((row) => Boolean(row.finished_at))
@@ -954,9 +964,7 @@ export const fetchQuickTestDashboardStats = async (
   while (offset < STATS_MAX_ROWS) {
     const { data, error } = await supabase
       .from("quick_test_attempts")
-      .select(
-        "selected_answers, quick_tests!inner(questions)"
-      )
+      .select("selected_answers, quick_tests!inner(questions)")
       .eq("user_id", userId)
       .not("finished_at", "is", null)
       .order("finished_at", { ascending: false })
@@ -1012,22 +1020,20 @@ export const ensureQuickTestAttempt = async ({
   if (!isUuid(testId)) return null;
 
   const nowIso = new Date().toISOString();
-  const { error } = await supabase
-    .from("quick_test_attempts")
-    .upsert(
-      {
-        test_id: testId,
-        user_id: userId,
-        selected_answers: {},
-        active_question_id: initialActiveQuestionId,
-        started_at: nowIso,
-        last_interaction_at: nowIso
-      },
-      {
-        onConflict: "test_id,user_id",
-        ignoreDuplicates: true
-      }
-    );
+  const { error } = await supabase.from("quick_test_attempts").upsert(
+    {
+      test_id: testId,
+      user_id: userId,
+      selected_answers: {},
+      active_question_id: initialActiveQuestionId,
+      started_at: nowIso,
+      last_interaction_at: nowIso
+    },
+    {
+      onConflict: "test_id,user_id",
+      ignoreDuplicates: true
+    }
+  );
 
   if (error) throw error;
   return fetchQuickTestAttempt(testId, userId);
