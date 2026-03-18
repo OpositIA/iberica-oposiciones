@@ -16,12 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
-import { isPaidPlan } from "@/lib/plans";
-import {
-  applyAccentColor,
-  getDefaultAccentColor,
-  getStoredAccentColor
-} from "@/lib/theme";
 import {
   sanitizeCode,
   sanitizeEmail,
@@ -30,16 +24,22 @@ import {
   sanitizeSingleLineText,
   sanitizeUrl
 } from "@/lib/inputSanitization";
+import { isPaidPlan } from "@/lib/plans";
 import {
-  createCustomerPortalSession,
-  useUserBillingIssueQuery,
-  useUserPlanStateQuery
-} from "@/queries/subscriptionQueries";
+  applyAccentColor,
+  getDefaultAccentColor,
+  getStoredAccentColor
+} from "@/lib/theme";
 import {
   useOppositionOptionsQuery,
   useProfileDetailsQuery,
   useResolvedOppositionQuery
 } from "@/queries/profileQueries";
+import {
+  createCustomerPortalSession,
+  useUserBillingIssueQuery,
+  useUserPlanStateQuery
+} from "@/queries/subscriptionQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Camera,
@@ -200,7 +200,8 @@ const MiPerfil = () => {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
-  const hasPaymentMethodManagement = isPaidPlan(planState) || Boolean(billingIssue);
+  const hasPaymentMethodManagement =
+    isPaidPlan(planState) || Boolean(billingIssue);
 
   const getOppositionName = (oppositionId: string | null | undefined) =>
     resolveOppositionNameById(oppositionId, oppositionOptions);
@@ -235,8 +236,12 @@ const MiPerfil = () => {
 
     setProfile(
       sanitizeProfileForm({
-        firstName: String(profileDetails?.first_name ?? userMetadata.first_name ?? ""),
-        lastName: String(profileDetails?.last_name ?? userMetadata.last_name ?? ""),
+        firstName: String(
+          profileDetails?.first_name ?? userMetadata.first_name ?? ""
+        ),
+        lastName: String(
+          profileDetails?.last_name ?? userMetadata.last_name ?? ""
+        ),
         email: String(profileDetails?.email ?? userEmail),
         age:
           profileDetails?.age != null
@@ -459,7 +464,8 @@ const MiPerfil = () => {
     const nextWeeklyTargetHours = parseOptionalInteger(
       sanitizedProfile.weeklyTargetHours
     );
-    const selectedOppositionCode = sanitizedProfile.preferredOppositionId || null;
+    const selectedOppositionCode =
+      sanitizedProfile.preferredOppositionId || null;
     const profilePayload = {
       user_id: user.id,
       email: sanitizedProfile.email || user.email || null,
@@ -622,7 +628,9 @@ const MiPerfil = () => {
 
       toast({
         title: t("profile:myProfile.toasts.paymentPortalRedirectTitle"),
-        description: t("profile:myProfile.toasts.paymentPortalRedirectDescription")
+        description: t(
+          "profile:myProfile.toasts.paymentPortalRedirectDescription"
+        )
       });
 
       window.location.assign(portalUrl);
@@ -633,16 +641,17 @@ const MiPerfil = () => {
         description:
           error instanceof Error && error.message.trim().length > 0
             ? error.message
-            : t("profile:myProfile.toasts.paymentPortalRedirectErrorDescription")
+            : t(
+                "profile:myProfile.toasts.paymentPortalRedirectErrorDescription"
+              )
       });
     } finally {
       setIsOpeningPaymentPortal(false);
     }
   };
 
-  if (isLoadingProfile) {
+  if (isLoadingProfile)
     return <AppLoading label={t("profile:myProfile.loading")} />;
-  }
 
   return (
     <div className="space-y-6">

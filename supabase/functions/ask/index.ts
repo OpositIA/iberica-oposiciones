@@ -5,9 +5,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
 };
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")?.trim() || "";
+const OPENROUTER_BASE_URL =
+  Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
+const OPENROUTER_APP_URL =
+  Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+const OPENROUTER_APP_NAME =
+  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
 const OPENROUTER_BASE_URL =
   Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
 const OPENROUTER_APP_URL =
@@ -24,6 +33,8 @@ const OPENROUTER_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
 const EMBEDDING_DIM = 4096;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")?.trim() || "";
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
 const SUPABASE_SERVICE_ROLE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
 
@@ -275,8 +286,10 @@ async function callOpenRouter(path: string, payload: Record<string, unknown>) {
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "HTTP-Referer": OPENROUTER_APP_URL,
       "X-Title": OPENROUTER_APP_NAME
+      "X-Title": OPENROUTER_APP_NAME
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS)
     signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS)
   });
   const data = await response.json().catch(() => ({}));
@@ -289,6 +302,7 @@ async function callOpenRouter(path: string, payload: Record<string, unknown>) {
 
 const normalizeRpcRows = (
   rows: Array<Record<string, unknown>>,
+  source: "buscar_ley" | "buscar_articulos"
   source: "buscar_ley" | "buscar_articulos"
 ): RetrievalHit[] =>
   rows
@@ -314,6 +328,7 @@ const normalizeRpcRows = (
         similarity,
         source,
         score: similarity,
+        article_matches: []
         article_matches: []
       } as RetrievalHit;
     })
@@ -363,6 +378,7 @@ const mergeHits = (
   semanticHits: RetrievalHit[],
   articleHits: Array<ArticleQuery & { hits: RetrievalHit[] }>,
   articleRefs: ArticleRef[],
+  boeFilter: string | null
   boeFilter: string | null
 ) => {
   const merged = new Map<string, RetrievalHit>();
@@ -581,9 +597,15 @@ Deno.serve(async (req) => {
         { code: "UNAUTHORIZED", message: "Missing bearer token" },
         401
       );
+    if (!token)
+      return json(
+        { code: "UNAUTHORIZED", message: "Missing bearer token" },
+        401
+      );
 
     stage = "supabase_client";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
@@ -591,7 +613,10 @@ Deno.serve(async (req) => {
     const {
       data: { user },
       error: authError
+      error: authError
     } = await supabase.auth.getUser(token);
+    if (authError || !user)
+      return json({ code: "UNAUTHORIZED", message: "Invalid session" }, 401);
     if (authError || !user)
       return json({ code: "UNAUTHORIZED", message: "Invalid session" }, 401);
 
@@ -600,6 +625,7 @@ Deno.serve(async (req) => {
       model: OPENROUTER_EMBEDDING_MODEL,
       input: allQueries,
       dimensions: EMBEDDING_DIM,
+      encoding_format: "float"
       encoding_format: "float"
     });
 
@@ -715,10 +741,15 @@ Deno.serve(async (req) => {
         total: allQueries.length,
         semantic: semanticQueries.length,
         article: articleQueries.length
+        article: articleQueries.length
       },
       refs: {
         boe: boeRefs,
         inferred_boe: inferredLaw?.boeId ?? null,
+        article: articleRefs.map((ref) => ({
+          requested: ref.normalized,
+          base: ref.base
+        }))
         article: articleRefs.map((ref) => ({
           requested: ref.normalized,
           base: ref.base
@@ -731,6 +762,7 @@ Deno.serve(async (req) => {
           0
         ),
         ranked: ranked.length,
+        context: contextHits.length
         context: contextHits.length
       },
       retrieval_errors: pass.retrievalErrors,
@@ -745,6 +777,7 @@ Deno.serve(async (req) => {
         citations: [],
         refused: true,
         mindMap: false,
+        ...(body.debug === true ? { debug } : {})
         ...(body.debug === true ? { debug } : {})
       });
     }
@@ -763,6 +796,7 @@ Deno.serve(async (req) => {
       similarity: hit.similarity,
       score: hit.score,
       source: hit.source,
+      article_matches: hit.article_matches
       article_matches: hit.article_matches
     }));
 
@@ -920,6 +954,8 @@ Deno.serve(async (req) => {
       ...(body.debug === true ? { debug } : {})
     });
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown ask failure";
     const message =
       error instanceof Error ? error.message : "Unknown ask failure";
     console.error("[ask:error]", { stage, message });

@@ -5,7 +5,7 @@ import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 import {
   parseJsonBody,
   sanitizeCode,
-  sanitizeSingleLineText,
+  sanitizeSingleLineText
 } from "../_shared/inputSanitization.ts";
 
 type RequestPayload = {
@@ -25,8 +25,9 @@ type PublicPlanRow = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const json = (body: unknown, status = 200) =>
@@ -34,15 +35,15 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 const getBaseUrl = (req: Request) => {
   const candidates = [
     req.headers.get("origin")?.trim() ?? "",
     Deno.env.get("APP_BASE_URL")?.trim() ?? "",
-    "http://localhost:8080",
+    "http://localhost:8080"
   ];
 
   for (const candidate of candidates) {
@@ -68,10 +69,7 @@ const getExistingStripeCustomerId = (metadata: unknown): string | null => {
   return customerId.length > 0 ? customerId : null;
 };
 
-const hasPaidAccessFromSubscription = (
-  status: unknown,
-  _metadata: unknown,
-) => {
+const hasPaidAccessFromSubscription = (status: unknown, _metadata: unknown) => {
   const normalizedStatus = sanitizeSingleLineText(status, 40).toLowerCase();
   return normalizedStatus === "active" || normalizedStatus === "trialing";
 };
@@ -80,20 +78,25 @@ serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
 
-  if (req.method !== "POST")
-    return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim();
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")?.trim();
-  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+  const supabaseServiceRoleKey = Deno.env
+    .get("SUPABASE_SERVICE_ROLE_KEY")
+    ?.trim();
   const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
 
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey || !stripeSecretKey)
+  if (
+    !supabaseUrl ||
+    !supabaseAnonKey ||
+    !supabaseServiceRoleKey ||
+    !stripeSecretKey
+  )
     return json({ error: "Missing required environment variables" }, 500);
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader)
-    return json({ error: "Missing Authorization header" }, 401);
+  if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
 
   let payload: RequestPayload;
   try {
@@ -105,26 +108,28 @@ serve(async (req) => {
     throw error;
   }
 
-  const requestedPlanCode = sanitizeCode(payload.plan_code, 60) || "pro-monthly";
+  const requestedPlanCode =
+    sanitizeCode(payload.plan_code, 60) || "pro-monthly";
   const source = sanitizeCode(payload.source, 60) || "app_plans";
 
   const authClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false },
-    global: { headers: { Authorization: authHeader } },
+    global: { headers: { Authorization: authHeader } }
   });
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false },
+    auth: { persistSession: false }
   });
 
   const { data: authData, error: authError } = await authClient.auth.getUser();
-  if (authError || !authData?.user)
-    return json({ error: "Unauthorized" }, 401);
+  if (authError || !authData?.user) return json({ error: "Unauthorized" }, 401);
 
   const user = authData.user;
 
   const { data: planData, error: planError } = await serviceClient
     .from("subscription_plans")
-    .select("code, name, tier, billing_interval, currency, price_cents, stripe_price_id")
+    .select(
+      "code, name, tier, billing_interval, currency, price_cents, stripe_price_id"
+    )
     .eq("code", requestedPlanCode)
     .eq("is_active", true)
     .eq("is_public", true)
@@ -132,11 +137,9 @@ serve(async (req) => {
 
   const plan = (planData ?? null) as PublicPlanRow | null;
 
-  if (planError)
-    return json({ error: planError.message }, 400);
+  if (planError) return json({ error: planError.message }, 400);
 
-  if (!plan)
-    return json({ error: "subscription_plan_not_found" }, 404);
+  if (!plan) return json({ error: "subscription_plan_not_found" }, 404);
 
   if (plan.tier === "free" || Number(plan.price_cents ?? 0) <= 0)
     return json({ error: "plan_must_be_paid" }, 400);
@@ -153,16 +156,15 @@ serve(async (req) => {
 
   const isCurrentPaid = hasPaidAccessFromSubscription(
     currentPaid?.status,
-    currentPaid?.metadata,
+    currentPaid?.metadata
   );
 
   if (
     isCurrentPaid &&
-    currentPaid?.provider_reference
-    && sanitizeCode(currentPaid?.plan_code, 60) === requestedPlanCode
-  ) 
+    currentPaid?.provider_reference &&
+    sanitizeCode(currentPaid?.plan_code, 60) === requestedPlanCode
+  )
     return json({ error: "already_subscribed" }, 409);
-  
 
   const { data: latestSubscription } = await serviceClient
     .from("user_subscriptions")
@@ -173,17 +175,18 @@ serve(async (req) => {
     .maybeSingle();
 
   const existingCustomerId = getExistingStripeCustomerId(
-    latestSubscription?.metadata,
+    latestSubscription?.metadata
   );
 
-  const stripeCurrency = sanitizeSingleLineText(plan.currency, 10).toLowerCase()
-    || "eur";
+  const stripeCurrency =
+    sanitizeSingleLineText(plan.currency, 10).toLowerCase() || "eur";
   const stripePlanName = sanitizeSingleLineText(plan.name, 120) || "Premium";
-  const recurringInterval = plan.billing_interval === "yearly" ? "year" : "month";
+  const recurringInterval =
+    plan.billing_interval === "yearly" ? "year" : "month";
 
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2024-06-20",
-    httpClient: Stripe.createFetchHttpClient(),
+    httpClient: Stripe.createFetchHttpClient()
   });
 
   const baseUrl = getBaseUrl(req);
@@ -194,19 +197,21 @@ serve(async (req) => {
     const lineItems =
       plan.stripe_price_id && plan.stripe_price_id.trim().length > 0
         ? [{ price: plan.stripe_price_id.trim(), quantity: 1 }]
-        : [{
-          price_data: {
-            currency: stripeCurrency,
-            unit_amount: Number(plan.price_cents ?? 0),
-            product_data: {
-              name: stripePlanName,
-            },
-            recurring: {
-              interval: recurringInterval,
-            },
-          },
-          quantity: 1,
-        }];
+        : [
+            {
+              price_data: {
+                currency: stripeCurrency,
+                unit_amount: Number(plan.price_cents ?? 0),
+                product_data: {
+                  name: stripePlanName
+                },
+                recurring: {
+                  interval: recurringInterval
+                }
+              },
+              quantity: 1
+            }
+          ];
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -215,20 +220,22 @@ serve(async (req) => {
       cancel_url: cancelUrl,
       client_reference_id: user.id,
       customer: existingCustomerId ?? undefined,
-      customer_email: existingCustomerId ? undefined : user.email ?? undefined,
+      customer_email: existingCustomerId
+        ? undefined
+        : (user.email ?? undefined),
       allow_promotion_codes: true,
       metadata: {
         user_id: user.id,
         plan_code: requestedPlanCode,
-        source,
+        source
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
           plan_code: requestedPlanCode,
-          source,
-        },
-      },
+          source
+        }
+      }
     });
 
     if (!session.url)
@@ -236,7 +243,7 @@ serve(async (req) => {
 
     return json({
       checkout_url: session.url,
-      session_id: session.id,
+      session_id: session.id
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

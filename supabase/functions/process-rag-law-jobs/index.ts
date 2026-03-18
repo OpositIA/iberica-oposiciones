@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import {
   parseJsonBody,
   sanitizeBoolean,
-  sanitizeInteger,
+  sanitizeInteger
 } from "../_shared/inputSanitization.ts";
 
 type RequestPayload = {
@@ -16,8 +16,9 @@ type RequestPayload = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-edge-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, content-type, apikey, x-edge-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const DEFAULT_MAX_LAWS = 5;
@@ -27,8 +28,8 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 function clamp(value: number, min: number, max: number): number {
@@ -46,16 +47,19 @@ function createServiceClient() {
 
 async function getRuntimeSecret(
   supabase: ReturnType<typeof createServiceClient>,
-  name: string,
+  name: string
 ): Promise<string | null> {
-  const { data, error } = await supabase.rpc("get_runtime_secret", { p_name: name });
-  if (error) throw new Error(`get_runtime_secret(${name}) failed: ${error.message}`);
+  const { data, error } = await supabase.rpc("get_runtime_secret", {
+    p_name: name
+  });
+  if (error)
+    throw new Error(`get_runtime_secret(${name}) failed: ${error.message}`);
   return typeof data === "string" && data.trim() ? data.trim() : null;
 }
 
 async function ensureEdgeSecret(
   req: Request,
-  supabase: ReturnType<typeof createServiceClient>,
+  supabase: ReturnType<typeof createServiceClient>
 ): Promise<Response | null> {
   const expected = await getRuntimeSecret(supabase, "rag_edge_secret");
   if (!expected) return json({ error: "Missing rag_edge_secret" }, 500);
@@ -68,7 +72,8 @@ async function ensureEdgeSecret(
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
@@ -80,9 +85,9 @@ serve(async (req) => {
     try {
       parsedBody = await parseJsonBody<RequestPayload>(req);
     } catch (error) {
-      if (error instanceof Error && error.message === "Invalid JSON body") {
+      if (error instanceof Error && error.message === "Invalid JSON body")
         return json({ error: error.message }, 400);
-      }
+
       throw error;
     }
 
@@ -90,29 +95,33 @@ serve(async (req) => {
       sanitizeInteger(parsedBody.max_laws ?? parsedBody.limit, {
         min: 1,
         max: 50,
-        fallback: DEFAULT_MAX_LAWS,
+        fallback: DEFAULT_MAX_LAWS
       }) ?? DEFAULT_MAX_LAWS,
       1,
-      50,
+      50
     );
     const force = sanitizeBoolean(parsedBody.force);
     const dryRun = sanitizeBoolean(parsedBody.dry_run);
 
     const syncPayload: Record<string, unknown> = {
       force,
-      max_laws: maxLaws,
+      max_laws: maxLaws
     };
     if (dryRun) syncPayload.dry_run = true;
 
-    const { data, error } = await supabase.rpc("invoke_internal_edge_function", {
-      p_function_name: "sync-laws-rag",
-      p_body: syncPayload,
-      p_timeout_milliseconds: 300000,
-    });
+    const { data, error } = await supabase.rpc(
+      "invoke_internal_edge_function",
+      {
+        p_function_name: "sync-laws-rag",
+        p_body: syncPayload,
+        p_timeout_milliseconds: 300000
+      }
+    );
 
-    if (error) {
-      throw new Error(`invoke_internal_edge_function(sync-laws-rag) failed: ${error.message}`);
-    }
+    if (error)
+      throw new Error(
+        `invoke_internal_edge_function(sync-laws-rag) failed: ${error.message}`
+      );
 
     return json({
       ok: true,
@@ -120,15 +129,15 @@ serve(async (req) => {
       migrated_to: "sync-laws-rag",
       request_id: typeof data === "number" ? data : null,
       forwarded_payload: syncPayload,
-      note: "Legacy Gemini/1536 worker removed. RAG legal now uses OpenRouter Qwen embeddings (4096).",
+      note: "Legacy Gemini/1536 worker removed. RAG legal now uses OpenRouter Qwen embeddings (4096)."
     });
   } catch (error) {
     return json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       },
-      500,
+      500
     );
   }
 });

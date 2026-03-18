@@ -13,12 +13,12 @@ const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
   const { isAuthReady, isAuthenticated } = useAuth();
 
   if (!isAuthReady) {
-    return <AppLoading variant="fullScreen" label={t("status.validatingSession")} />;
+    return (
+      <AppLoading variant="fullScreen" label={t("status.validatingSession")} />
+    );
   }
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 };

@@ -10,9 +10,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
-import {
-  isPaidPlan,
-} from "@/lib/plans";
+import { isPaidPlan } from "@/lib/plans";
 import {
   clearQuickTestProgress,
   getQuickTestProgress,
@@ -22,6 +20,7 @@ import {
 } from "@/lib/quickTestStorage";
 import { runSingleFlight } from "@/lib/singleFlight";
 import { cn } from "@/lib/utils";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   cloneQuickTestSession,
   ensureQuickTestAttempt,
@@ -31,15 +30,21 @@ import {
   saveQuickTestAttemptProgress,
   type QuickTestSessionPayload
 } from "@/queries/testQueries";
-import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
-import { ArrowLeft, CheckCircle2, CircleHelp, RotateCcw } from "lucide-react";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, CheckCircle2, CircleHelp, RotateCcw } from "lucide-react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Link,
   UNSAFE_NavigationContext,
   useBeforeUnload,
-  Link,
   useLocation,
   useNavigate,
   useParams
@@ -165,7 +170,8 @@ const normalizeQuestion = (
 ): NormalizedQuestion | null => {
   if (!isRecord(raw)) return null;
 
-  const rawOptions = raw.options ?? raw.choices ?? raw.answers ?? raw.alternatives;
+  const rawOptions =
+    raw.options ?? raw.choices ?? raw.answers ?? raw.alternatives;
   const options = normalizeOptions(rawOptions);
   if (options.length === 0) return null;
   const optionIds =
@@ -467,7 +473,7 @@ const ProfileQuickTestSession = () => {
           attempt?.activeQuestionId &&
           questionById.has(attempt.activeQuestionId as string)
             ? attempt.activeQuestionId
-            : questions[0]?.id ?? null;
+            : (questions[0]?.id ?? null);
 
         setSelectedAnswers(dbAnswers);
         setActiveQuestionId(restoredActiveQuestionId);
@@ -536,7 +542,8 @@ const ProfileQuickTestSession = () => {
       }, 0),
     [gradeableQuestions, selectedAnswers]
   );
-  const isReadOnlyHistoryView = !hasQuickTestsAccess && Boolean(attemptFinishedAt);
+  const isReadOnlyHistoryView =
+    !hasQuickTestsAccess && Boolean(attemptFinishedAt);
   const isMidTest =
     hasQuickTestsAccess &&
     questions.length > 0 &&
@@ -578,15 +585,15 @@ const ProfileQuickTestSession = () => {
       void runSingleFlight(
         `quick-test:save:${routeTestId}:${user.id}:${signature}`,
         () =>
-            saveQuickTestAttemptProgress({
-              testId: routeTestId,
-              userId: user.id,
-              selectedAnswers: normalizedSelectedAnswers,
-              activeQuestionId,
-              finishedAt: attemptFinishedAt ?? undefined
-            }),
-          { reuseResultForMs: 400 }
-        )
+          saveQuickTestAttemptProgress({
+            testId: routeTestId,
+            userId: user.id,
+            selectedAnswers: normalizedSelectedAnswers,
+            activeQuestionId,
+            finishedAt: attemptFinishedAt ?? undefined
+          }),
+        { reuseResultForMs: 400 }
+      )
         .then(() => {
           lastSavedSignatureRef.current = signature;
         })
@@ -622,7 +629,9 @@ const ProfileQuickTestSession = () => {
 
   const goToQuestion = (questionId: string) => {
     setActiveQuestionId(questionId);
-    const questionIndex = questions.findIndex((question) => question.id === questionId);
+    const questionIndex = questions.findIndex(
+      (question) => question.id === questionId
+    );
     if (questionIndex < 0) return;
 
     const questionElement = document.getElementById(
@@ -631,7 +640,8 @@ const ProfileQuickTestSession = () => {
     questionElement?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const isAllAnswered = questions.length > 0 && answeredCount === questions.length;
+  const isAllAnswered =
+    questions.length > 0 && answeredCount === questions.length;
   const wrongAnswers = Math.max(0, gradeableAnsweredCount - score);
 
   const handleRetry = async () => {
@@ -778,16 +788,10 @@ const ProfileQuickTestSession = () => {
     !isAttemptHydrated &&
     routeTestId &&
     isUuid(routeTestId)
-  ) {
+  )
     return <AppLoading label={t("test.loading")} />;
-  }
 
-  if (
-    isAuthReady &&
-    user?.id &&
-    !hasQuickTestsAccess &&
-    !attemptFinishedAt
-  ) {
+  if (isAuthReady && user?.id && !hasQuickTestsAccess && !attemptFinishedAt) {
     return (
       <div className="border border-border bg-background p-6">
         <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
@@ -808,9 +812,8 @@ const ProfileQuickTestSession = () => {
     );
   }
 
-  if (!payload && isLoadingPayload) {
+  if (!payload && isLoadingPayload)
     return <AppLoading label={t("test.loading")} />;
-  }
 
   if (!payload) {
     return (
@@ -885,7 +888,8 @@ const ProfileQuickTestSession = () => {
                 onClick={() => goToQuestion(question.id)}
                 className={cn(
                   "h-9 min-w-9 rounded-md border px-2 text-xs font-semibold transition-colors",
-                  status === "correct" && "border-emerald-500 bg-emerald-500/15",
+                  status === "correct" &&
+                    "border-emerald-500 bg-emerald-500/15",
                   status === "wrong" && "border-destructive bg-destructive/15",
                   status === "answered" && "border-primary bg-primary/15",
                   status === "unanswered" && "border-border bg-background",
@@ -940,9 +944,12 @@ const ProfileQuickTestSession = () => {
               id={`quick-test-question-${questionIdx + 1}`}
               className={cn(
                 "border bg-background p-5 space-y-3 scroll-mt-24",
-                questionStatus === "wrong" && "border-destructive/70 bg-destructive/5",
-                questionStatus === "correct" && "border-emerald-500/60 bg-emerald-500/5",
-                (questionStatus === "unanswered" || questionStatus === "answered") &&
+                questionStatus === "wrong" &&
+                  "border-destructive/70 bg-destructive/5",
+                questionStatus === "correct" &&
+                  "border-emerald-500/60 bg-emerald-500/5",
+                (questionStatus === "unanswered" ||
+                  questionStatus === "answered") &&
                   "border-border"
               )}
             >
@@ -973,7 +980,8 @@ const ProfileQuickTestSession = () => {
                       type="button"
                       onClick={() => {
                         if (isReadOnlyHistoryView) return;
-                        if (typeof selectedAnswers[question.id] === "number") return;
+                        if (typeof selectedAnswers[question.id] === "number")
+                          return;
                         setSelectedAnswers((prev) => ({
                           ...prev,
                           [question.id]: optionIdx
@@ -984,8 +992,10 @@ const ProfileQuickTestSession = () => {
                         "w-full rounded-md border px-3 py-2 text-left text-sm transition-colors border-border bg-background text-foreground hover:bg-primary/10",
                         isSelectedWithoutKey &&
                           "border-primary bg-primary/15 text-foreground",
-                        isCorrectOption && "border-emerald-600 bg-emerald-500/20",
-                        isSelectedWrong && "border-destructive bg-destructive/10"
+                        isCorrectOption &&
+                          "border-emerald-600 bg-emerald-500/20",
+                        isSelectedWrong &&
+                          "border-destructive bg-destructive/10"
                       )}
                     >
                       <span className="font-semibold mr-2">
@@ -1093,7 +1103,10 @@ const ProfileQuickTestSession = () => {
           setIsLeaveDialogOpen(false);
         }}
       />
-      <Dialog open={isResultDialogOpen} onOpenChange={handleResultDialogOpenChange}>
+      <Dialog
+        open={isResultDialogOpen}
+        onOpenChange={handleResultDialogOpenChange}
+      >
         <DialogContent className="max-w-md rounded-2xl border border-border/70 bg-background/95">
           <DialogHeader className="space-y-2">
             <DialogTitle>{t("testSession.resultDialogTitle")}</DialogTitle>
@@ -1114,7 +1127,9 @@ const ProfileQuickTestSession = () => {
               <p className="text-xs text-muted-foreground">
                 {t("testSession.wrongCountLabel")}
               </p>
-              <p className="text-lg font-semibold text-destructive">{wrongAnswers}</p>
+              <p className="text-lg font-semibold text-destructive">
+                {wrongAnswers}
+              </p>
             </div>
           </div>
           <DialogFooter>

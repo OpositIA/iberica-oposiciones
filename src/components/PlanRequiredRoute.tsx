@@ -12,7 +12,9 @@ const PlanRequiredRoute = ({ children }: PlanRequiredRouteProps) => {
   const { isAuthReady } = useAuth();
 
   if (!isAuthReady) {
-    return <AppLoading variant="fullScreen" label={t("status.validatingSession")} />;
+    return (
+      <AppLoading variant="fullScreen" label={t("status.validatingSession")} />
+    );
   }
 
   return <>{children}</>;

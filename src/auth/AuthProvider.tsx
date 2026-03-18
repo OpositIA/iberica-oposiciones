@@ -1,14 +1,11 @@
 import i18n from "@/i18n/config";
 import { AppLocale, DEFAULT_LOCALE, normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
+import { sanitizeSingleLineText, sanitizeUrl } from "@/lib/inputSanitization";
 import {
   clearSupabaseAuthStorage,
   resetAuthFailureGuard
 } from "@/lib/secureFetch";
-import {
-  sanitizeSingleLineText,
-  sanitizeUrl
-} from "@/lib/inputSanitization";
 import { isSessionExpired } from "@/lib/session";
 import { runSingleFlight } from "@/lib/singleFlight";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
@@ -72,7 +69,10 @@ const buildProfileSnapshot = (
     typeof metadata.avatar_url === "string" ? metadata.avatar_url : "";
 
   return {
-    firstName: sanitizeSingleLineText(data?.first_name ?? metadataFirstName, 80),
+    firstName: sanitizeSingleLineText(
+      data?.first_name ?? metadataFirstName,
+      80
+    ),
     lastName: sanitizeSingleLineText(data?.last_name ?? metadataLastName, 120),
     email: sanitizeSingleLineText(data?.email ?? authUser.email, 254),
     avatarUrl: sanitizeUrl(data?.avatar_url ?? metadataAvatarUrl)

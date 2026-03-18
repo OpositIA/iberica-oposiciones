@@ -7,11 +7,11 @@ type SanitizeTextOptions = {
 
 const CONTROL_CHARS_WITH_NEWLINES_RE = new RegExp(
   "[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]",
-  "g",
+  "g"
 );
 const CONTROL_CHARS_SINGLE_LINE_RE = new RegExp(
   "[\\u0000-\\u001F\\u007F]",
-  "g",
+  "g"
 );
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -31,35 +31,35 @@ export const sanitizeText = (
     maxLength = Number.POSITIVE_INFINITY,
     trim = true,
     collapseWhitespace = true,
-    preserveNewlines = false,
-  }: SanitizeTextOptions = {},
+    preserveNewlines = false
+  }: SanitizeTextOptions = {}
 ): string => {
   if (
-    typeof value !== "string"
-    && typeof value !== "number"
-    && typeof value !== "boolean"
-  ) 
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  )
     return "";
-  
 
   let sanitized = normalizeUnicode(String(value));
   sanitized = preserveNewlines
-    ? sanitized.replace(/\r\n?/g, "\n").replace(CONTROL_CHARS_WITH_NEWLINES_RE, "")
+    ? sanitized
+        .replace(/\r\n?/g, "\n")
+        .replace(CONTROL_CHARS_WITH_NEWLINES_RE, "")
     : sanitized.replace(CONTROL_CHARS_SINGLE_LINE_RE, "");
 
   if (collapseWhitespace) {
     sanitized = preserveNewlines
       ? sanitized
-        .replace(/[^\S\n]+/g, " ")
-        .replace(/\n{3,}/g, "\n\n")
-        .replace(/ *\n */g, "\n")
+          .replace(/[^\S\n]+/g, " ")
+          .replace(/\n{3,}/g, "\n\n")
+          .replace(/ *\n */g, "\n")
       : sanitized.replace(/\s+/g, " ");
   }
 
   if (trim) sanitized = sanitized.trim();
-  if (Number.isFinite(maxLength) && maxLength >= 0) 
+  if (Number.isFinite(maxLength) && maxLength >= 0)
     sanitized = sanitized.slice(0, maxLength);
-  
 
   return sanitized;
 };
@@ -68,14 +68,14 @@ export const sanitizeSingleLineText = (value: unknown, maxLength = 200) =>
   sanitizeText(value, {
     maxLength,
     collapseWhitespace: true,
-    preserveNewlines: false,
+    preserveNewlines: false
   });
 
 export const sanitizeMultilineText = (value: unknown, maxLength = 4000) =>
   sanitizeText(value, {
     maxLength,
     collapseWhitespace: true,
-    preserveNewlines: true,
+    preserveNewlines: true
   });
 
 export const sanitizeCode = (value: unknown, maxLength = 120) =>
@@ -83,7 +83,10 @@ export const sanitizeCode = (value: unknown, maxLength = 120) =>
 
 export const sanitizeStringArray = (
   value: unknown,
-  { maxItems = 50, maxLength = 120 }: { maxItems?: number; maxLength?: number } = {},
+  {
+    maxItems = 50,
+    maxLength = 120
+  }: { maxItems?: number; maxLength?: number } = {}
 ) => {
   if (!Array.isArray(value)) return [];
 
@@ -106,12 +109,12 @@ export const sanitizeInteger = (
   {
     min,
     max,
-    fallback = null,
+    fallback = null
   }: {
     min: number;
     max: number;
     fallback?: number | null;
-  },
+  }
 ) => {
   const candidate =
     typeof value === "number" && Number.isFinite(value)
@@ -128,7 +131,7 @@ export const sanitizeBoolean = (value: unknown) => value === true;
 
 export const sanitizeNumberArray = (
   value: unknown,
-  { min, max, maxItems = 50 }: { min: number; max: number; maxItems?: number },
+  { min, max, maxItems = 50 }: { min: number; max: number; maxItems?: number }
 ) => {
   if (!Array.isArray(value)) return [];
 
@@ -142,9 +145,7 @@ export const sanitizeNumberArray = (
   return cleaned;
 };
 
-export const parseJsonBody = async <T>(
-  req: Request,
-): Promise<T> => {
+export const parseJsonBody = async <T>(req: Request): Promise<T> => {
   const raw = await req.text();
   if (!raw.trim()) return {} as T;
 

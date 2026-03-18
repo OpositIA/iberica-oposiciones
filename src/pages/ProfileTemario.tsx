@@ -6,8 +6,8 @@ import {
   AccordionItem,
   AccordionTrigger
 } from "@/components/ui/accordion";
-import { type Oposicion } from "@/data/oposicionesDb";
 import CustomButton from "@/components/ui/custom-button";
+import { type Oposicion } from "@/data/oposicionesDb";
 import { isPaidPlan } from "@/lib/plans";
 import {
   usePaidSyllabusSubtopicFilesQuery,

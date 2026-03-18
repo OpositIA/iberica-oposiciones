@@ -838,7 +838,7 @@ const AssistantIA = () => {
       setDailyUsedRequests(normalizedQuota.used);
       queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
         day: String(row.day ?? ""),
-        is_paid: Boolean(row.is_paid ?? planState?.is_paid),
+        is_paid: Boolean(planState?.is_paid),
         limit: normalizedQuota.limit,
         remaining: normalizedQuota.remaining,
         used: normalizedQuota.used
@@ -1042,9 +1042,7 @@ const AssistantIA = () => {
         if (created) {
           setConversations(sortConversationItems([created]));
           setActiveConversationId(created.id);
-        } else {
-          bootstrappedUserIdRef.current = null;
-        }
+        } else bootstrappedUserIdRef.current = null;
 
         setIsLoadingConversations(false);
         return;
@@ -1193,9 +1191,8 @@ const AssistantIA = () => {
       .split(/(\*\*[^*]+\*\*|<br\s*\/?>)/gi)
       .filter(Boolean)
       .map((segment, index) => {
-        if (/^<br\s*\/?>$/i.test(segment)) {
+        if (/^<br\s*\/?>$/i.test(segment))
           return <br key={`${keyPrefix}-br-${index}`} />;
-        }
 
         const strongMatch = segment.match(/^\*\*(.+)\*\*$/);
         if (strongMatch) {

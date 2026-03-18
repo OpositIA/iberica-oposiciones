@@ -10,7 +10,10 @@ const CONTROL_CHARS_WITH_NEWLINES_RE = new RegExp(
   "[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]",
   "g"
 );
-const CONTROL_CHARS_SINGLE_LINE_RE = new RegExp("[\\u0000-\\u001F\\u007F]", "g");
+const CONTROL_CHARS_SINGLE_LINE_RE = new RegExp(
+  "[\\u0000-\\u001F\\u007F]",
+  "g"
+);
 /* eslint-enable no-control-regex */
 
 const normalizeUnicode = (value: string) => {
@@ -39,7 +42,9 @@ export const sanitizeText = (
 
   let sanitized = normalizeUnicode(String(value));
   sanitized = preserveNewlines
-    ? sanitized.replace(/\r\n?/g, "\n").replace(CONTROL_CHARS_WITH_NEWLINES_RE, "")
+    ? sanitized
+        .replace(/\r\n?/g, "\n")
+        .replace(CONTROL_CHARS_WITH_NEWLINES_RE, "")
     : sanitized.replace(CONTROL_CHARS_SINGLE_LINE_RE, "");
 
   if (collapseWhitespace) {
@@ -58,20 +63,14 @@ export const sanitizeText = (
   return sanitized;
 };
 
-export const sanitizeSingleLineText = (
-  value: unknown,
-  maxLength = 200
-) =>
+export const sanitizeSingleLineText = (value: unknown, maxLength = 200) =>
   sanitizeText(value, {
     maxLength,
     collapseWhitespace: true,
     preserveNewlines: false
   });
 
-export const sanitizeMultilineText = (
-  value: unknown,
-  maxLength = 4000
-) =>
+export const sanitizeMultilineText = (value: unknown, maxLength = 4000) =>
   sanitizeText(value, {
     maxLength,
     collapseWhitespace: true,
