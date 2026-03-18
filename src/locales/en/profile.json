@@ -102,12 +102,7 @@
       "name": "First name",
       "lastName": "Last name",
       "email": "Email",
-      "age": "Age",
-      "yearsPreparing": "Years preparing",
-      "weeklyTargetHours": "Target hours / week",
-      "testsPerWeek": "Tests per week",
-      "mainChallenge": "Main study challenge",
-      "mainChallengePlaceholder": "Describe your main current challenge...",
+      "dateOfBirth": "Date of birth",
       "locale": "Language",
       "accentColor": "Primary color"
     },

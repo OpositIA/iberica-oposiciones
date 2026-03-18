@@ -12,6 +12,12 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
+[functions.complete-paid-signup]
+verify_jwt = false
+
+[functions.complete-free-signup]
+verify_jwt = false
+
 [functions.sync-laws-rag]
 verify_jwt = false
 

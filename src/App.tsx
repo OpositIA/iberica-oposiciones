@@ -25,6 +25,8 @@ import ProfileTemario from "./pages/ProfileTemario";
 import ProfileTest from "./pages/ProfileTest";
 import PublicPlans from "./pages/PublicPlans";
 import Register from "./pages/Register";
+import RegisterCheckoutSuccess from "./pages/RegisterCheckoutSuccess";
+import RegisterPlanSelection from "./pages/RegisterPlanSelection";
 import ResetPassword from "./pages/ResetPassword";
 import { StudyTimerProvider } from "./study/StudyTimerProvider";
 
@@ -76,6 +78,22 @@ const App = () => (
               element={
                 <LandingRouteGuard>
                   <Register />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/registro/planes"
+              element={
+                <LandingRouteGuard>
+                  <RegisterPlanSelection />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/registro/pago-completado"
+              element={
+                <LandingRouteGuard>
+                  <RegisterCheckoutSuccess />
                 </LandingRouteGuard>
               }
             />

@@ -277,58 +277,46 @@ export type Database = {
       };
       profiles: {
         Row: {
-          age: number | null;
           avatar_url: string | null;
           created_at: string;
+          date_of_birth: string | null;
           email: string | null;
           first_name: string | null;
           full_name: string | null;
           last_name: string | null;
           locale: string;
-          main_challenge: string | null;
           preferred_opposition: string | null;
           preferred_opposition_id: string | null;
-          tests_per_week: number | null;
           updated_at: string;
           user_id: string;
-          weekly_target_hours: number;
-          years_preparing: number | null;
         };
         Insert: {
-          age?: number | null;
           avatar_url?: string | null;
           created_at?: string;
+          date_of_birth?: string | null;
           email?: string | null;
           first_name?: string | null;
           full_name?: string | null;
           last_name?: string | null;
           locale?: string;
-          main_challenge?: string | null;
           preferred_opposition?: string | null;
           preferred_opposition_id?: string | null;
-          tests_per_week?: number | null;
           updated_at?: string;
           user_id: string;
-          weekly_target_hours?: number;
-          years_preparing?: number | null;
         };
         Update: {
-          age?: number | null;
           avatar_url?: string | null;
           created_at?: string;
+          date_of_birth?: string | null;
           email?: string | null;
           first_name?: string | null;
           full_name?: string | null;
           last_name?: string | null;
           locale?: string;
-          main_challenge?: string | null;
           preferred_opposition?: string | null;
           preferred_opposition_id?: string | null;
-          tests_per_week?: number | null;
           updated_at?: string;
           user_id?: string;
-          weekly_target_hours?: number;
-          years_preparing?: number | null;
         };
         Relationships: [];
       };
@@ -612,6 +600,12 @@ export type Database = {
           p_user_id: string;
         };
         Returns: number;
+      };
+      is_signup_email_available: {
+        Args: {
+          p_email: string;
+        };
+        Returns: boolean;
       };
       get_user_plan_state: {
         Args: {

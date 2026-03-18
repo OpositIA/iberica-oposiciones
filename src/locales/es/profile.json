@@ -102,12 +102,7 @@
       "name": "Nombre",
       "lastName": "Apellidos",
       "email": "Email",
-      "age": "Edad",
-      "yearsPreparing": "Años opositando",
-      "weeklyTargetHours": "Horas objetivo / semana",
-      "testsPerWeek": "Tests por semana",
-      "mainChallenge": "Principal reto de estudio",
-      "mainChallengePlaceholder": "Describe tu principal reto actual...",
+      "dateOfBirth": "Fecha de nacimiento",
       "locale": "Idioma",
       "accentColor": "Color principal"
     },

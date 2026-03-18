@@ -161,6 +161,7 @@ const syncSubscriptionState = async (
 
   const metadataUserId = sanitizeCode(subscription.metadata?.user_id, 80);
   const metadataPlanCode = sanitizeCode(subscription.metadata?.plan_code, 60);
+  const signupMode = asString(subscription.metadata?.signup_mode, 80);
   const fallbackUserId = sanitizeCode(options.fallbackUserId, 80);
   const fallbackPlanCode = sanitizeCode(options.fallbackPlanCode, 60);
 
@@ -191,6 +192,8 @@ const syncSubscriptionState = async (
 
   if (!resolvedPlanCode)
     resolvedPlanCode = await resolveDefaultPaidPlanCode(serviceClient);
+
+  if (!resolvedUserId && signupMode === "register_paid_signup") return;
 
   if (!resolvedUserId)
     throw new Error(

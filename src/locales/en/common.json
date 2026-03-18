@@ -2,7 +2,16 @@
   "appName": "OposiTest",
   "actions": {
     "confirm": "Confirm",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "today": "Today"
+  },
+  "datePicker": {
+    "openCalendar": "Open calendar",
+    "placeholder": "Select a date",
+    "selectedDate": "Selected date",
+    "noDate": "No date selected",
+    "helper": "Move through months or jump across years in one click."
   },
   "locale": {
     "label": "Language",
