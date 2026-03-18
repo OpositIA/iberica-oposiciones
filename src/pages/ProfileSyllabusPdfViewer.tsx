@@ -16,9 +16,15 @@ import {
   Plus,
   Search
 } from "lucide-react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -38,7 +44,11 @@ const VIEWER_WATERMARK_BLOCKS = [
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const extractPageText = async (pdf: PDFDocumentProxy, pageNumber: number) => {
+type LoadedPdfDocument = Parameters<
+  NonNullable<ComponentProps<typeof Document>["onLoadSuccess"]>
+>[0];
+
+const extractPageText = async (pdf: LoadedPdfDocument, pageNumber: number) => {
   const page = await pdf.getPage(pageNumber);
   const textContent = await page.getTextContent();
 
@@ -308,7 +318,7 @@ const ProfileSyllabusPdfViewer = () => {
     scrollToPage(searchMatches[normalizedIndex]);
   };
 
-  const handleDocumentLoad = (pdf: PDFDocumentProxy) => {
+  const handleDocumentLoad = (pdf: LoadedPdfDocument) => {
     setDocumentError(null);
     setPageCount(pdf.numPages);
     setCurrentPage((previousPage) => clamp(previousPage, 1, pdf.numPages));

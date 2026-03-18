@@ -9,7 +9,10 @@ import {
 } from "../_shared/inputSanitization.ts";
 
 type RequestPayload = {
+  cancel_path?: string;
+  email?: string;
   plan_code?: string;
+  success_path?: string;
   source?: string;
 };
 
@@ -60,6 +63,16 @@ const getBaseUrl = (req: Request) => {
   return "http://localhost:8080";
 };
 
+const buildAppUrl = (baseUrl: string, path: string, fallbackPath: string) => {
+  const normalizedPath = sanitizeSingleLineText(path, 240);
+  const relativePath =
+    normalizedPath.startsWith("/") && !normalizedPath.startsWith("//")
+      ? normalizedPath
+      : fallbackPath;
+
+  return `${baseUrl}${relativePath}`;
+};
+
 const getExistingStripeCustomerId = (metadata: unknown): string | null => {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
     return null;
@@ -96,7 +109,6 @@ serve(async (req) => {
     return json({ error: "Missing required environment variables" }, 500);
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
 
   let payload: RequestPayload;
   try {
@@ -111,19 +123,37 @@ serve(async (req) => {
   const requestedPlanCode =
     sanitizeCode(payload.plan_code, 60) || "pro-monthly";
   const source = sanitizeCode(payload.source, 60) || "app_plans";
-
-  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: authHeader } }
-  });
+  const requestedEmail = sanitizeSingleLineText(
+    payload.email,
+    180
+  ).toLowerCase();
+  const isGuestRegisterCheckout = source === "register_paid_signup";
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: { persistSession: false }
   });
+  let user: {
+    id: string;
+    email?: string | null;
+  } | null = null;
 
-  const { data: authData, error: authError } = await authClient.auth.getUser();
-  if (authError || !authData?.user) return json({ error: "Unauthorized" }, 401);
+  if (!isGuestRegisterCheckout) {
+    if (!authHeader)
+      return json({ error: "Missing Authorization header" }, 401);
 
-  const user = authData.user;
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: authData, error: authError } =
+      await authClient.auth.getUser();
+    if (authError || !authData?.user)
+      return json({ error: "Unauthorized" }, 401);
+
+    user = authData.user;
+  } else if (!/\S+@\S+\.\S+/.test(requestedEmail)) {
+    return json({ error: "valid_email_required" }, 400);
+  }
 
   const { data: planData, error: planError } = await serviceClient
     .from("subscription_plans")
@@ -144,39 +174,43 @@ serve(async (req) => {
   if (plan.tier === "free" || Number(plan.price_cents ?? 0) <= 0)
     return json({ error: "plan_must_be_paid" }, 400);
 
-  const { data: currentPaid } = await serviceClient
-    .from("user_subscriptions")
-    .select("provider, provider_reference, plan_code, status, metadata")
-    .eq("user_id", user.id)
-    .in("status", ["active", "trialing", "past_due"])
-    .eq("provider", "stripe")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let existingCustomerId: string | null = null;
 
-  const isCurrentPaid = hasPaidAccessFromSubscription(
-    currentPaid?.status,
-    currentPaid?.metadata
-  );
+  if (user) {
+    const { data: currentPaid } = await serviceClient
+      .from("user_subscriptions")
+      .select("provider, provider_reference, plan_code, status, metadata")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing", "past_due"])
+      .eq("provider", "stripe")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (
-    isCurrentPaid &&
-    currentPaid?.provider_reference &&
-    sanitizeCode(currentPaid?.plan_code, 60) === requestedPlanCode
-  )
-    return json({ error: "already_subscribed" }, 409);
+    const isCurrentPaid = hasPaidAccessFromSubscription(
+      currentPaid?.status,
+      currentPaid?.metadata
+    );
 
-  const { data: latestSubscription } = await serviceClient
-    .from("user_subscriptions")
-    .select("metadata")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    if (
+      isCurrentPaid &&
+      currentPaid?.provider_reference &&
+      sanitizeCode(currentPaid?.plan_code, 60) === requestedPlanCode
+    )
+      return json({ error: "already_subscribed" }, 409);
 
-  const existingCustomerId = getExistingStripeCustomerId(
-    latestSubscription?.metadata
-  );
+    const { data: latestSubscription } = await serviceClient
+      .from("user_subscriptions")
+      .select("metadata")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    existingCustomerId = getExistingStripeCustomerId(
+      latestSubscription?.metadata
+    );
+  }
 
   const stripeCurrency =
     sanitizeSingleLineText(plan.currency, 10).toLowerCase() || "eur";
@@ -190,8 +224,20 @@ serve(async (req) => {
   });
 
   const baseUrl = getBaseUrl(req);
-  const successUrl = `${baseUrl}/perfil/planes?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${baseUrl}/perfil/planes?checkout=cancel`;
+  const successUrl = isGuestRegisterCheckout
+    ? buildAppUrl(
+        baseUrl,
+        payload.success_path ?? "",
+        `/registro/pago-completado?session_id={CHECKOUT_SESSION_ID}&plan=${encodeURIComponent(requestedPlanCode)}`
+      )
+    : `${baseUrl}/perfil/planes?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = isGuestRegisterCheckout
+    ? buildAppUrl(
+        baseUrl,
+        payload.cancel_path ?? "",
+        `/registro/planes?step=3&plan=${encodeURIComponent(requestedPlanCode)}&checkout=cancel`
+      )
+    : `${baseUrl}/perfil/planes?checkout=cancel`;
 
   try {
     const lineItems =
@@ -218,22 +264,26 @@ serve(async (req) => {
       line_items: lineItems,
       success_url: successUrl,
       cancel_url: cancelUrl,
-      client_reference_id: user.id,
+      client_reference_id: user?.id,
       customer: existingCustomerId ?? undefined,
       customer_email: existingCustomerId
         ? undefined
-        : (user.email ?? undefined),
+        : (user?.email ?? requestedEmail) || undefined,
       allow_promotion_codes: true,
       metadata: {
-        user_id: user.id,
+        user_id: user?.id ?? "",
         plan_code: requestedPlanCode,
-        source
+        source,
+        signup_mode: isGuestRegisterCheckout ? "register_paid_signup" : "",
+        signup_email: isGuestRegisterCheckout ? requestedEmail : ""
       },
       subscription_data: {
         metadata: {
-          user_id: user.id,
+          user_id: user?.id ?? "",
           plan_code: requestedPlanCode,
-          source
+          source,
+          signup_mode: isGuestRegisterCheckout ? "register_paid_signup" : "",
+          signup_email: isGuestRegisterCheckout ? requestedEmail : ""
         }
       }
     });

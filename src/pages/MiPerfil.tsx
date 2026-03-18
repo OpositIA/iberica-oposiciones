@@ -2,9 +2,9 @@ import { useAuth } from "@/auth/AuthProvider";
 import AppLoading from "@/components/AppLoading";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import CustomButton from "@/components/ui/custom-button";
+import CustomDateInput from "@/components/ui/custom-date-input";
 import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
-import CustomTextarea from "@/components/ui/custom-textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +18,8 @@ import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import {
   sanitizeCode,
+  sanitizeDateInput,
   sanitizeEmail,
-  sanitizeInteger,
-  sanitizeMultilineText,
   sanitizeSingleLineText,
   sanitizeUrl
 } from "@/lib/inputSanitization";
@@ -58,12 +57,8 @@ type ProfileForm = {
   firstName: string;
   lastName: string;
   email: string;
-  age: string;
+  dateOfBirth: string;
   preferredOppositionId: string;
-  yearsPreparing: string;
-  weeklyTargetHours: string;
-  testsPerWeek: string;
-  mainChallenge: string;
   avatarUrl: string;
 };
 
@@ -71,12 +66,8 @@ const initialProfile: ProfileForm = {
   firstName: "",
   lastName: "",
   email: "",
-  age: "",
+  dateOfBirth: "",
   preferredOppositionId: "",
-  yearsPreparing: "",
-  weeklyTargetHours: "16",
-  testsPerWeek: "",
-  mainChallenge: "",
   avatarUrl: ""
 };
 
@@ -118,35 +109,13 @@ const buildAvatarStoragePath = (userId: string, file: File) => {
   return `${sanitizeCode(userId, 120)}/${Date.now()}-${uniqueId}.${sanitizeCode(extension, 12) || "jpg"}`;
 };
 
-const parseOptionalInteger = (value: string) => {
-  return sanitizeInteger(value, {
-    min: Number.MIN_SAFE_INTEGER,
-    max: Number.MAX_SAFE_INTEGER
-  });
-};
-
 const sanitizeProfileForm = (profile: ProfileForm): ProfileForm => ({
   ...profile,
   firstName: sanitizeSingleLineText(profile.firstName, 80),
   lastName: sanitizeSingleLineText(profile.lastName, 120),
   email: sanitizeEmail(profile.email),
-  age:
-    sanitizeInteger(profile.age, { min: 16, max: 75 })?.toString() ??
-    sanitizeSingleLineText(profile.age, 3),
+  dateOfBirth: sanitizeDateInput(profile.dateOfBirth),
   preferredOppositionId: sanitizeCode(profile.preferredOppositionId, 120),
-  yearsPreparing:
-    sanitizeInteger(profile.yearsPreparing, { min: 0, max: 40 })?.toString() ??
-    sanitizeSingleLineText(profile.yearsPreparing, 2),
-  weeklyTargetHours:
-    sanitizeInteger(profile.weeklyTargetHours, {
-      min: 1,
-      max: 80,
-      fallback: 16
-    })?.toString() ?? "16",
-  testsPerWeek:
-    sanitizeInteger(profile.testsPerWeek, { min: 1, max: 14 })?.toString() ??
-    sanitizeSingleLineText(profile.testsPerWeek, 2),
-  mainChallenge: sanitizeMultilineText(profile.mainChallenge, 600),
   avatarUrl: sanitizeAvatarForMetadata(profile.avatarUrl)
 });
 
@@ -202,6 +171,7 @@ const MiPerfil = () => {
   const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
   const hasPaymentMethodManagement =
     isPaidPlan(planState) || Boolean(billingIssue);
+  const maxBirthDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const getOppositionName = (oppositionId: string | null | undefined) =>
     resolveOppositionNameById(oppositionId, oppositionOptions);
@@ -243,26 +213,10 @@ const MiPerfil = () => {
           profileDetails?.last_name ?? userMetadata.last_name ?? ""
         ),
         email: String(profileDetails?.email ?? userEmail),
-        age:
-          profileDetails?.age != null
-            ? String(profileDetails.age)
-            : String(userMetadata.age ?? ""),
-        preferredOppositionId: resolvedOppositionId,
-        yearsPreparing:
-          profileDetails?.years_preparing != null
-            ? String(profileDetails.years_preparing)
-            : String(userMetadata.years_preparing ?? ""),
-        weeklyTargetHours:
-          profileDetails?.weekly_target_hours != null
-            ? String(profileDetails.weekly_target_hours)
-            : String(userMetadata.weekly_target_hours ?? "16"),
-        testsPerWeek:
-          profileDetails?.tests_per_week != null
-            ? String(profileDetails.tests_per_week)
-            : String(userMetadata.tests_per_week ?? ""),
-        mainChallenge: String(
-          profileDetails?.main_challenge ?? userMetadata.main_challenge ?? ""
+        dateOfBirth: String(
+          profileDetails?.date_of_birth ?? userMetadata.date_of_birth ?? ""
         ),
+        preferredOppositionId: resolvedOppositionId,
         avatarUrl: resolvedAvatar
       })
     );
@@ -461,9 +415,6 @@ const MiPerfil = () => {
       sanitizedProfile.avatarUrl
     );
 
-    const nextWeeklyTargetHours = parseOptionalInteger(
-      sanitizedProfile.weeklyTargetHours
-    );
     const selectedOppositionCode =
       sanitizedProfile.preferredOppositionId || null;
     const profilePayload = {
@@ -473,14 +424,7 @@ const MiPerfil = () => {
       last_name: sanitizedProfile.lastName,
       full_name:
         `${sanitizedProfile.firstName} ${sanitizedProfile.lastName}`.trim(),
-      age: parseOptionalInteger(sanitizedProfile.age),
-      years_preparing: parseOptionalInteger(sanitizedProfile.yearsPreparing),
-      weekly_target_hours:
-        nextWeeklyTargetHours && nextWeeklyTargetHours > 0
-          ? nextWeeklyTargetHours
-          : 16,
-      tests_per_week: parseOptionalInteger(sanitizedProfile.testsPerWeek),
-      main_challenge: sanitizedProfile.mainChallenge || null,
+      date_of_birth: sanitizedProfile.dateOfBirth || null,
       preferred_opposition_id: sanitizedProfile.preferredOppositionId || null,
       preferred_opposition: selectedOppositionCode,
       avatar_url: avatarUrlForProfile || null,
@@ -819,89 +763,20 @@ const MiPerfil = () => {
           </div>
           <div>
             <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              {t("profile:myProfile.fields.age")}
+              {t("profile:myProfile.fields.dateOfBirth")}
             </label>
-            <CustomInput
-              type="number"
-              min={16}
-              max={75}
-              value={profile.age}
-              onChange={(e) =>
-                setProfile((prev) => ({ ...prev, age: e.target.value }))
-              }
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              {t("profile:myProfile.fields.yearsPreparing")}
-            </label>
-            <CustomInput
-              type="number"
-              min={0}
-              max={40}
-              value={profile.yearsPreparing}
+            <CustomDateInput
+              max={maxBirthDate}
+              value={profile.dateOfBirth}
               onChange={(e) =>
                 setProfile((prev) => ({
                   ...prev,
-                  yearsPreparing: e.target.value
+                  dateOfBirth: e.target.value
                 }))
               }
               className="w-full"
             />
           </div>
-          <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              {t("profile:myProfile.fields.weeklyTargetHours")}
-            </label>
-            <CustomInput
-              type="number"
-              min={1}
-              max={80}
-              value={profile.weeklyTargetHours}
-              onChange={(e) =>
-                setProfile((prev) => ({
-                  ...prev,
-                  weeklyTargetHours: e.target.value
-                }))
-              }
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-              {t("profile:myProfile.fields.testsPerWeek")}
-            </label>
-            <CustomInput
-              type="number"
-              min={1}
-              max={14}
-              value={profile.testsPerWeek}
-              onChange={(e) =>
-                setProfile((prev) => ({
-                  ...prev,
-                  testsPerWeek: e.target.value
-                }))
-              }
-              className="w-full"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-            {t("profile:myProfile.fields.mainChallenge")}
-          </label>
-          <CustomTextarea
-            rows={4}
-            value={profile.mainChallenge}
-            onChange={(e) =>
-              setProfile((prev) => ({ ...prev, mainChallenge: e.target.value }))
-            }
-            resize="none"
-            className="min-h-min"
-            placeholder={t("profile:myProfile.fields.mainChallengePlaceholder")}
-          />
         </div>
       </section>
 

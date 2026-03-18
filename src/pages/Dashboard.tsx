@@ -1,7 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
 import { isPaidPlan } from "@/lib/plans";
-import { useProfileBaseQuery } from "@/queries/profileQueries";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   fetchQuickTestsDashboardBundle,
@@ -33,11 +32,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 const Dashboard = () => {
   const { t, i18n } = useTranslation(["dashboard"]);
-  const { user, profile, isAuthReady } = useAuth();
-  const shouldLoadProfileBase = isAuthReady && Boolean(user?.id);
-  const { data: profileBase } = useProfileBaseQuery(
-    shouldLoadProfileBase ? user?.id : null
-  );
+  const { user, profile } = useAuth();
   const { data: planState } = useUserPlanStateQuery(user?.id);
   const hasQuickTestsAccess = isPaidPlan(planState);
   const [visibleHistoryCount, setVisibleHistoryCount] =
@@ -52,11 +47,7 @@ const Dashboard = () => {
   });
   const quickTestStats = dashboardBundle?.stats;
   const inProgressQuickTest = dashboardBundle?.inProgress ?? null;
-  const weeklyTargetHours = useMemo(() => {
-    const weeklyTarget = Number(profileBase?.weekly_target_hours);
-    if (Number.isFinite(weeklyTarget) && weeklyTarget > 0) return weeklyTarget;
-    return 16;
-  }, [profileBase?.weekly_target_hours]);
+  const weeklyTargetHours = 16;
 
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${

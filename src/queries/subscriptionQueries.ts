@@ -94,6 +94,24 @@ type CheckoutSessionResponse = {
   error?: string;
 };
 
+type CompletePaidSignupResponse = {
+  ok?: boolean;
+  error?: string;
+  send_email?: boolean;
+  auto_login?: boolean;
+  access_token?: string;
+  refresh_token?: string;
+};
+
+type CompleteFreeSignupResponse = {
+  ok?: boolean;
+  error?: string;
+  send_email?: boolean;
+  auto_login?: boolean;
+  access_token?: string;
+  refresh_token?: string;
+};
+
 type CustomerPortalSessionResponse = {
   portal_url?: string;
   error?: string;
@@ -369,6 +387,191 @@ export const createStripeCheckoutSession = async ({
   return {
     checkoutUrl,
     sessionId
+  };
+};
+
+export const createPublicStripeCheckoutSession = async ({
+  planCode,
+  email,
+  successPath,
+  cancelPath
+}: {
+  planCode: string;
+  email: string;
+  successPath: string;
+  cancelPath: string;
+}): Promise<{ checkoutUrl: string; sessionId: string }> => {
+  const { data, error } =
+    await supabase.functions.invoke<CheckoutSessionResponse>(
+      "create-checkout-session",
+      {
+        body: {
+          plan_code: sanitizeCode(planCode, 60),
+          source: "register_paid_signup",
+          email: sanitizeSingleLineText(email, 180),
+          success_path: sanitizeSingleLineText(successPath, 240),
+          cancel_path: sanitizeSingleLineText(cancelPath, 240)
+        }
+      }
+    );
+
+  if (error) {
+    let message = "No se pudo iniciar la pasarela de pago.";
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const parsed = (await context.json()) as { error?: unknown };
+        if (typeof parsed?.error === "string" && parsed.error.trim().length > 0)
+          message = parsed.error.trim();
+      } catch {
+        message = error.message || message;
+      }
+    } else if (error.message) message = error.message;
+
+    throw new Error(message);
+  }
+
+  const checkoutUrl =
+    typeof data?.checkout_url === "string" ? data.checkout_url.trim() : "";
+  const sessionId =
+    typeof data?.session_id === "string" ? data.session_id.trim() : "";
+
+  if (!checkoutUrl)
+    throw new Error("La pasarela de pago no devolvio una URL valida.");
+
+  return {
+    checkoutUrl,
+    sessionId
+  };
+};
+
+export const completePaidSignupAfterCheckout = async ({
+  sessionId,
+  form,
+  locale
+}: {
+  sessionId: string;
+  form: {
+    name: string;
+    lastName: string;
+    email: string;
+    password: string;
+    dateOfBirth: string;
+    preferredOpposition: string;
+  };
+  locale: string;
+}) => {
+  const { data, error } =
+    await supabase.functions.invoke<CompletePaidSignupResponse>(
+      "complete-paid-signup",
+      {
+        body: {
+          session_id: sanitizeSingleLineText(sessionId, 120),
+          locale: sanitizeCode(locale, 12),
+          first_name: sanitizeSingleLineText(form.name, 80),
+          last_name: sanitizeSingleLineText(form.lastName, 120),
+          email: sanitizeSingleLineText(form.email, 180),
+          password: typeof form.password === "string" ? form.password : "",
+          date_of_birth: sanitizeSingleLineText(form.dateOfBirth, 20),
+          preferred_opposition_id: sanitizeCode(form.preferredOpposition, 120)
+        }
+      }
+    );
+
+  if (error) {
+    let message = "No se pudo completar el registro tras el pago.";
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const parsed = (await context.json()) as { error?: unknown };
+        if (typeof parsed?.error === "string" && parsed.error.trim().length > 0)
+          message = parsed.error.trim();
+      } catch {
+        message = error.message || message;
+      }
+    } else if (error.message) message = error.message;
+
+    throw new Error(message);
+  }
+
+  if (data?.ok !== true) {
+    throw new Error(
+      typeof data?.error === "string" && data.error.trim().length > 0
+        ? data.error.trim()
+        : "No se pudo completar el registro tras el pago."
+    );
+  }
+
+  return {
+    autoLogin: data?.auto_login === true,
+    accessToken:
+      typeof data?.access_token === "string" ? data.access_token.trim() : "",
+    refreshToken:
+      typeof data?.refresh_token === "string" ? data.refresh_token.trim() : ""
+  };
+};
+
+export const completeFreeSignup = async ({
+  form,
+  locale
+}: {
+  form: {
+    name: string;
+    lastName: string;
+    email: string;
+    password: string;
+    dateOfBirth: string;
+    preferredOpposition: string;
+  };
+  locale: string;
+}) => {
+  const { data, error } =
+    await supabase.functions.invoke<CompleteFreeSignupResponse>(
+      "complete-free-signup",
+      {
+        body: {
+          locale: sanitizeCode(locale, 12),
+          first_name: sanitizeSingleLineText(form.name, 80),
+          last_name: sanitizeSingleLineText(form.lastName, 120),
+          email: sanitizeSingleLineText(form.email, 180),
+          password: typeof form.password === "string" ? form.password : "",
+          date_of_birth: sanitizeSingleLineText(form.dateOfBirth, 20),
+          preferred_opposition_id: sanitizeCode(form.preferredOpposition, 120)
+        }
+      }
+    );
+
+  if (error) {
+    let message = "No se pudo completar el registro.";
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const parsed = (await context.json()) as { error?: unknown };
+        if (typeof parsed?.error === "string" && parsed.error.trim().length > 0)
+          message = parsed.error.trim();
+      } catch {
+        message = error.message || message;
+      }
+    } else if (error.message) message = error.message;
+
+    throw new Error(message);
+  }
+
+  if (data?.ok !== true) {
+    throw new Error(
+      typeof data?.error === "string" && data.error.trim().length > 0
+        ? data.error.trim()
+        : "No se pudo completar el registro."
+    );
+  }
+
+  return {
+    sendEmail: data?.send_email !== false,
+    autoLogin: data?.auto_login === true,
+    accessToken:
+      typeof data?.access_token === "string" ? data.access_token.trim() : "",
+    refreshToken:
+      typeof data?.refresh_token === "string" ? data.refresh_token.trim() : ""
   };
 };
 

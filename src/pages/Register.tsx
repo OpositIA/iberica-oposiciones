@@ -1,101 +1,157 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import CustomButton from "@/components/ui/custom-button";
+import CustomDateInput from "@/components/ui/custom-date-input";
 import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
-import CustomTextarea from "@/components/ui/custom-textarea";
 import {
   fetchOppositionOptions,
   type OppositionOption
 } from "@/data/oposicionesDb";
+import { useRegisterSubmit } from "@/hooks/use-register-submit";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
+import { sanitizeCode } from "@/lib/inputSanitization";
+import { formatPlanPriceFromCents, getPlanKey } from "@/lib/plans";
 import {
-  containsUnsafeControlChars,
-  sanitizeCode,
-  sanitizeEmail,
-  sanitizeInteger,
-  sanitizeMultilineText,
-  sanitizeSingleLineText
-} from "@/lib/inputSanitization";
+  buildRegisterPlanSelectionPath,
+  clampRegisterStep,
+  getRegisterAccountStepError,
+  getRegisterProfileStepError,
+  initialRegisterForm,
+  readRegisterFlowDraft,
+  sanitizeRegisterForm,
+  writeRegisterFlowDraft,
+  type RegisterForm
+} from "@/lib/registerFlow";
+import {
+  createPublicStripeCheckoutSession,
+  usePublicSubscriptionPlansQuery
+} from "@/queries/subscriptionQueries";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-type RegisterForm = {
-  name: string;
-  lastName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  age: string;
-  preferredOpposition: string;
-  yearsPreparing: string;
-  weeklyTargetHours: string;
-  testsPerWeek: string;
-  mainChallenge: string;
-  acceptedTerms: boolean;
-};
-
-const TOTAL_STEPS = 4;
-
-const initialForm: RegisterForm = {
-  name: "",
-  lastName: "",
-  email: "",
-  password: "",
-  confirmPassword: "",
-  age: "",
-  preferredOpposition: "",
-  yearsPreparing: "",
-  weeklyTargetHours: "16",
-  testsPerWeek: "",
-  mainChallenge: "",
-  acceptedTerms: false
-};
-
-const sanitizeRegisterForm = (form: RegisterForm): RegisterForm => ({
-  ...form,
-  name: sanitizeSingleLineText(form.name, 80),
-  lastName: sanitizeSingleLineText(form.lastName, 120),
-  email: sanitizeEmail(form.email),
-  age:
-    sanitizeInteger(form.age, { min: 16, max: 75 })?.toString() ??
-    sanitizeSingleLineText(form.age, 3),
-  preferredOpposition: sanitizeCode(form.preferredOpposition, 120),
-  yearsPreparing:
-    sanitizeInteger(form.yearsPreparing, { min: 0, max: 40 })?.toString() ??
-    sanitizeSingleLineText(form.yearsPreparing, 2),
-  weeklyTargetHours:
-    sanitizeInteger(form.weeklyTargetHours, {
-      min: 1,
-      max: 80,
-      fallback: 16
-    })?.toString() ?? "16",
-  testsPerWeek:
-    sanitizeInteger(form.testsPerWeek, { min: 1, max: 14 })?.toString() ??
-    sanitizeSingleLineText(form.testsPerWeek, 2),
-  mainChallenge: sanitizeMultilineText(form.mainChallenge, 600),
-  password: form.password,
-  confirmPassword: form.confirmPassword
-});
-
 const Register = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation(["auth", "common", "plans"]);
   const { toast } = useToast();
-  const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const persistedDraft = useMemo(() => readRegisterFlowDraft(), []);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const requestedPlanCode = useMemo(() => {
     return sanitizeCode(searchParams.get("plan"), 60);
   }, [searchParams]);
-  const [form, setForm] = useState<RegisterForm>(initialForm);
+  const [form, setForm] = useState<RegisterForm>(
+    () => persistedDraft?.form ?? initialRegisterForm
+  );
+  const [selectedPlanCode, setSelectedPlanCode] = useState(
+    () => requestedPlanCode || persistedDraft?.selectedPlanCode || ""
+  );
   const [oppositionOptions, setOppositionOptions] = useState<
     OppositionOption[]
   >([]);
+  const { data: publicPlans = [], isLoading: isLoadingPlans } =
+    usePublicSubscriptionPlansQuery();
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
+  const { isSubmitting, submitRegister } = useRegisterSubmit(locale);
+  const availablePlanCodes = useMemo(
+    () => new Set(publicPlans.map((plan) => plan.code)),
+    [publicPlans]
+  );
+  const hasRequestedPlan = useMemo(() => {
+    if (!requestedPlanCode) return false;
+    if (publicPlans.length === 0) return true;
+    return availablePlanCodes.has(requestedPlanCode);
+  }, [availablePlanCodes, publicPlans.length, requestedPlanCode]);
+  const totalSteps = hasRequestedPlan ? 2 : 3;
+  const step = clampRegisterStep(searchParams.get("step") ?? 1, totalSteps);
+  const maxBirthDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const isLoading = isCheckingEmail || isSubmitting;
+
+  const plans = useMemo(
+    () =>
+      publicPlans.map((plan) => {
+        const planKey = getPlanKey({ code: plan.code, tier: plan.tier });
+
+        return {
+          ...plan,
+          planKey,
+          name: t(`plans:plans.${planKey}.name`),
+          eyebrow: t(`plans:plans.${planKey}.eyebrow`),
+          description: t(`plans:plans.${planKey}.description`),
+          features: t(`plans:plans.${planKey}.features`, {
+            returnObjects: true,
+            aiLimit: plan.ai_daily_limit,
+            quickTestLimit: plan.quick_test_question_limit
+          }) as string[],
+          priceLabel:
+            plan.price_cents === 0
+              ? t("plans:pricing.free")
+              : formatPlanPriceFromCents(
+                  plan.price_cents,
+                  locale === "en" ? "en-US" : "es-ES",
+                  plan.currency
+                )
+        };
+      }),
+    [locale, publicPlans, t]
+  );
+  const activePlanCode = hasRequestedPlan
+    ? requestedPlanCode
+    : selectedPlanCode;
+  const activePlan =
+    plans.find((plan) => plan.code === activePlanCode) ??
+    plans.find((plan) => plan.code === requestedPlanCode) ??
+    null;
+
+  useEffect(() => {
+    if (publicPlans.length === 0) return;
+
+    if (requestedPlanCode && availablePlanCodes.has(requestedPlanCode)) {
+      setSelectedPlanCode(requestedPlanCode);
+      return;
+    }
+
+    setSelectedPlanCode((prev) => {
+      if (prev && availablePlanCodes.has(prev)) return prev;
+      return publicPlans[0]?.code ?? "";
+    });
+  }, [availablePlanCodes, publicPlans, requestedPlanCode]);
+
+  useEffect(() => {
+    const nextParams = new URLSearchParams(searchParams);
+    let hasChanges = false;
+
+    if (nextParams.get("step") !== String(step)) {
+      nextParams.set("step", String(step));
+      hasChanges = true;
+    }
+
+    if (requestedPlanCode && nextParams.get("plan") !== requestedPlanCode) {
+      nextParams.set("plan", requestedPlanCode);
+      hasChanges = true;
+    }
+
+    if (hasChanges) setSearchParams(nextParams, { replace: true });
+  }, [requestedPlanCode, searchParams, setSearchParams, step]);
+
+  useEffect(() => {
+    writeRegisterFlowDraft({
+      form,
+      selectedPlanCode,
+      step
+    });
+  }, [form, selectedPlanCode, step]);
+
+  useEffect(() => {
+    if (hasRequestedPlan || step !== 3) return;
+
+    navigate(buildRegisterPlanSelectionPath(selectedPlanCode), {
+      replace: true
+    });
+  }, [hasRequestedPlan, navigate, selectedPlanCode, step]);
 
   useEffect(() => {
     let isMounted = true;
@@ -112,88 +168,66 @@ const Register = () => {
   }, [locale]);
 
   const stepTitles = useMemo(
-    () => [
-      t("auth:register.stepTitles.account"),
-      t("auth:register.stepTitles.oppositionProfile"),
-      t("auth:register.stepTitles.studyPlan"),
-      t("auth:register.stepTitles.confirmation")
-    ],
-    [t]
+    () =>
+      hasRequestedPlan
+        ? [
+            t("auth:register.stepTitles.account"),
+            t("auth:register.stepTitles.profile")
+          ]
+        : [
+            t("auth:register.stepTitles.account"),
+            t("auth:register.stepTitles.profile"),
+            t("auth:register.stepTitles.plan")
+          ],
+    [hasRequestedPlan, t]
   );
 
   const progress = useMemo(
-    () => Math.round((step / TOTAL_STEPS) * 100),
-    [step]
+    () => Math.round((step / totalSteps) * 100),
+    [step, totalSteps]
   );
 
-  const validateStep = (targetStep: number): string | null => {
-    const sanitizedForm = sanitizeRegisterForm(form);
-    const isEmailValid = /\S+@\S+\.\S+/.test(sanitizedForm.email);
-    const age = Number(sanitizedForm.age);
-    const yearsPreparing = Number(sanitizedForm.yearsPreparing);
-    const weeklyTargetHours = Number(sanitizedForm.weeklyTargetHours);
-    const testsPerWeek = Number(sanitizedForm.testsPerWeek);
+  useEffect(() => {
+    const checkoutState = searchParams.get("checkout");
+    if (checkoutState !== "cancel") return;
 
+    toast({
+      title: t("plans:toasts.checkoutCancelledTitle"),
+      description: t("plans:toasts.checkoutCancelledDescription")
+    });
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("checkout");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams, t, toast]);
+
+  const validateStep = (targetStep: number): string | null => {
     if (targetStep === 1) {
-      if (!sanitizedForm.name || !sanitizedForm.lastName)
-        return t("auth:register.validation.nameRequired");
-      if (!isEmailValid) return t("auth:register.validation.invalidEmail");
-      if (
-        containsUnsafeControlChars(sanitizedForm.password) ||
-        containsUnsafeControlChars(sanitizedForm.confirmPassword)
-      )
-        return t("auth:register.validation.passwordLength");
-      if (sanitizedForm.password.length < 8)
-        return t("auth:register.validation.passwordLength");
-      if (sanitizedForm.password !== sanitizedForm.confirmPassword)
-        return t("auth:register.validation.passwordMatch");
+      const errorKey = getRegisterAccountStepError(form);
+      if (errorKey) return t(`auth:register.validation.${errorKey}`);
     }
 
     if (targetStep === 2) {
-      if (!sanitizedForm.age || Number.isNaN(age) || age < 16 || age > 75)
-        return t("auth:register.validation.invalidAge");
-
-      if (!sanitizedForm.preferredOpposition)
-        return t("auth:register.validation.preferredOppositionRequired");
-      if (
-        !sanitizedForm.yearsPreparing ||
-        Number.isNaN(yearsPreparing) ||
-        yearsPreparing < 0 ||
-        yearsPreparing > 40
-      )
-        return t("auth:register.validation.invalidYearsPreparing");
+      const errorKey = getRegisterProfileStepError(form, maxBirthDate);
+      if (errorKey) return t(`auth:register.validation.${errorKey}`);
     }
 
-    if (targetStep === 3) {
-      if (
-        !sanitizedForm.weeklyTargetHours ||
-        Number.isNaN(weeklyTargetHours) ||
-        weeklyTargetHours < 1 ||
-        weeklyTargetHours > 80
-      )
-        return t("auth:register.validation.invalidWeeklyHours");
-
-      if (
-        !sanitizedForm.testsPerWeek ||
-        Number.isNaN(testsPerWeek) ||
-        testsPerWeek < 1 ||
-        testsPerWeek > 14
-      )
-        return t("auth:register.validation.invalidTestsPerWeek");
-    }
-
-    if (targetStep === 4) {
-      if (sanitizedForm.mainChallenge.length < 12)
-        return t("auth:register.validation.mainChallengeLength");
-
-      if (!sanitizedForm.acceptedTerms)
-        return t("auth:register.validation.termsRequired");
-    }
+    if (targetStep === 3 && !hasRequestedPlan && !selectedPlanCode)
+      return t("auth:register.validation.planRequired");
 
     return null;
   };
 
-  const nextStep = () => {
+  const validateEmailAvailability = async (email: string) => {
+    const { data, error } = await supabase.rpc("is_signup_email_available", {
+      p_email: email
+    });
+
+    if (error) throw error;
+    return data === true;
+  };
+
+  const nextStep = async () => {
     const errorMessage = validateStep(step);
     if (errorMessage) {
       toast({
@@ -204,22 +238,67 @@ const Register = () => {
       return;
     }
 
-    setStep((prev) => Math.min(TOTAL_STEPS, prev + 1));
+    if (step === 1) {
+      setIsCheckingEmail(true);
+      try {
+        const isEmailAvailable = await validateEmailAvailability(
+          sanitizeRegisterForm(form).email
+        );
+        if (!isEmailAvailable) {
+          toast({
+            variant: "destructive",
+            title: t("auth:register.toasts.reviewStepTitle"),
+            description: t("auth:register.validation.emailAlreadyExists")
+          });
+          return;
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: t("auth:register.toasts.reviewStepTitle"),
+          description:
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : t("auth:register.toasts.emailCheckFailedDescription")
+        });
+        return;
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }
+
+    const nextStepValue = Math.min(totalSteps, step + 1);
+
+    if (!hasRequestedPlan && nextStepValue === 3) {
+      navigate(buildRegisterPlanSelectionPath(selectedPlanCode), {
+        replace: true
+      });
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("step", String(nextStepValue));
+    if (requestedPlanCode) nextParams.set("plan", requestedPlanCode);
+    setSearchParams(nextParams, { replace: true });
   };
 
   const previousStep = () => {
-    setStep((prev) => Math.max(1, prev - 1));
+    const previousStepValue = Math.max(1, step - 1);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("step", String(previousStepValue));
+    if (requestedPlanCode) nextParams.set("plan", requestedPlanCode);
+    setSearchParams(nextParams, { replace: true });
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (step < TOTAL_STEPS) {
-      nextStep();
+    if (step < totalSteps) {
+      await nextStep();
       return;
     }
 
-    const errorMessage = validateStep(TOTAL_STEPS);
+    const errorMessage = validateStep(totalSteps);
     if (errorMessage) {
       toast({
         variant: "destructive",
@@ -231,56 +310,48 @@ const Register = () => {
 
     const sanitizedForm = sanitizeRegisterForm(form);
     setForm(sanitizedForm);
-    setIsLoading(true);
-    const planSelectionPath = requestedPlanCode
-      ? `/seleccion-plan?plan=${encodeURIComponent(requestedPlanCode)}`
-      : "/seleccion-plan";
-    const { data, error } = await supabase.auth.signUp({
-      email: sanitizedForm.email,
-      password: sanitizedForm.password,
-      options: {
-        data: {
-          first_name: sanitizedForm.name,
-          last_name: sanitizedForm.lastName,
-          full_name: `${sanitizedForm.name} ${sanitizedForm.lastName}`.trim(),
-          age: Number(sanitizedForm.age),
-          preferred_opposition_id: sanitizedForm.preferredOpposition,
-          preferred_opposition: sanitizedForm.preferredOpposition || null,
-          years_preparing: Number(sanitizedForm.yearsPreparing),
-          weekly_target_hours: Number(sanitizedForm.weeklyTargetHours),
-          tests_per_week: Number(sanitizedForm.testsPerWeek),
-          main_challenge: sanitizedForm.mainChallenge,
-          locale
-        }
+
+    if (activePlan?.price_cents && activePlan.price_cents > 0) {
+      writeRegisterFlowDraft({
+        form: sanitizedForm,
+        selectedPlanCode: activePlan.code,
+        step
+      });
+
+      try {
+        const { checkoutUrl } = await createPublicStripeCheckoutSession({
+          planCode: activePlan.code,
+          email: sanitizedForm.email,
+          successPath: `/registro/pago-completado?session_id={CHECKOUT_SESSION_ID}&plan=${encodeURIComponent(activePlan.code)}`,
+          cancelPath: `/registro?step=2&plan=${encodeURIComponent(activePlan.code)}&checkout=cancel`
+        });
+
+        window.location.assign(checkoutUrl);
+        return;
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: t("plans:toasts.checkoutStartErrorTitle"),
+          description:
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : t("plans:toasts.checkoutStartErrorDescription")
+        });
+        return;
       }
-    });
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: t("auth:register.toasts.createFailedTitle"),
-        description: error.message
-      });
-      setIsLoading(false);
-      return;
     }
 
-    if (data.session) {
-      toast({
-        title: t("auth:register.toasts.createdTitle"),
-        description: t("auth:register.toasts.createdDescription")
-      });
-      navigate(planSelectionPath, { replace: true });
-      setIsLoading(false);
-      return;
-    }
-
-    toast({
-      title: t("auth:register.toasts.checkEmailTitle"),
-      description: t("auth:register.toasts.checkEmailDescription")
+    await submitRegister({
+      form: sanitizedForm,
+      selectedPlan: activePlan
+        ? {
+            code: activePlan.code,
+            name: activePlan.name,
+            planKey: activePlan.planKey,
+            price_cents: activePlan.price_cents
+          }
+        : null
     });
-    setIsLoading(false);
-    navigate("/login", { replace: true });
   };
 
   return (
@@ -351,7 +422,7 @@ const Register = () => {
                 {t("auth:register.title")}
               </h2>
               <p className="text-xs tracking-widest uppercase text-muted-foreground">
-                {t("auth:register.stepCounter", { step, total: TOTAL_STEPS })}
+                {t("auth:register.stepCounter", { step, total: totalSteps })}
               </p>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
@@ -456,44 +527,21 @@ const Register = () => {
 
             {step === 2 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-                      {t("auth:register.fields.age")}
-                    </label>
-                    <CustomInput
-                      type="number"
-                      min={16}
-                      max={75}
-                      value={form.age}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, age: e.target.value }))
-                      }
-                      placeholder={t("auth:register.placeholders.age")}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-                      {t("auth:register.fields.yearsPreparing")}
-                    </label>
-                    <CustomInput
-                      type="number"
-                      min={0}
-                      max={40}
-                      value={form.yearsPreparing}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          yearsPreparing: e.target.value
-                        }))
-                      }
-                      placeholder={t(
-                        "auth:register.placeholders.yearsPreparing"
-                      )}
-                      className="w-full"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                    {t("auth:register.fields.dateOfBirth")}
+                  </label>
+                  <CustomDateInput
+                    max={maxBirthDate}
+                    value={form.dateOfBirth}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        dateOfBirth: e.target.value
+                      }))
+                    }
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
@@ -519,85 +567,29 @@ const Register = () => {
                     ))}
                   </CustomSelect>
                 </div>
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-                    {t("auth:register.fields.weeklyTargetHours")}
-                  </label>
-                  <div className="border border-border p-4">
-                    <div className="flex items-center justify-between text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
-                      <span>{t("auth:register.slider.min")}</span>
-                      <span>{form.weeklyTargetHours || "16"}h</span>
-                      <span>{t("auth:register.slider.max")}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={80}
-                      value={form.weeklyTargetHours || "16"}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          weeklyTargetHours: e.target.value
-                        }))
-                      }
-                      className="w-full accent-primary"
-                    />
-                    <p className="text-sm text-foreground mt-2">
-                      {t("auth:register.slider.target", {
-                        hours: form.weeklyTargetHours || "16"
-                      })}
+                {hasRequestedPlan && activePlan ? (
+                  <div className="rounded-[1.25rem] border border-primary/15 bg-secondary/30 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                      {t("auth:register.plan.summaryLabel")}
                     </p>
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-xl font-serif text-foreground">
+                          {activePlan.name}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {activePlan.description}
+                        </p>
+                      </div>
+                      <span className="text-sm font-medium text-foreground">
+                        {activePlan.priceLabel}
+                        {t("plans:pricing.perMonth")}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-                    {t("auth:register.fields.testsPerWeek")}
-                  </label>
-                  <CustomInput
-                    type="number"
-                    min={1}
-                    max={14}
-                    value={form.testsPerWeek}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        testsPerWeek: e.target.value
-                      }))
-                    }
-                    placeholder={t("auth:register.placeholders.testsPerWeek")}
-                    className="w-full"
-                  />
-                </div>
-              </>
-            )}
+                ) : null}
 
-            {step === 4 && (
-              <>
-                <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
-                    {t("auth:register.fields.mainChallenge")}
-                  </label>
-                  <CustomTextarea
-                    value={form.mainChallenge}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        mainChallenge: e.target.value
-                      }))
-                    }
-                    placeholder={t("auth:register.placeholders.mainChallenge")}
-                    rows={4}
-                    resize="none"
-                    className="w-full px-4 py-3 placeholder:text-muted-foreground/50"
-                  />
-                </div>
-
-                <label className="flex items-start gap-3 border border-border p-4">
+                <label className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={form.acceptedTerms}
@@ -638,11 +630,15 @@ const Register = () => {
                 styleType="primary"
                 className="px-6 py-3"
               >
-                {step < TOTAL_STEPS
+                {step < totalSteps
                   ? t("auth:register.actions.continue")
                   : isLoading
                     ? t("auth:register.actions.creating")
-                    : t("auth:register.actions.create")}
+                    : isLoadingPlans
+                      ? t("auth:register.actions.creating")
+                      : activePlan?.price_cents && activePlan.price_cents > 0
+                        ? t("auth:register.actions.continueToPayment")
+                        : t("auth:register.actions.create")}
               </CustomButton>
             </div>
           </form>

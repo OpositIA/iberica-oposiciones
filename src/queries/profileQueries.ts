@@ -9,26 +9,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-const PROFILE_BASE_SELECT =
-  "preferred_opposition_id, preferred_opposition, weekly_target_hours";
+const PROFILE_BASE_SELECT = "preferred_opposition_id, preferred_opposition";
 
 type ProfileBaseRow = {
   preferred_opposition_id: string | null;
   preferred_opposition: string | null;
-  weekly_target_hours: number | null;
 };
 
 export type ProfileDetailsRow = {
   email: string | null;
   first_name: string | null;
   last_name: string | null;
-  age: number | null;
+  date_of_birth: string | null;
   preferred_opposition_id: string | null;
   preferred_opposition: string | null;
-  years_preparing: number | null;
-  weekly_target_hours: number | null;
-  tests_per_week: number | null;
-  main_challenge: string | null;
   avatar_url: string | null;
 };
 
@@ -97,13 +91,12 @@ const fetchProfileBase = async (
 
   return {
     preferred_opposition_id: data.preferred_opposition_id,
-    preferred_opposition: data.preferred_opposition,
-    weekly_target_hours: data.weekly_target_hours
+    preferred_opposition: data.preferred_opposition
   };
 };
 
 const PROFILE_DETAILS_SELECT =
-  "email, first_name, last_name, age, preferred_opposition_id, preferred_opposition, years_preparing, weekly_target_hours, tests_per_week, main_challenge, avatar_url";
+  "email, first_name, last_name, date_of_birth, preferred_opposition_id, preferred_opposition, avatar_url";
 
 const fetchProfileDetails = async (
   userId: string

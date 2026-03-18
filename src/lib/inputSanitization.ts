@@ -123,5 +123,18 @@ export const sanitizeInteger = (
   return normalized;
 };
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export const sanitizeDateInput = (value: unknown) => {
+  const sanitized = sanitizeSingleLineText(value, 10);
+  if (!ISO_DATE_RE.test(sanitized)) return "";
+
+  const parsedDate = new Date(`${sanitized}T00:00:00.000Z`);
+  if (Number.isNaN(parsedDate.getTime())) return "";
+  if (parsedDate.toISOString().slice(0, 10) !== sanitized) return "";
+
+  return sanitized;
+};
+
 export const containsUnsafeControlChars = (value: string) =>
   CONTROL_CHARS_SINGLE_LINE_RE.test(value);
