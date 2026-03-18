@@ -97,7 +97,9 @@ const ProfileTest = () => {
     () =>
       oposicionActiva.temasDetalle.map((block) => {
         const topicLabels =
-          block.subtopics.length > 0 ? block.subtopics : [block.title];
+          block.subtopics.length > 0
+            ? block.subtopics.map((subtopic) => subtopic.title)
+            : [block.title];
 
         return {
           code: block.code,

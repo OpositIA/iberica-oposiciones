@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AuthenticatedSidebarLayout from "./components/AuthenticatedSidebarLayout";
 import LandingRouteGuard from "./components/LandingRouteGuard";
@@ -26,6 +27,10 @@ import ProfileTest from "./pages/ProfileTest";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
 import { StudyTimerProvider } from "./study/StudyTimerProvider";
+
+const ProfileSyllabusPdfViewer = lazy(
+  () => import("./pages/ProfileSyllabusPdfViewer")
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -119,6 +124,10 @@ const App = () => (
                 element={<ProfileQuickTestSession />}
               />
               <Route path="/perfil/temario" element={<ProfileTemario />} />
+              <Route
+                path="/perfil/temario/pdf/:subtopicFileId"
+                element={<ProfileSyllabusPdfViewer />}
+              />
               <Route path="/perfil/a-estudiar" element={<ProfileStudy />} />
               <Route path="/perfil/mi-perfil" element={<MiPerfil />} />
               <Route

@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.sync-laws-rag]
 verify_jwt = false
+
+[functions.get-syllabus-pdf]
+verify_jwt = false

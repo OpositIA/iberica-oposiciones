@@ -138,9 +138,12 @@ const AuthenticatedSidebarLayout = () => {
   );
 
   const closeMobileSidebar = () => setIsMobileOpen(false);
-  const desktopSidebarOffsetClass = isSidebarCollapsed
-    ? "lg:pl-[6.75rem] xl:pl-[6.75rem]"
-    : "lg:pl-[19rem] xl:pl-[19.5rem]";
+  const isPdfViewerRoute = location.pathname.startsWith("/perfil/temario/pdf/");
+  const desktopSidebarOffsetClass = isPdfViewerRoute
+    ? ""
+    : isSidebarCollapsed
+      ? "lg:pl-[6.75rem] xl:pl-[6.75rem]"
+      : "lg:pl-[19rem] xl:pl-[19.5rem]";
   const handleToggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => !prev);
   };
@@ -164,6 +167,11 @@ const AuthenticatedSidebarLayout = () => {
       isSidebarCollapsed ? "1" : "0"
     );
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!isPdfViewerRoute) return;
+    setIsMobileOpen(false);
+  }, [isPdfViewerRoute]);
 
   useEffect(() => {
     if (!user?.id || typeof window === "undefined") {
@@ -215,17 +223,19 @@ const AuthenticatedSidebarLayout = () => {
             )}
           >
             <div className="flex items-center gap-3">
-              <CustomButton
-                type="button"
-                onClick={() => setIsMobileOpen(true)}
-                styleType="ghost"
-                size="icon"
-                radius="full"
-                className="h-10 w-10 lg:hidden"
-                aria-label={t("profile:layout.mobileMenuOpen")}
-              >
-                <Menu className="h-4 w-4" />
-              </CustomButton>
+              {!isPdfViewerRoute ? (
+                <CustomButton
+                  type="button"
+                  onClick={() => setIsMobileOpen(true)}
+                  styleType="ghost"
+                  size="icon"
+                  radius="full"
+                  className="h-10 w-10 lg:hidden"
+                  aria-label={t("profile:layout.mobileMenuOpen")}
+                >
+                  <Menu className="h-4 w-4" />
+                </CustomButton>
+              ) : null}
 
               <Link
                 to="/"
@@ -284,7 +294,7 @@ const AuthenticatedSidebarLayout = () => {
           </div>
         </header>
 
-        {isMobileOpen && (
+        {!isPdfViewerRoute && isMobileOpen && (
           <CustomButton
             type="button"
             aria-label={t("profile:layout.mobileMenuClose")}
@@ -296,214 +306,215 @@ const AuthenticatedSidebarLayout = () => {
           />
         )}
 
-        <aside
-          className={cn(
-            "fixed top-0 start-0 bottom-0 z-50 w-72 max-[480px]:w-[86vw] border-r border-border/70 bg-background/90 backdrop-blur-xl shadow-2xl transition-[transform,width] duration-300 transform",
-            isMobileOpen ? "translate-x-0" : "-translate-x-full",
-            isSidebarCollapsed ? "lg:w-[4.1rem]" : "lg:w-72",
-            "lg:translate-x-0"
-          )}
-          role="dialog"
-          aria-label={t("profile:layout.sidebarAriaLabel")}
-        >
-          <div className="relative flex flex-col h-full max-h-full overflow-hidden">
-            <div className="pointer-events-none absolute -top-16 -right-12 h-44 w-44 rounded-full bg-primary/20 blur-3xl" />
+        {!isPdfViewerRoute ? (
+          <aside
+            className={cn(
+              "fixed top-0 start-0 bottom-0 z-50 w-72 max-[480px]:w-[86vw] border-r border-border/70 bg-background/90 backdrop-blur-xl shadow-2xl transition-[transform,width] duration-300 transform",
+              isMobileOpen ? "translate-x-0" : "-translate-x-full",
+              isSidebarCollapsed ? "lg:w-[4.1rem]" : "lg:w-72",
+              "lg:translate-x-0"
+            )}
+            role="dialog"
+            aria-label={t("profile:layout.sidebarAriaLabel")}
+          >
+            <div className="relative flex flex-col h-full max-h-full overflow-hidden">
+              <div className="pointer-events-none absolute -top-16 -right-12 h-44 w-44 rounded-full bg-primary/20 blur-3xl" />
 
-            <header
-              className={cn(
-                "relative h-[86px] min-h-[86px] flex items-center gap-2 border-b border-border/60",
-                isSidebarCollapsed
-                  ? "lg:justify-center"
-                  : "justify-between px-5"
-              )}
-            >
-              <Link
-                to="/"
-                onClick={closeMobileSidebar}
+              <header
                 className={cn(
-                  "inline-flex items-center gap-2",
-                  isSidebarCollapsed && "lg:gap-0"
+                  "relative h-[86px] min-h-[86px] flex items-center gap-2 border-b border-border/60",
+                  isSidebarCollapsed
+                    ? "lg:justify-center"
+                    : "justify-between px-5"
                 )}
               >
-                <img
-                  src={opositaiHorizontalLogo}
-                  alt="OpositAI"
-                  className={cn(
-                    "h-14 w-auto",
-                    isSidebarCollapsed && "lg:hidden"
-                  )}
-                />
-                <img
-                  src={opositaiLogo}
-                  alt="OpositAI"
-                  className={cn(
-                    "hidden h-9 w-9 rounded-xl object-cover ring-1 ring-border/70",
-                    isSidebarCollapsed ? "lg:block" : "lg:hidden"
-                  )}
-                />
-              </Link>
-
-              <div className="flex items-center gap-1 lg:hidden">
-                <CustomButton
-                  type="button"
+                <Link
+                  to="/"
                   onClick={closeMobileSidebar}
-                  styleType="ghost"
-                  size="iconSm"
-                  radius="full"
-                  className="lg:hidden"
-                  aria-label={t("profile:layout.closeSidebar")}
+                  className={cn(
+                    "inline-flex items-center gap-2",
+                    isSidebarCollapsed && "lg:gap-0"
+                  )}
                 >
-                  <X className="h-4 w-4" />
-                </CustomButton>
-              </div>
-            </header>
+                  <img
+                    src={opositaiHorizontalLogo}
+                    alt="OpositAI"
+                    className={cn(
+                      "h-14 w-auto",
+                      isSidebarCollapsed && "lg:hidden"
+                    )}
+                  />
+                  <img
+                    src={opositaiLogo}
+                    alt="OpositAI"
+                    className={cn(
+                      "hidden h-9 w-9 rounded-xl object-cover ring-1 ring-border/70",
+                      isSidebarCollapsed ? "lg:block" : "lg:hidden"
+                    )}
+                  />
+                </Link>
 
-            <nav className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-3">
-              <ul className="space-y-1.5">
-                {sidebarMenuItems.map((item) => {
-                  const active = location.pathname === item.to;
-                  const Icon = item.icon;
+                <div className="flex items-center gap-1 lg:hidden">
+                  <CustomButton
+                    type="button"
+                    onClick={closeMobileSidebar}
+                    styleType="ghost"
+                    size="iconSm"
+                    radius="full"
+                    className="lg:hidden"
+                    aria-label={t("profile:layout.closeSidebar")}
+                  >
+                    <X className="h-4 w-4" />
+                  </CustomButton>
+                </div>
+              </header>
 
-                  return (
-                    <li key={item.to}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link
-                            to={item.to}
-                            onClick={closeMobileSidebar}
-                            className={cn(
-                              "w-full flex items-center overflow-hidden py-2.5 rounded-xl transition-all",
-                              "px-3 gap-3",
-                              active
-                                ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.6)]"
-                                : "text-foreground hover:bg-secondary"
-                            )}
-                            aria-label={
-                              isSidebarCollapsed ? item.label : undefined
-                            }
-                          >
-                            <Icon className="h-4 w-4 shrink-0" />
-                            <span
+              <nav className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-3">
+                <ul className="space-y-1.5">
+                  {sidebarMenuItems.map((item) => {
+                    const active = location.pathname === item.to;
+                    const Icon = item.icon;
+
+                    return (
+                      <li key={item.to}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link
+                              to={item.to}
+                              onClick={closeMobileSidebar}
                               className={cn(
-                                "min-w-0 overflow-hidden truncate whitespace-nowrap font-medium text-sm transition-all duration-200",
-                                isSidebarCollapsed
-                                  ? "lg:max-w-0 lg:opacity-0"
-                                  : "max-w-[14rem] opacity-100"
+                                "w-full flex items-center overflow-hidden py-2.5 rounded-xl transition-all",
+                                "px-3 gap-3",
+                                active
+                                  ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.6)]"
+                                  : "text-foreground hover:bg-secondary"
                               )}
+                              aria-label={
+                                isSidebarCollapsed ? item.label : undefined
+                              }
                             >
-                              {item.label}
-                            </span>
-                            {active ? (
+                              <Icon className="h-4 w-4 shrink-0" />
                               <span
                                 className={cn(
-                                  "ml-auto h-2 w-2 rounded-full bg-primary-foreground/80 transition-opacity duration-200",
+                                  "min-w-0 overflow-hidden truncate whitespace-nowrap font-medium text-sm transition-all duration-200",
                                   isSidebarCollapsed
-                                    ? "lg:opacity-0"
-                                    : "opacity-100"
+                                    ? "lg:max-w-0 lg:opacity-0"
+                                    : "max-w-[14rem] opacity-100"
                                 )}
-                              />
-                            ) : null}
-                          </Link>
-                        </TooltipTrigger>
-                        {isSidebarCollapsed ? (
-                          <TooltipContent
-                            side="right"
-                            className="hidden lg:block"
-                          >
-                            {item.label}
-                          </TooltipContent>
-                        ) : null}
-                      </Tooltip>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div
+                              >
+                                {item.label}
+                              </span>
+                              {active ? (
+                                <span
+                                  className={cn(
+                                    "ml-auto h-2 w-2 rounded-full bg-primary-foreground/80 transition-opacity duration-200",
+                                    isSidebarCollapsed
+                                      ? "lg:opacity-0"
+                                      : "opacity-100"
+                                  )}
+                                />
+                              ) : null}
+                            </Link>
+                          </TooltipTrigger>
+                          {isSidebarCollapsed ? (
+                            <TooltipContent
+                              side="right"
+                              className="hidden lg:block"
+                            >
+                              {item.label}
+                            </TooltipContent>
+                          ) : null}
+                        </Tooltip>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div
+                  className={cn(
+                    "mt-4 -mx-3 min-h-0 flex-1 border-t border-border/60 pt-3",
+                    isSidebarCollapsed && "lg:hidden"
+                  )}
+                >
+                  <div id="assistant-sidebar-history-slot" className="h-full min-h-0" />
+                </div>
+              </nav>
+
+              <footer
                 className={cn(
-                  "mt-4 -mx-3 min-h-0 flex-1 border-t border-border/60 pt-3",
+                  "relative mt-auto flex flex-col gap-3 border-t border-border/60 p-3",
                   isSidebarCollapsed && "lg:hidden"
                 )}
               >
-                <div id="assistant-sidebar-history-slot" className="h-full min-h-0" />
-              </div>
-            </nav>
+                <Link
+                  to="/perfil/mi-perfil"
+                  onClick={closeMobileSidebar}
+                  className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-secondary/70"
+                >
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={t("profile:myProfile.avatarAlt")}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <CircleUserRound className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {accountName}
+                    </span>
+                    <span className="block text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
+                      {t("profile:layout.myProfile")}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
 
-            <footer
-              className={cn(
-                "relative mt-auto flex flex-col gap-3 border-t border-border/60 p-3",
-                isSidebarCollapsed && "lg:hidden"
+                {showPremiumUntilNotice ? (
+                  <div className="rounded-xl border border-primary/25 bg-primary/10 px-2.5 py-2 text-xs text-primary">
+                    <p className="font-semibold tracking-wide">
+                      {t("profile:layout.premiumUntil", {
+                        date: premiumUntilDateLabel
+                      })}
+                    </p>
+                  </div>
+                ) : isFreePlan ? (
+                  <CustomButton
+                    asChild
+                    styleType="ghost"
+                    className="w-full justify-start"
+                  >
+                    <Link to="/perfil/planes" onClick={closeMobileSidebar}>
+                      <Sparkles className="h-4 w-4" />
+                      {t("profile:layout.upgradeToPro")}
+                    </Link>
+                  </CustomButton>
+                ) : null}
+              </footer>
+            </div>
+
+            <CustomButton
+              type="button"
+              onClick={handleToggleSidebarCollapse}
+              styleType="menu"
+              radius="full"
+              className="absolute right-0 top-[37%] z-20 hidden h-7 w-7 -translate-y-1/2 translate-x-1/2 border-border/80 p-0 shadow-sm lg:inline-flex"
+              aria-label={t(
+                isSidebarCollapsed
+                  ? "profile:layout.expandSidebar"
+                  : "profile:layout.collapseSidebar"
               )}
             >
-              <Link
-                to="/perfil/mi-perfil"
-                onClick={closeMobileSidebar}
-                className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-secondary/70"
-              >
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={t("profile:myProfile.avatarAlt")}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <CircleUserRound className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    {accountName}
-                  </span>
-                  <span className="block text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
-                    {t("profile:layout.myProfile")}
-                  </span>
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-
-              {showPremiumUntilNotice ? (
-                <div className="rounded-xl border border-primary/25 bg-primary/10 px-2.5 py-2 text-xs text-primary">
-                  <p className="font-semibold tracking-wide">
-                    {t("profile:layout.premiumUntil", {
-                      date: premiumUntilDateLabel
-                    })}
-                  </p>
-                </div>
-              ) : isFreePlan ? (
-                <CustomButton
-                  asChild
-                  styleType="ghost"
-                  className="w-full justify-start"
-                >
-                  <Link to="/perfil/planes" onClick={closeMobileSidebar}>
-                    <Sparkles className="h-4 w-4" />
-                    {t("profile:layout.upgradeToPro")}
-                  </Link>
-                </CustomButton>
-              ) : null}
-            </footer>
-
-          </div>
-
-          <CustomButton
-            type="button"
-            onClick={handleToggleSidebarCollapse}
-            styleType="menu"
-            radius="full"
-            className="absolute right-0 top-[37%] z-20 hidden h-7 w-7 -translate-y-1/2 translate-x-1/2 border-border/80 p-0 shadow-sm lg:inline-flex"
-            aria-label={t(
-              isSidebarCollapsed
-                ? "profile:layout.expandSidebar"
-                : "profile:layout.collapseSidebar"
-            )}
-          >
-            {isSidebarCollapsed ? (
-              <ChevronRight className="h-3 w-3" />
-            ) : (
-              <ChevronLeft className="h-3 w-3" />
-            )}
-          </CustomButton>
-        </aside>
+              {isSidebarCollapsed ? (
+                <ChevronRight className="h-3 w-3" />
+              ) : (
+                <ChevronLeft className="h-3 w-3" />
+              )}
+            </CustomButton>
+          </aside>
+        ) : null}
 
         <main
           className={cn(
