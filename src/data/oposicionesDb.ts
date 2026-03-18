@@ -13,7 +13,10 @@ export type Oposicion = {
     title: string;
     displayTitle: string;
     sectionTitle: string | null;
-    subtopics: string[];
+    subtopics: {
+      code: string;
+      title: string;
+    }[];
   }[];
 };
 
@@ -202,25 +205,41 @@ export const fetchOppositionById = async (
   ).trim();
 
   const subtopicsByTopicId = new Map<number, string[]>();
+  const subtopicDetailsByTopicId = new Map<
+    number,
+    Array<{
+      code: string;
+      title: string;
+    }>
+  >();
   const sectionTitleByTopicId = new Map<number, string>();
   (subtopicRows ?? []).forEach((row) => {
     const sectionTitle = String(row.section_title ?? "").trim();
     if (sectionTitle && !sectionTitleByTopicId.has(row.opposition_topic_id)) 
       sectionTitleByTopicId.set(row.opposition_topic_id, sectionTitle);
     
+    const subtopicTitle =
+      String(row.subtopic_title ?? "").trim() ||
+      translateSubtopic(
+        locale,
+        oppositionRow.id,
+        String(topicCodeById.get(row.opposition_topic_id) ?? ""),
+        String(row.subtopic_code ?? "")
+      );
+
     if (!subtopicsByTopicId.has(row.opposition_topic_id))
       subtopicsByTopicId.set(row.opposition_topic_id, []);
+    if (!subtopicDetailsByTopicId.has(row.opposition_topic_id))
+      subtopicDetailsByTopicId.set(row.opposition_topic_id, []);
     subtopicsByTopicId
       .get(row.opposition_topic_id)
-      ?.push(
-        String(row.subtopic_title ?? "").trim() ||
-          translateSubtopic(
-            locale,
-            oppositionRow.id,
-            String(topicCodeById.get(row.opposition_topic_id) ?? ""),
-            String(row.subtopic_code ?? "")
-          )
-      );
+      ?.push(subtopicTitle);
+    subtopicDetailsByTopicId
+      .get(row.opposition_topic_id)
+      ?.push({
+        code: String(row.subtopic_code ?? "").trim(),
+        title: subtopicTitle
+      });
   });
 
   const temasDetalle = (topicRows ?? []).map((row) => ({
@@ -230,7 +249,7 @@ export const fetchOppositionById = async (
       translateTopic(locale, oppositionRow.id, row.topic_code),
     displayTitle: "",
     sectionTitle: sectionTitleByTopicId.get(row.id) ?? null,
-    subtopics: subtopicsByTopicId.get(row.id) ?? []
+    subtopics: subtopicDetailsByTopicId.get(row.id) ?? []
   })).map((topic) => ({
     ...topic,
     displayTitle: topic.sectionTitle
@@ -245,7 +264,9 @@ export const fetchOppositionById = async (
     temarioContenido: paidSyllabusContent || null,
     temas: temasDetalle
       .flatMap((topic) =>
-        topic.subtopics.length > 0 ? topic.subtopics : [topic.title]
+        topic.subtopics.length > 0
+          ? topic.subtopics.map((subtopic) => subtopic.title)
+          : [topic.title]
       )
       .filter((topic) => topic.length > 0),
     temasDetalle

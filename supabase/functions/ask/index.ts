@@ -1,58 +1,68 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
 };
 
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")?.trim() || "";
-const OPENROUTER_BASE_URL = Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
-const OPENROUTER_APP_URL = Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
-const OPENROUTER_APP_NAME = Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
+const OPENROUTER_BASE_URL =
+  Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
+const OPENROUTER_APP_URL =
+  Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+const OPENROUTER_APP_NAME =
+  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
 const OPENROUTER_CHAT_MODEL =
   Deno.env.get("OPENROUTER_CHAT_MODEL")?.trim() || "qwen/qwen3-235b-a22b-2507";
-const OPENROUTER_TIMEOUT_MS = Math.max(5000, Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "20000"));
-
+const OPENROUTER_TIMEOUT_MS = Math.max(
+  5000,
+  Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "20000")
+);
 const OPENROUTER_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
 const EMBEDDING_DIM = 4096;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")?.trim() || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() || "";
 
-const LAW_MATCH_THRESHOLD = Number(Deno.env.get("ASK_LAW_MATCH_THRESHOLD") ?? "0.22");
-const LAW_MATCH_COUNT = Math.max(8, Number(Deno.env.get("ASK_LAW_MATCH_COUNT") ?? "18"));
-const ARTICLE_MATCH_THRESHOLD = Number(Deno.env.get("ASK_ARTICLE_MATCH_THRESHOLD") ?? "0.16");
-const ARTICLE_MATCH_COUNT = Math.max(8, Number(Deno.env.get("ASK_ARTICLE_MATCH_COUNT") ?? "18"));
-const MAX_CONTEXT_HITS = Math.max(6, Number(Deno.env.get("ASK_MAX_CONTEXT_HITS") ?? "9"));
-const MIN_GENERAL_CONTEXT_HITS = 2;
+const LAW_MATCH_THRESHOLD = Number(
+  Deno.env.get("ASK_LAW_MATCH_THRESHOLD") ?? "0.22"
+);
+const LAW_RETRY_MATCH_THRESHOLD = Number(
+  Deno.env.get("ASK_LAW_RETRY_THRESHOLD") ?? "0.14"
+);
+const LAW_MATCH_COUNT = Math.max(
+  8,
+  Number(Deno.env.get("ASK_LAW_MATCH_COUNT") ?? "18")
+);
+const ARTICLE_MATCH_THRESHOLD = Number(
+  Deno.env.get("ASK_ARTICLE_MATCH_THRESHOLD") ?? "0.16"
+);
+const ARTICLE_RETRY_MATCH_THRESHOLD = Number(
+  Deno.env.get("ASK_ARTICLE_RETRY_THRESHOLD") ?? "0.08"
+);
+const ARTICLE_MATCH_COUNT = Math.max(
+  8,
+  Number(Deno.env.get("ASK_ARTICLE_MATCH_COUNT") ?? "18")
+);
+const MAX_CONTEXT_HITS = Math.max(
+  6,
+  Number(Deno.env.get("ASK_MAX_CONTEXT_HITS") ?? "9")
+);
+const CHAT_MAX_TOKENS = Math.max(
+  400,
+  Number(Deno.env.get("ASK_CHAT_MAX_TOKENS") ?? "700")
+);
 const MAX_MESSAGE_CHARS = 3000;
-const MAX_HISTORY_ITEMS = 6;
-const MAX_CONTEXTUAL_QUESTION_CHARS = 3500;
-const MAX_TOTAL_CONTEXT_CHARS = 22000;
 
 const REFUSAL_MESSAGE =
   "No lo encuentro en el material aportado. Para afinar la busqueda, indicame la norma, el articulo o el tema concreto.";
 
 type HistoryLine = { role: "user" | "assistant" | "system"; text: string };
-type ArticleRef = {
-  raw: string;
-  normalized: string;
-  base: string;
-  variants: string[];
-};
-type ArticleQuery = {
-  requested: string;
-  filter: string;
-  mode: "exact" | "base";
-  query: string;
-};
-type ReferenceResolution = {
-  requested: ArticleRef;
-  forcedHits: RetrievalHit[];
-  note: string | null;
-};
+type ArticleRef = { normalized: string; base: string; variants: string[] };
+type ArticleQuery = { requested: string; filter: string; query: string };
 type RetrievalHit = {
   id: string | null;
   id_boe: string | null;
@@ -76,37 +86,32 @@ type RetrievalHit = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
 
 const stripAccents = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-const safeText = (value: unknown, max = 12000) => {
-  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return "";
-  return String(value)
+const safeText = (value: unknown, max = 12000) =>
+  (typeof value === "string" ||
+  typeof value === "number" ||
+  typeof value === "boolean"
+    ? String(value)
+    : ""
+  )
     .replace(/\r\n?/g, "\n")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .trim()
     .slice(0, max);
-};
-
 const safeCompactText = (value: unknown, max = 300) =>
   safeText(value, max)
     .replace(/[^\S\n]+/g, " ")
     .replace(/\n{2,}/g, "\n")
     .trim();
-
 const normalizeAnswerText = (value: unknown, max = 12000) =>
   safeText(value, max)
-    // Evita que etiquetas HTML se muestren literales en frontend markdown.
     .replace(/<br\s*\/?>/gi, " / ")
     .replace(/\s{2,}/g, " ")
     .trim();
-
 const normalizeLooseText = (value: string) =>
   stripAccents(value)
     .toLowerCase()
@@ -114,16 +119,8 @@ const normalizeLooseText = (value: string) =>
     .replace(/[^a-z0-9.\s]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
 const normalizeCompactText = (value: string) =>
   normalizeLooseText(value).replace(/\s+/g, "");
-
-const bearer = (authHeader: string | null) => {
-  if (!authHeader) return "";
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() ?? "";
-};
-
 const normalizeArticleToken = (value: string) =>
   stripAccents(value)
     .toLowerCase()
@@ -133,34 +130,58 @@ const normalizeArticleToken = (value: string) =>
     .replace(/\s+/g, "")
     .replace(/[^0-9a-z.]/g, "")
     .trim();
+const bearer = (authHeader: string | null) =>
+  authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? "";
 
-const extractArticleBase = (value: string) => value.match(/^\d+/)?.[0] ?? "";
+const extractHistory = (rawHistory: unknown): HistoryLine[] =>
+  Array.isArray(rawHistory)
+    ? rawHistory
+        .map((item) => {
+          const row =
+            item && typeof item === "object"
+              ? (item as Record<string, unknown>)
+              : null;
+          if (!row) return null;
+          const rawRole = safeText(row.role, 20).toLowerCase();
+          const role: HistoryLine["role"] =
+            rawRole === "assistant" || rawRole === "model"
+              ? "assistant"
+              : rawRole === "system"
+                ? "system"
+                : "user";
+          const text = safeCompactText(
+            Array.isArray(row.parts)
+              ? row.parts
+                  .map((part) =>
+                    safeText((part as Record<string, unknown>)?.text, 800)
+                  )
+                  .join("\n")
+              : (row.content ?? row.text),
+            1400
+          );
+          return text ? { role, text } : null;
+        })
+        .filter((item): item is HistoryLine => Boolean(item))
+        .slice(-6)
+    : [];
 
 const extractArticleRefs = (question: string): ArticleRef[] => {
   const refs = new Map<string, ArticleRef>();
   const regex =
     /\bart(?:iculo)?s?\.?\s*(\d+(?:[.,]\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies))?)/gi;
-
   let match: RegExpExecArray | null = regex.exec(stripAccents(question));
   while (match) {
-    const raw = safeText(match[1], 80);
-    const normalized = normalizeArticleToken(raw);
-    if (!normalized || refs.has(normalized)) {
-      match = regex.exec(stripAccents(question));
-      continue;
+    const normalized = normalizeArticleToken(match[1]);
+    if (normalized && !refs.has(normalized)) {
+      const base = normalized.match(/^\d+/)?.[0] ?? "";
+      refs.set(normalized, {
+        normalized,
+        base,
+        variants: Array.from(new Set([normalized, base].filter(Boolean)))
+      });
     }
-
-    const base = extractArticleBase(normalized);
-    const variants = Array.from(new Set([normalized, base].filter(Boolean)));
-    refs.set(normalized, {
-      raw,
-      normalized,
-      base,
-      variants,
-    });
     match = regex.exec(stripAccents(question));
   }
-
   return Array.from(refs.values());
 };
 
@@ -170,146 +191,80 @@ const extractBoeRefs = (question: string) => {
 };
 
 const inferLawAlias = (question: string) => {
-  const normalized = normalizeLooseText(question);
+  const normalized = ` ${normalizeLooseText(question)} `;
   if (
-    /\blgt\b/.test(normalized) ||
-    /\bl g t\b/.test(normalized) ||
-    normalized.includes("ley general tributaria")
+    normalized.includes(" lgt ") ||
+    normalized.includes(" general tributaria ")
   ) {
-    return {
-      boeId: "BOE-A-2003-23186",
-      hint: "ley general tributaria lgt",
-      label: "LGT",
-    };
+    return { boeId: "BOE-A-2003-23186", hint: "ley general tributaria lgt" };
   }
   return null;
 };
 
-const extractHistory = (rawHistory: unknown, maxItems = MAX_HISTORY_ITEMS): HistoryLine[] => {
-  if (!Array.isArray(rawHistory)) return [];
-
-  const lines: HistoryLine[] = [];
-  for (const item of rawHistory) {
-    if (!item || typeof item !== "object") continue;
-    const row = item as Record<string, unknown>;
-    const rawRole = safeText(row.role, 20).toLowerCase();
-    const role: HistoryLine["role"] =
-      rawRole === "assistant" || rawRole === "model"
-        ? "assistant"
-        : rawRole === "system"
-        ? "system"
-        : "user";
-
-    const texts: string[] = [];
-    if (Array.isArray(row.parts)) {
-      for (const part of row.parts) {
-        if (!part || typeof part !== "object") continue;
-        const text = safeCompactText((part as Record<string, unknown>).text, 1500);
-        if (text) texts.push(text);
-      }
-    }
-
-    if (typeof row.content === "string") {
-      const text = safeCompactText(row.content, 1500);
-      if (text) texts.push(text);
-    }
-
-    if (typeof row.text === "string") {
-      const text = safeCompactText(row.text, 1500);
-      if (text) texts.push(text);
-    }
-
-    const merged = safeCompactText(texts.join("\n"), 1600);
-    if (!merged) continue;
-    lines.push({ role, text: merged });
-  }
-
-  return lines.slice(-maxItems);
-};
-
-const buildContextualQuestion = (question: string, history: HistoryLine[]) => {
-  if (history.length === 0) return question;
-  const historyText = history
-    .slice(-4)
+const buildQueries = (
+  question: string,
+  history: HistoryLine[],
+  articleRefs: ArticleRef[],
+  boeFilter: string | null,
+  lawHint: string
+) => {
+  const historyTail = history
+    .slice(-2)
     .map((line) => `${line.role}: ${line.text}`)
     .join("\n");
-
-  return safeText(
-    `Contexto conversacional:\n${historyText}\n\nPregunta actual:\n${question}`,
-    MAX_CONTEXTUAL_QUESTION_CHARS,
+  const contextual =
+    historyTail && question.split(/\s+/).length <= 8
+      ? `${historyTail}\n${question}`
+      : question;
+  const semantic = safeText(
+    [
+      contextual,
+      boeFilter ? `norma ${boeFilter}` : "",
+      lawHint,
+      articleRefs.length
+        ? `articulos ${articleRefs.map((ref) => ref.normalized).join(" ")}`
+        : ""
+    ]
+      .filter(Boolean)
+      .join(" "),
+    900
   );
-};
-
-const dedupeStrings = (values: string[]) => {
-  const seen = new Set<string>();
-  const output: string[] = [];
-  for (const value of values) {
-    const normalized = safeText(value, 1000);
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    output.push(normalized);
-  }
-  return output;
-};
-
-const buildRetrievalQueries = (
-  question: string,
-  contextualQuestion: string,
-  articleRefs: ArticleRef[],
-  lawHint: string,
-) => {
-  const semanticQueries = dedupeStrings([
-    question,
-    contextualQuestion !== question ? contextualQuestion : "",
-    lawHint ? `${question} ${lawHint}` : "",
-    articleRefs.length > 0
-      ? `${question} referencias ${articleRefs.map((ref) => ref.normalized).join(" ")}`
-      : "",
-  ]).slice(0, 4);
-
   const articleQueries: ArticleQuery[] = [];
-  const seenArticleQueries = new Set<string>();
   for (const ref of articleRefs.slice(0, 4)) {
     for (const variant of ref.variants.slice(0, 2)) {
-      const key = `${ref.normalized}|${variant}`;
-      if (seenArticleQueries.has(key)) continue;
-      seenArticleQueries.add(key);
-      const mode: ArticleQuery["mode"] = variant === ref.normalized ? "exact" : "base";
       articleQueries.push({
         requested: ref.normalized,
         filter: variant,
-        mode,
         query: safeText(
-          [`articulo ${variant}`, lawHint, question].filter(Boolean).join(" "),
-          600,
-        ),
+          [
+            `articulo ${variant}`,
+            boeFilter ? `norma ${boeFilter}` : "",
+            lawHint,
+            question
+          ]
+            .filter(Boolean)
+            .join(" "),
+          600
+        )
       });
     }
   }
-
-  const allQueries = dedupeStrings([
-    ...semanticQueries,
-    ...articleQueries.map((item) => item.query),
-  ]);
-
-  return { semanticQueries, articleQueries, allQueries };
+  const allQueries = Array.from(
+    new Set(
+      [semantic, ...articleQueries.map((item) => item.query)].filter(Boolean)
+    )
+  );
+  return {
+    semanticQueries: semantic ? [semantic] : [],
+    articleQueries,
+    allQueries
+  };
 };
 
 function extractErrorMessage(data: unknown, fallback: string) {
   if (!data || typeof data !== "object") return fallback;
   const record = data as Record<string, unknown>;
-
-  const direct = safeText(record.message, 500);
-  if (direct) return direct;
-
-  if (typeof record.error === "string") return safeText(record.error, 500) || fallback;
-  if (record.error && typeof record.error === "object") {
-    const nested = record.error as Record<string, unknown>;
-    const nestedMessage = safeText(nested.message, 500) || safeText(nested.code, 500);
-    if (nestedMessage) return nestedMessage;
-  }
-
-  return fallback;
+  return safeText(record.message ?? record.error, 500) || fallback;
 }
 
 async function callOpenRouter(path: string, payload: Record<string, unknown>) {
@@ -319,46 +274,29 @@ async function callOpenRouter(path: string, payload: Record<string, unknown>) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       "HTTP-Referer": OPENROUTER_APP_URL,
-      "X-Title": OPENROUTER_APP_NAME,
+      "X-Title": OPENROUTER_APP_NAME
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
+    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS)
   });
-
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(extractErrorMessage(data, `OpenRouter error (${response.status})`));
-  }
+  if (!response.ok)
+    throw new Error(
+      extractErrorMessage(data, `OpenRouter error (${response.status})`)
+    );
   return data;
 }
 
-const validateEmbedding = (vector: unknown, index: number) => {
-  if (!Array.isArray(vector)) {
-    throw new Error(`Embedding invalido en indice ${index}: vector ausente`);
-  }
-
-  const numeric = vector.map((value) => Number(value));
-  if (!numeric.every((value) => Number.isFinite(value))) {
-    throw new Error(`Embedding invalido en indice ${index}: contiene valores no numericos`);
-  }
-  if (numeric.length !== EMBEDDING_DIM) {
-    throw new Error(
-      `Embedding con dimension invalida en indice ${index}: ${numeric.length} (esperada ${EMBEDDING_DIM})`,
-    );
-  }
-
-  return numeric;
-};
-
 const normalizeRpcRows = (
   rows: Array<Record<string, unknown>>,
-  source: "buscar_ley" | "buscar_articulos",
+  source: "buscar_ley" | "buscar_articulos"
 ): RetrievalHit[] =>
   rows
     .map((row) => {
-      const similarity = Number(row.similarity);
+      let similarity = Number(row.similarity ?? row.rank ?? row.score);
+      if (!Number.isFinite(similarity))
+        similarity = safeText(row.contenido, 100) ? 0 : Number.NaN;
       if (!Number.isFinite(similarity)) return null;
-
       return {
         id: safeText(row.id, 120) || null,
         id_boe: safeText(row.id_boe, 80) || null,
@@ -376,434 +314,397 @@ const normalizeRpcRows = (
         similarity,
         source,
         score: similarity,
-        article_matches: [],
+        article_matches: []
       } as RetrievalHit;
     })
-    .filter((row): row is RetrievalHit => row !== null);
+    .filter((row): row is RetrievalHit => Boolean(row));
 
-type ArticleMatchKind = "exact" | "child" | "base" | "none";
+async function runTasks<T>(tasks: Array<() => Promise<T>>, kind: string) {
+  const settled = await Promise.allSettled(tasks.map((task) => task()));
+  const values: T[] = [];
+  const errors: string[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") values.push(result.value);
+    else {
+      const message =
+        result.reason instanceof Error
+          ? result.reason.message
+          : `Unknown ${kind} failure`;
+      console.error("[ask:retrieval_error]", { kind, message });
+      errors.push(message);
+    }
+  }
+  return { values, errors };
+}
 
-const detectArticleMatch = (hit: RetrievalHit, ref: ArticleRef): ArticleMatchKind => {
+const detectArticleMatch = (hit: RetrievalHit, ref: ArticleRef) => {
   const article = normalizeArticleToken(hit.articulo_num ?? "");
   const unitId = normalizeCompactText(hit.unit_id ?? "");
   const path = normalizeCompactText(hit.apartado_path ?? "");
-  const compactRequested = normalizeCompactText(ref.normalized);
-  const compactBase = normalizeCompactText(ref.base);
-
-  if (article && article === ref.normalized) return "exact";
-  if (compactRequested && (unitId === `a${compactRequested}` || path === `a${compactRequested}`)) {
+  if (
+    article === ref.normalized ||
+    unitId === `a${ref.normalized}` ||
+    path === `a${ref.normalized}`
+  )
     return "exact";
-  }
-  if (article && article.startsWith(`${ref.normalized}.`)) return "child";
-  if (compactRequested && (unitId.includes(compactRequested) || path.includes(compactRequested))) {
-    return "child";
-  }
-  if (!ref.base) return "none";
-  if (article && (article === ref.base || article.startsWith(`${ref.base}.`))) return "base";
-  if (compactBase && (unitId.includes(compactBase) || path.includes(compactBase))) return "base";
+  if (
+    ref.base &&
+    (article === ref.base ||
+      article.startsWith(`${ref.base}.`) ||
+      unitId.includes(ref.base) ||
+      path.includes(ref.base))
+  )
+    return "base";
   return "none";
 };
 
-const isConcreteArticleRef = (value: string) =>
-  /^\d+(?:\.\d+)?(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies)?$/.test(value);
-
-const extractHitReference = (hit: RetrievalHit): string | null => {
-  const candidates = [hit.apartado_path, hit.articulo_num, hit.unit_id];
-  for (const candidate of candidates) {
-    const normalized = normalizeArticleToken(candidate ?? "");
-    if (normalized && isConcreteArticleRef(normalized)) return normalized;
-  }
-  return null;
-};
-
-const tokenizeForOverlap = (value: string) =>
-  Array.from(
-    new Set(
-      normalizeLooseText(value)
-        .split(" ")
-        .filter((token) => token.length >= 4),
-    ),
-  );
-
-const lexicalOverlapScore = (question: string, hit: RetrievalHit) => {
-  const questionTokens = tokenizeForOverlap(question);
-  if (questionTokens.length === 0) return 0;
-
-  const haystack = normalizeLooseText(
-    [hit.titulo_ley, hit.articulo_num, hit.apartado_path, hit.contenido].filter(Boolean).join(" "),
-  );
-
-  let matches = 0;
-  for (const token of questionTokens) {
-    if (haystack.includes(token)) matches += 1;
-  }
-  return matches / questionTokens.length;
-};
-
-const articleMatchBoost = (kind: ArticleMatchKind) => {
-  switch (kind) {
-    case "exact":
-      return 0.42;
-    case "child":
-      return 0.28;
-    case "base":
-      return 0.16;
-    default:
-      return 0;
-  }
-};
-
-const mergeAndRankHits = (
+const mergeHits = (
+  question: string,
   semanticHits: RetrievalHit[],
-  articleHitsByQuery: Array<ArticleQuery & { hits: RetrievalHit[] }>,
+  articleHits: Array<ArticleQuery & { hits: RetrievalHit[] }>,
   articleRefs: ArticleRef[],
-  boeFilter: string | null,
+  boeFilter: string | null
 ) => {
   const merged = new Map<string, RetrievalHit>();
-
-  const scoreHit = (hit: RetrievalHit) => {
-    const matches = articleRefs
-      .map((ref) => ({ ref, kind: detectArticleMatch(hit, ref) }))
-      .filter((item) => item.kind !== "none");
-    const articleBoost = matches.reduce((max, item) => Math.max(max, articleMatchBoost(item.kind)), 0);
-    const boeBoost = boeFilter && hit.id_boe === boeFilter ? 0.12 : 0;
-    const sourceBoost = hit.source === "buscar_articulos" ? 0.04 : 0;
-    return {
-      score: hit.similarity + articleBoost + boeBoost + sourceBoost,
-      articleMatches: Array.from(new Set(matches.map((item) => item.ref.normalized))),
-    };
-  };
-
-  const upsert = (hit: RetrievalHit) => {
-    const key = `${hit.id ?? "null"}|${hit.unit_id ?? "null"}|${hit.articulo_num ?? "null"}`;
-    const scored = scoreHit(hit);
-    const next: RetrievalHit = {
-      ...hit,
-      score: scored.score,
-      article_matches: scored.articleMatches,
-    };
-
-    const previous = merged.get(key);
-    if (!previous || next.score > previous.score) {
-      merged.set(key, next);
-      return;
-    }
-
-    previous.article_matches = Array.from(
-      new Set([...previous.article_matches, ...next.article_matches]),
-    );
-    previous.score = Math.max(previous.score, next.score);
-    previous.similarity = Math.max(previous.similarity, next.similarity);
-  };
-
-  for (const hit of semanticHits) upsert(hit);
-  for (const articleQuery of articleHitsByQuery) {
-    for (const hit of articleQuery.hits) {
-      upsert({
-        ...hit,
-        source: "buscar_articulos",
-      });
-    }
-  }
-
-  return Array.from(merged.values()).sort(
-    (left, right) =>
-      right.score - left.score ||
-      right.similarity - left.similarity ||
-      (right.fecha_actualizacion ?? "").localeCompare(left.fecha_actualizacion ?? ""),
+  const tokens = Array.from(
+    new Set(
+      normalizeLooseText(question)
+        .split(" ")
+        .filter((token) => token.length >= 4)
+    )
   );
-};
-
-const buildReferenceResolutions = (
-  question: string,
-  ranked: RetrievalHit[],
-  articleRefs: ArticleRef[],
-  articleHitsByQuery: Array<ArticleQuery & { hits: RetrievalHit[] }>,
-): ReferenceResolution[] =>
-  articleRefs.map((ref) => {
-    const relevantHits = articleHitsByQuery
-      .filter((query) => query.requested === ref.normalized)
-      .flatMap((query) => query.hits);
-    const hitPool = relevantHits.length > 0 ? relevantHits : ranked;
-
-    const requestedExact = hitPool.find((hit) => detectArticleMatch(hit, ref) === "exact");
-    const requestedChild = hitPool.find((hit) => detectArticleMatch(hit, ref) === "child");
-    const requestedBase = hitPool.find((hit) => detectArticleMatch(hit, ref) === "base");
-    const requestedBest = requestedExact ?? requestedChild ?? requestedBase ?? null;
-
-    const candidates = new Map<string, { score: number; overlap: number; hits: RetrievalHit[] }>();
-    for (const hit of hitPool) {
-      const candidateRef = extractHitReference(hit);
-      if (!candidateRef || candidateRef === ref.normalized) continue;
-      const existing = candidates.get(candidateRef) ?? { score: 0, overlap: 0, hits: [] };
-      const overlap = lexicalOverlapScore(question, hit);
-      existing.score += hit.score + overlap * 0.25 + (candidateRef.includes(".") ? 0.08 : 0);
-      existing.overlap = Math.max(existing.overlap, overlap);
-      if (existing.hits.length < 2) existing.hits.push(hit);
-      candidates.set(candidateRef, existing);
-    }
-
-    const topAlternative = Array.from(candidates.entries())
-      .sort(
-        (left, right) =>
-          right[1].score - left[1].score || right[1].overlap - left[1].overlap,
-      )[0];
-
-    const requestedScore = requestedBest?.score ?? 0;
-    const requestedSimilarity = requestedBest?.similarity ?? 0;
-    const requestedOverlap = requestedBest ? lexicalOverlapScore(question, requestedBest) : 0;
-    const alternativeWins = Boolean(
-      topAlternative &&
-        (
-          !requestedBest ||
-          topAlternative[1].score >= requestedScore + 0.18 ||
-          (requestedSimilarity < 0.32 && topAlternative[1].score >= requestedScore + 0.08) ||
-          (topAlternative[1].overlap >= requestedOverlap + 0.2 && topAlternative[1].score >= requestedScore)
+  const score = (hit: RetrievalHit) => {
+    const text = normalizeLooseText(
+      [hit.titulo_ley, hit.articulo_num, hit.apartado_path, hit.contenido]
+        .filter(Boolean)
+        .join(" ")
+    );
+    const overlap =
+      tokens.length === 0
+        ? 0
+        : tokens.filter((token) => text.includes(token)).length / tokens.length;
+    const articleBoost = articleRefs.reduce(
+      (max, ref) =>
+        Math.max(
+          max,
+          detectArticleMatch(hit, ref) === "exact"
+            ? 0.42
+            : detectArticleMatch(hit, ref) === "base"
+              ? 0.16
+              : 0
         ),
+      0
     );
-
-    if (
-      topAlternative &&
-      alternativeWins &&
-      (topAlternative[1].overlap >= 0.18 || topAlternative[1].score >= requestedScore + 0.22)
-    ) {
-      const alternativeRef = topAlternative[0];
-      return {
-        requested: ref,
-        forcedHits: topAlternative[1].hits,
-        note:
-          `La referencia solicitada ${ref.normalized} no encaja bien con el contexto recuperado. ` +
-          `La referencia juridica que mejor encaja con la pregunta es ${alternativeRef}. ` +
-          `Debe plantearse como una posible correccion prudente del usuario y explicarse sin afirmar que la referencia original es imposible.`,
-      };
-    }
-
+    const nextScore =
+      hit.similarity +
+      Math.min(0.18, overlap * 0.18) +
+      articleBoost +
+      (boeFilter && hit.id_boe === boeFilter ? 0.12 : 0) +
+      (hit.source === "buscar_articulos" ? 0.04 : 0);
     return {
-      requested: ref,
-      forcedHits: [requestedExact, requestedChild, requestedBase].filter(
-        (hit): hit is RetrievalHit => Boolean(hit),
-      ),
-      note: null,
+      ...hit,
+      score: nextScore,
+      article_matches: articleRefs
+        .filter((ref) => detectArticleMatch(hit, ref) !== "none")
+        .map((ref) => ref.normalized)
     };
-  });
-
-const selectContextHits = (ranked: RetrievalHit[], resolutions: ReferenceResolution[]) => {
-  const selected: RetrievalHit[] = [];
-  const seen = new Set<string>();
-
-  const add = (hit: RetrievalHit | undefined) => {
-    if (!hit) return;
-    const key = `${hit.id ?? "null"}|${hit.unit_id ?? "null"}|${hit.articulo_num ?? "null"}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    selected.push(hit);
   };
-
-  for (const resolution of resolutions) {
-    for (const hit of resolution.forcedHits) add(hit);
+  for (const hit of semanticHits) {
+    const next = score(hit);
+    merged.set(`${next.id}|${next.unit_id}|${next.articulo_num}`, next);
   }
-
-  const generalCandidates = ranked.filter(
-    (hit) => hit.source === "buscar_ley" || hit.article_matches.length === 0,
-  );
-  for (const hit of generalCandidates) {
-    if (selected.length >= MAX_CONTEXT_HITS) break;
-    const generalCount = selected.filter(
-      (row) => row.source === "buscar_ley" || row.article_matches.length === 0,
-    ).length;
-    if (generalCount >= MIN_GENERAL_CONTEXT_HITS) break;
-    add(hit);
-  }
-
-  for (const hit of ranked) {
-    if (selected.length >= MAX_CONTEXT_HITS) break;
-    add(hit);
-  }
-
-  return selected.slice(0, MAX_CONTEXT_HITS);
-};
-
-const buildRetrievalNotes = (
-  articleRefs: ArticleRef[],
-  contextHits: RetrievalHit[],
-  inferredLaw: ReturnType<typeof inferLawAlias>,
-  resolutions: ReferenceResolution[],
-) => {
-  const notes: string[] = [];
-
-  if (inferredLaw) {
-    notes.push(`Se ha priorizado ${inferredLaw.label} por la referencia detectada en la pregunta.`);
-  }
-
-  for (const resolution of resolutions) {
-    if (resolution.note) notes.push(resolution.note);
-  }
-
-  for (const ref of articleRefs) {
-    const bestKind = contextHits.reduce<ArticleMatchKind>((current, hit) => {
-      const kind = detectArticleMatch(hit, ref);
-      const priority = { exact: 3, child: 2, base: 1, none: 0 } as const;
-      return priority[kind] > priority[current] ? kind : current;
-    }, "none");
-
-    if (bestKind === "base" && ref.base && ref.base !== ref.normalized) {
-      notes.push(
-        `No hubo coincidencia exacta para el articulo ${ref.normalized}; se recuperaron fragmentos del articulo base ${ref.base} y apartados relacionados.`,
-      );
-    } else if (bestKind === "none") {
-      notes.push(
-        `No se recupero una coincidencia clara para el articulo ${ref.normalized}; la respuesta debe apoyarse solo en el contexto tematico encontrado.`,
-      );
+  for (const articleResult of articleHits) {
+    for (const hit of articleResult.hits) {
+      const next = score({ ...hit, source: "buscar_articulos" });
+      const key = `${next.id}|${next.unit_id}|${next.articulo_num}`;
+      const prev = merged.get(key);
+      if (!prev || next.score > prev.score) merged.set(key, next);
     }
   }
-
-  return notes;
+  return Array.from(merged.values()).sort(
+    (a, b) => b.score - a.score || b.similarity - a.similarity
+  );
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+const buildMessages = (
+  question: string,
+  history: HistoryLine[],
+  notes: string[],
+  context: string,
+  forceGrounded = false
+) => [
+  {
+    role: "system",
+    content:
+      `Respondes SOLO con el contexto juridico recuperado. No uses conocimiento externo.\n` +
+      `Solo puedes responder exactamente "${REFUSAL_MESSAGE}" si el contexto esta vacio.\n` +
+      `Si hay contexto, responde siempre lo que si este respaldado y explica limites.\n` +
+      `Cita la norma, articulo o epigrafe.\n` +
+      (forceGrounded
+        ? `Una negativa total seria incorrecta porque ya hay fragmentos recuperados.\n`
+        : "") +
+      `Formato:\n**Respuesta**\n...\n\n**Base legal o tematica**\n...\n\n**Limites**\n...`
+  },
+  {
+    role: "user",
+    content:
+      `Historial auxiliar:\n${history.map((item) => `${item.role}: ${item.text}`).join("\n") || "(sin historial)"}\n\n` +
+      `Notas de recuperacion:\n${notes.join("\n") || "(sin notas)"}\n\n` +
+      `Pregunta:\n${question}\n\n` +
+      `Contexto juridico recuperado:\n${context || "(sin contexto recuperado)"}`
+  }
+];
 
-  if (req.method === "GET") {
+const MIND_MAP_MAX_TOKENS = Math.max(
+  1200,
+  Number(Deno.env.get("ASK_MIND_MAP_MAX_TOKENS") ?? "4000")
+);
+
+const buildMindMapMessages = (
+  question: string,
+  context: string
+) => [
+  {
+    role: "system",
+    content:
+      `Eres un experto en Derecho español. Tu UNICA tarea es generar un mapa conceptual completo y detallado en formato JSON.\n\n` +
+      `OBJETIVO: Extraer TODOS los conceptos juridicos relevantes del contexto y organizarlos en una jerarquia clara de 3 niveles de profundidad.\n\n` +
+      `ESTRUCTURA OBLIGATORIA:\n` +
+      `- level 0: UN solo nodo raiz (el tema principal).\n` +
+      `- level 1: Ramas principales — todos los grandes bloques tematicos que aparezcan en el contexto. Usa tantos como necesites para cubrir el contenido completo.\n` +
+      `- level 2: Desarrollo de cada rama — sub-conceptos, detalles, articulos relevantes, organos, derechos o procedimientos concretos que el contexto mencione. Cada nodo de level 1 DEBE tener hijos de level 2.\n` +
+      `- level 3: Detalles especificos cuando el contexto aporte informacion suficiente (condiciones, excepciones, requisitos, plazos, composicion de organos, etc.).\n\n` +
+      `CANTIDAD DE NODOS:\n` +
+      `- El mapa debe ser COMPLETO y reflejar la riqueza del contexto proporcionado.\n` +
+      `- Minimo esperable: 15 nodos. Si el contexto es rico, genera 25-40 nodos sin problema.\n` +
+      `- No te limites artificialmente. Si hay informacion en el contexto, debe aparecer en el mapa.\n\n` +
+      `CALIDAD:\n` +
+      `- Cada nodo = un CONCEPTO JURIDICO SUSTANTIVO (principios, derechos, organos, procedimientos, deberes, competencias).\n` +
+      `- EXCLUYE metadatos: fechas de BOE, entrada en vigor, numeros de publicacion.\n` +
+      `- EXCLUYE nodos vacios o genericos (\"Otros\", \"Varios\", \"Miscelanea\").\n` +
+      `- Labels de nodo: concisos, 2-6 palabras, juridicamente precisos.\n` +
+      `- Labels de edges: 2-6 palabras expresando la relacion juridica (\"garantiza\", \"regula\", \"se compone de\", \"reconoce\", \"limita\").\n` +
+      `- IDs: solo minusculas a-z y digitos 0-9, sin espacios ni acentos.\n` +
+      `- Todo nodo (excepto raiz) debe tener al menos un edge entrante.\n\n` +
+      `USA SOLO la informacion del contexto juridico proporcionado. No inventes.\n` +
+      `Genera UNICAMENTE el JSON, sin texto antes ni despues, sin bloques markdown.\n\n` +
+      `FORMATO:\n` +
+      `{"title":"...","nodes":[{"id":"...","label":"...","level":0},...],"edges":[{"from":"...","to":"...","label":"..."},...]}`
+  },
+  {
+    role: "user",
+    content:
+      `Tema del mapa: ${question}\n\n` +
+      `Contexto juridico recuperado:\n${context || "(sin contexto)"}`
+  }
+];
+
+const buildDeterministicFallback = (hits: RetrievalHit[]) =>
+  `**Respuesta**\nHe recuperado fragmentos relevantes, pero el modelo no los ha sintetizado con fiabilidad. Te dejo solo la base que consta en RAG:\n` +
+  `${hits
+    .slice(0, 3)
+    .map(
+      (hit) =>
+        `- ${hit.articulo_num || hit.titulo_ley || hit.id_boe || "Fragmento"}: ${safeCompactText(hit.contenido, 320)}`
+    )
+    .join("\n")}\n\n` +
+  `**Base legal o tematica**\n${hits
+    .slice(0, 3)
+    .map(
+      (hit) =>
+        `- ${hit.articulo_num || hit.titulo_ley || hit.id_boe || "Fragmento"}`
+    )
+    .join("\n")}\n\n` +
+  `**Limites**\nLa respuesta queda restringida a esos fragmentos y puede no cubrir toda la pregunta.`;
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS")
+    return new Response("ok", { headers: corsHeaders });
+  if (req.method === "GET")
     return json({
       ok: true,
       service: "ask",
       search_mode: "rag_only",
       embedding_model: OPENROUTER_EMBEDDING_MODEL,
-      embedding_dim: EMBEDDING_DIM,
-      has_openrouter_key: Boolean(OPENROUTER_API_KEY),
+      embedding_dim: EMBEDDING_DIM
     });
-  }
-
   if (req.method !== "POST") return json({ code: "METHOD_NOT_ALLOWED" }, 405);
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return json({ code: "CONFIG_ERROR", message: "Missing Supabase env vars" }, 500);
-  }
-  if (!OPENROUTER_API_KEY) {
-    return json({ code: "CONFIG_ERROR", message: "Missing OPENROUTER_API_KEY" }, 500);
-  }
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY)
+    return json(
+      { code: "CONFIG_ERROR", message: "Missing Supabase env vars" },
+      500
+    );
+  if (!OPENROUTER_API_KEY)
+    return json(
+      { code: "CONFIG_ERROR", message: "Missing OPENROUTER_API_KEY" },
+      500
+    );
 
   let stage = "init";
-
   try {
     stage = "parse_body";
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const question = safeText(body.message ?? body.question ?? body.pregunta, MAX_MESSAGE_CHARS);
-    if (!question) {
-      return json({ code: "BAD_REQUEST", message: "Debes enviar message/question/pregunta" }, 400);
-    }
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    const question = safeText(
+      body.message ?? body.question ?? body.pregunta,
+      MAX_MESSAGE_CHARS
+    );
+    if (!question)
+      return json(
+        {
+          code: "BAD_REQUEST",
+          message: "Debes enviar message/question/pregunta"
+        },
+        400
+      );
 
-    stage = "parse_history";
     const history = extractHistory(body.history);
-    const contextualQuestion = buildContextualQuestion(question, history);
-    const articleRefs = extractArticleRefs(`${question}\n${contextualQuestion}`);
-    const boeRefs = extractBoeRefs(`${question}\n${contextualQuestion}`);
-    const inferredLaw = inferLawAlias(`${question}\n${contextualQuestion}`);
+    const articleRefs = extractArticleRefs(question);
+    const boeRefs = extractBoeRefs(question);
+    const inferredLaw = inferLawAlias(question);
     const boeFilter = boeRefs[0] ?? inferredLaw?.boeId ?? null;
     const lawHint = inferredLaw?.hint ?? "";
-
-    const { semanticQueries, articleQueries, allQueries } = buildRetrievalQueries(
+    const { semanticQueries, articleQueries, allQueries } = buildQueries(
       question,
-      contextualQuestion,
+      history,
       articleRefs,
-      lawHint,
+      boeFilter,
+      lawHint
     );
 
     stage = "bearer";
     const token = bearer(req.headers.get("Authorization"));
-    if (!token) return json({ code: "UNAUTHORIZED", message: "Missing bearer token" }, 401);
+    if (!token)
+      return json(
+        { code: "UNAUTHORIZED", message: "Missing bearer token" },
+        401
+      );
 
     stage = "supabase_client";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
+      auth: { persistSession: false, autoRefreshToken: false }
     });
 
     stage = "auth_get_user";
     const {
       data: { user },
-      error: authError,
+      error: authError
     } = await supabase.auth.getUser(token);
-    if (authError || !user) return json({ code: "UNAUTHORIZED", message: "Invalid session" }, 401);
+    if (authError || !user)
+      return json({ code: "UNAUTHORIZED", message: "Invalid session" }, 401);
 
     stage = "embedding_request";
     const emb = await callOpenRouter("/embeddings", {
       model: OPENROUTER_EMBEDDING_MODEL,
       input: allQueries,
       dimensions: EMBEDDING_DIM,
-      encoding_format: "float",
+      encoding_format: "float"
     });
 
     stage = "embedding_parse";
     const embData = (emb as Record<string, unknown>).data;
-    if (!Array.isArray(embData) || embData.length !== allQueries.length) {
-      throw new Error(
-        `Embeddings payload invalido: recibidos ${Array.isArray(embData) ? embData.length : 0}, esperados ${allQueries.length}`,
+    if (!Array.isArray(embData) || embData.length !== allQueries.length)
+      throw new Error("Embeddings payload invalido");
+    const embeddingsByQuery = new Map<string, number[]>();
+    for (let index = 0; index < allQueries.length; index += 1) {
+      const item = embData[index] as Record<string, unknown> | undefined;
+      embeddingsByQuery.set(
+        allQueries[index],
+        Array.isArray(item?.embedding)
+          ? item.embedding.map((value) => Number(value))
+          : []
       );
     }
 
-    const embeddingsByQuery = new Map<string, number[]>();
-    for (let index = 0; index < allQueries.length; index += 1) {
-      const item = embData[index];
-      if (!item || typeof item !== "object") {
-        throw new Error(`Embeddings payload invalido en indice ${index}`);
-      }
-      const vector = validateEmbedding((item as Record<string, unknown>).embedding, index);
-      embeddingsByQuery.set(allQueries[index], vector);
+    const runPass = async (lawThreshold: number, articleThreshold: number) => {
+      const semanticTasks = semanticQueries.map((query) => async () => {
+        const { data, error } = await supabase.rpc("buscar_ley", {
+          query_embedding: embeddingsByQuery.get(query),
+          match_threshold: lawThreshold,
+          match_count: LAW_MATCH_COUNT,
+          filter_id_boe: boeFilter,
+          filter_unit_type: null
+        });
+        if (error) throw new Error(`buscar_ley failed: ${error.message}`);
+        return normalizeRpcRows(
+          (data ?? []) as Array<Record<string, unknown>>,
+          "buscar_ley"
+        );
+      });
+      const articleTasks = articleQueries.map((item) => async () => {
+        const { data, error } = await supabase.rpc("buscar_articulos", {
+          query_embedding: embeddingsByQuery.get(item.query),
+          match_threshold: articleThreshold,
+          match_count: ARTICLE_MATCH_COUNT,
+          filter_id_boe: boeFilter,
+          filter_article: item.filter
+        });
+        if (error) throw new Error(`buscar_articulos failed: ${error.message}`);
+        return {
+          ...item,
+          hits: normalizeRpcRows(
+            (data ?? []) as Array<Record<string, unknown>>,
+            "buscar_articulos"
+          )
+        };
+      });
+      const semanticResults = await runTasks(semanticTasks, "buscar_ley");
+      const articleResults = await runTasks(articleTasks, "buscar_articulos");
+      return {
+        semanticResults: semanticResults.values.flat(),
+        articleResults: articleResults.values,
+        retrievalErrors: [...semanticResults.errors, ...articleResults.errors]
+      } as RetrievalPassResult;
+    };
+
+    stage = "rpc_primary_retrieval";
+    let pass = await runPass(LAW_MATCH_THRESHOLD, ARTICLE_MATCH_THRESHOLD);
+    let ranked = mergeHits(
+      question,
+      pass.semanticResults,
+      pass.articleResults,
+      articleRefs,
+      boeFilter
+    );
+    if (ranked.length === 0) {
+      stage = "rpc_retry_retrieval";
+      const retryPass = await runPass(
+        LAW_RETRY_MATCH_THRESHOLD,
+        ARTICLE_RETRY_MATCH_THRESHOLD
+      );
+      pass = {
+        semanticResults: [
+          ...pass.semanticResults,
+          ...retryPass.semanticResults
+        ],
+        articleResults: [...pass.articleResults, ...retryPass.articleResults],
+        retrievalErrors: [...pass.retrievalErrors, ...retryPass.retrievalErrors]
+      };
+      ranked = mergeHits(
+        question,
+        pass.semanticResults,
+        pass.articleResults,
+        articleRefs,
+        boeFilter
+      );
     }
 
-    stage = "rpc_buscar_ley";
-    const semanticCalls = semanticQueries.map(async (query) => {
-      const embedding = embeddingsByQuery.get(query);
-      if (!embedding) throw new Error(`Embedding no encontrado para query semantica: ${query}`);
-
-      const { data, error } = await supabase.rpc("buscar_ley", {
-        query_embedding: embedding,
-        match_threshold: LAW_MATCH_THRESHOLD,
-        match_count: LAW_MATCH_COUNT,
-        filter_id_boe: boeFilter,
-        filter_unit_type: null,
-      });
-
-      if (error) throw new Error(`buscar_ley failed: ${error.message}`);
-      return normalizeRpcRows((data ?? []) as Array<Record<string, unknown>>, "buscar_ley");
-    });
-
-    stage = "rpc_buscar_articulos";
-    const articleCalls = articleQueries.map(async (item) => {
-      const embedding = embeddingsByQuery.get(item.query);
-      if (!embedding) throw new Error(`Embedding no encontrado para query de articulo: ${item.query}`);
-
-      const { data, error } = await supabase.rpc("buscar_articulos", {
-        query_embedding: embedding,
-        match_threshold: ARTICLE_MATCH_THRESHOLD,
-        match_count: ARTICLE_MATCH_COUNT,
-        filter_id_boe: boeFilter,
-        filter_article: item.filter,
-      });
-
-      if (error) throw new Error(`buscar_articulos failed: ${error.message}`);
-      return {
-        ...item,
-        hits: normalizeRpcRows((data ?? []) as Array<Record<string, unknown>>, "buscar_articulos"),
-      };
-    });
-
-    const semanticResults = (await Promise.all(semanticCalls)).flat();
-    const articleResults = await Promise.all(articleCalls);
-    const ranked = mergeAndRankHits(semanticResults, articleResults, articleRefs, boeFilter);
-    const referenceResolutions = buildReferenceResolutions(
-      question,
-      ranked,
-      articleRefs,
-      articleResults,
+    const wantsMindMap = body.mindMap === true;
+    const contextHits = ranked.slice(
+      0,
+      wantsMindMap ? Math.max(MAX_CONTEXT_HITS, 14) : MAX_CONTEXT_HITS
     );
-    const contextHits = selectContextHits(ranked, referenceResolutions);
-    const retrievalNotes = buildRetrievalNotes(
-      articleRefs,
-      contextHits,
-      inferredLaw,
-      referenceResolutions,
-    );
+    const notes = articleRefs
+      .filter(
+        (ref) =>
+          !contextHits.some((hit) => detectArticleMatch(hit, ref) !== "none")
+      )
+      .map(
+        (ref) =>
+          `No se recupero una coincidencia clara para el articulo ${ref.normalized}; la respuesta debe limitarse a los fragmentos disponibles.`
+      );
 
     const debug = {
       stage,
@@ -813,20 +714,27 @@ serve(async (req) => {
       queries: {
         total: allQueries.length,
         semantic: semanticQueries.length,
-        article: articleQueries.length,
+        article: articleQueries.length
       },
       refs: {
         boe: boeRefs,
         inferred_boe: inferredLaw?.boeId ?? null,
-        article: articleRefs.map((ref) => ({ requested: ref.normalized, base: ref.base })),
+        article: articleRefs.map((ref) => ({
+          requested: ref.normalized,
+          base: ref.base
+        }))
       },
       hits: {
-        semantic_raw: semanticResults.length,
-        article_raw: articleResults.reduce((acc, item) => acc + item.hits.length, 0),
+        semantic_raw: pass.semanticResults.length,
+        article_raw: pass.articleResults.reduce(
+          (acc, item) => acc + item.hits.length,
+          0
+        ),
         ranked: ranked.length,
-        context: contextHits.length,
+        context: contextHits.length
       },
-      notes: retrievalNotes,
+      retrieval_errors: pass.retrievalErrors,
+      notes
     };
 
     if (contextHits.length === 0) {
@@ -837,11 +745,10 @@ serve(async (req) => {
         citations: [],
         refused: true,
         mindMap: false,
-        ...(body.debug === true ? { debug } : {}),
+        ...(body.debug === true ? { debug } : {})
       });
     }
 
-    stage = "build_context";
     const citations = contextHits.map((hit) => ({
       boe_id: hit.id_boe,
       doc_title: hit.titulo_ley,
@@ -856,135 +763,166 @@ serve(async (req) => {
       similarity: hit.similarity,
       score: hit.score,
       source: hit.source,
-      article_matches: hit.article_matches,
+      article_matches: hit.article_matches
     }));
 
-    let contextBudget = MAX_TOTAL_CONTEXT_CHARS;
+    let budget = wantsMindMap ? 36000 : 22000;
     const context = contextHits
       .map((hit, index) => {
-        if (contextBudget <= 0) return "";
-        const title = hit.articulo_num || hit.titulo_ley || `Fragmento ${index + 1}`;
-        const meta = [
-          hit.titulo_ley ? `Norma: ${hit.titulo_ley}` : "",
-          hit.unit_type ? `Tipo: ${hit.unit_type}` : "",
-          hit.unit_id ? `Unidad: ${hit.unit_id}` : "",
-          hit.apartado_path ? `Ruta: ${hit.apartado_path}` : "",
-          hit.fecha_vigencia ? `Vigencia: ${hit.fecha_vigencia}` : "",
-          hit.fecha_actualizacion ? `Actualizacion: ${hit.fecha_actualizacion}` : "",
-          hit.eli ? `ELI: ${hit.eli}` : "",
-        ]
-          .filter(Boolean)
-          .join(" | ");
-        const contentLimit = hit.article_matches.length > 0 ? 3200 : 1500;
-        const available = Math.max(0, contextBudget - 400);
-        if (available <= 0) return "";
-        const content = safeText(hit.contenido, Math.min(contentLimit, available));
-        const block = `Contexto ${index + 1}\nTitulo: ${title}\n${meta}\nContenido:\n${content}`;
-        contextBudget = Math.max(0, contextBudget - block.length);
+        if (budget <= 0) return "";
+        const content = safeText(
+          hit.contenido,
+          Math.min(
+            hit.article_matches.length > 0 ? 3200 : wantsMindMap ? 2800 : 1500,
+            Math.max(0, budget - 350)
+          )
+        );
+        const block =
+          `Contexto ${index + 1}\n` +
+          `Titulo: ${hit.articulo_num || hit.titulo_ley || `Fragmento ${index + 1}`}\n` +
+          `${[hit.titulo_ley ? `Norma: ${hit.titulo_ley}` : "", hit.unit_id ? `Unidad: ${hit.unit_id}` : "", hit.apartado_path ? `Ruta: ${hit.apartado_path}` : "", hit.eli ? `ELI: ${hit.eli}` : ""].filter(Boolean).join(" | ")}\n` +
+          `Contenido:\n${content}`;
+        budget = Math.max(0, budget - block.length);
         return block;
       })
-      .filter((block) => block.length > 0)
+      .filter(Boolean)
       .join("\n\n---\n\n");
 
+    const model = safeText(body.model, 120) || OPENROUTER_CHAT_MODEL;
     stage = "chat_request";
     const llm = await callOpenRouter("/chat/completions", {
-      model: safeText(body.model, 120) || OPENROUTER_CHAT_MODEL,
-      temperature: 0.1,
-      max_tokens: 1000,
-      messages: [
-        {
-          role: "system",
-          content:
-            `Eres un asistente especializado en preparacion de oposiciones. Tu mision es ayudar al opositor a estudiar, comprender y memorizar el temario de forma efectiva, fiable y clara.\n\n` +
-            `IDENTIDAD Y TONO\n` +
-            `- Eres formal en el fondo, pero natural y cercano en la forma. Evita el lenguaje robotico o excesivamente tecnico.\n` +
-            `- Tutea al usuario de forma respetuosa. Transmite confianza y seguridad, como lo haria un buen preparador de oposiciones.\n` +
-            `- Nunca uses frases vacias como "Claro" o "Por supuesto". Ve directo al grano.\n` +
-            `- Usa un tono positivo y motivador cuando sea apropiado, especialmente si el usuario expresa dudas o frustracion.\n\n` +
-            `FIABILIDAD Y RIGOR\n` +
-            `- Responde SIEMPRE con informacion respaldada por el contexto juridico recuperado de la base de conocimiento (RAG). No inventes ni uses conocimiento externo.\n` +
-            `- Si la referencia del usuario no es exacta pero existe una norma o articulo cercano en la base de conocimiento, corrigela con cautela, indicando cual es la referencia correcta.\n` +
-            `- Si la informacion disponible es parcial, responde solo la parte respaldada y avisa explicitamente de que punto no esta cubierto.\n` +
-            `- Nunca presentes como cierto algo sobre lo que tengas dudas. Es preferible decir "no lo encuentro en el material aportado" que dar una respuesta incorrecta.\n\n` +
-            `ESTRUCTURA DE LAS RESPUESTAS\n` +
-            `Cuando haya base suficiente, organiza tu respuesta asi:\n` +
-            `**Respuesta**\n` +
-            `Explicacion clara y directa del concepto o pregunta.\n\n` +
-            `**Base legal o tematica**\n` +
-            `Norma, articulo, tema o epigrafe concreto que respalda la respuesta.\n\n` +
-            `**Matices o limites**\n` +
-            `Excepciones, condiciones, limites temporales o aspectos que el opositor debe tener presentes para no caer en errores frecuentes en examen.\n\n` +
-            `Si la pregunta no tiene base suficiente en el material, responde exactamente: "${REFUSAL_MESSAGE}"\n\n` +
-            `FORMATO Y PRESENTACION\n` +
-            `- Usa listas, negritas y estructura visual cuando mejoren la comprension.\n` +
-            `- Para comparaciones, elementos con varios campos o clasificaciones legales, ofrece proactivamente crear una tabla: "Quieres que te prepare esto en formato tabla para que sea mas facil de estudiar?"\n` +
-            `- Para temas largos, ofrece dividir la explicacion por bloques o apartados.\n` +
-            `- Ajusta la profundidad de la respuesta al nivel de la pregunta: no des una leccion magistral si solo te piden una definicion rapida.\n\n` +
-            `SUGERENCIAS PROACTIVAS\n` +
-            `- Al final de cada respuesta, cuando sea util y natural, anade una sugerencia breve que ayude al opositor a seguir avanzando.\n` +
-            `- No lo hagas en todas las respuestas de forma mecanica; solo cuando realmente aporte valor.\n\n` +
-            `LO QUE NUNCA DEBES HACER\n` +
-            `- Inventar articulos, normas, fechas o datos que no esten en el material recuperado.\n` +
-            `- Usar un lenguaje condescendiente o excesivamente academico sin necesidad.\n` +
-            `- Dar respuestas larguisimas cuando la pregunta es simple.\n` +
-            `- Ignorar errores en las referencias del usuario; corrigelos siempre con tacto.\n` +
-            `- Repetir la pregunta del usuario antes de responder.\n\n` +
-            `El historial es solo contexto conversacional auxiliar.`,
-        },
-        {
-          role: "user",
-          content:
-            `Historial auxiliar:\n${history.map((item) => `${item.role}: ${item.text}`).join("\n") || "(sin historial)"}\n\n` +
-            `Notas de recuperacion:\n${retrievalNotes.join("\n") || "(sin notas)"}\n\n` +
-            `Pregunta:\n${question}\n\n` +
-            `Contexto juridico recuperado:\n${context}`,
-        },
-      ],
+      model,
+      temperature: 0,
+      max_tokens: CHAT_MAX_TOKENS,
+      messages: buildMessages(question, history, notes, context)
     });
 
     stage = "chat_parse";
-    let answer = "";
-    const choices = (llm as Record<string, unknown>).choices;
-    if (Array.isArray(choices) && choices.length > 0) {
-      const first = choices[0] as Record<string, unknown>;
-      const message = first.message as Record<string, unknown> | undefined;
-      answer = normalizeAnswerText(message?.content, 12000);
+    let answer = normalizeAnswerText(
+      (
+        (llm as Record<string, unknown>).choices as
+          | Array<Record<string, unknown>>
+          | undefined
+      )?.[0]?.message?.content,
+      12000
+    );
+      if (answer === REFUSAL_MESSAGE) {
+      stage = "chat_retry_grounded";
+      const retryLlm = await callOpenRouter("/chat/completions", {
+        model,
+        temperature: 0,
+        max_tokens: CHAT_MAX_TOKENS,
+        messages: buildMessages(question, history, notes, context, true)
+      });
+      answer = normalizeAnswerText(
+        (
+          (retryLlm as Record<string, unknown>).choices as
+            | Array<Record<string, unknown>>
+            | undefined
+        )?.[0]?.message?.content,
+        12000
+      );
     }
+    if (!answer || answer === REFUSAL_MESSAGE)
+      answer = buildDeterministicFallback(contextHits);
 
-    if (answer === REFUSAL_MESSAGE && contextHits.length > 0) {
-      const labels = Array.from(
-        new Set(
-          contextHits
-            .map((hit) => hit.articulo_num || hit.titulo_ley || hit.id_boe)
-            .filter((value): value is string => Boolean(value)),
-        ),
-      ).slice(0, 4);
-      answer =
-        `Si hay contexto recuperado en RAG (${labels.join(", ")}), pero no suficiente para cubrir toda la pregunta con precision completa. ` +
-        `La respuesta debe limitarse a lo que consta expresamente en esos fragmentos.`;
+    let mindMapData: Record<string, unknown> | null = null;
+
+    if (wantsMindMap && answer !== REFUSAL_MESSAGE) {
+      stage = "mindmap_request";
+      try {
+        const mindMapLlm = await callOpenRouter("/chat/completions", {
+          model,
+          temperature: 0,
+          max_tokens: MIND_MAP_MAX_TOKENS,
+          messages: buildMindMapMessages(question, context)
+        });
+
+        stage = "mindmap_parse";
+        let rawMindMap = normalizeAnswerText(
+          (
+            (mindMapLlm as Record<string, unknown>).choices as
+              | Array<Record<string, unknown>>
+              | undefined
+          )?.[0]?.message?.content,
+          20000
+        );
+
+        // Strip markdown code fences if the model wraps JSON in ```
+        rawMindMap = rawMindMap
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```\s*$/, "")
+          .trim();
+
+        const parsed = JSON.parse(rawMindMap);
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          Array.isArray(parsed.nodes) &&
+          Array.isArray(parsed.edges) &&
+          parsed.nodes.length >= 2
+        ) {
+          // Validate: every non-root node has an incoming edge
+          const nodeIds = new Set(
+            parsed.nodes.map((n: Record<string, unknown>) => n.id)
+          );
+          const targetsWithEdge = new Set(
+            parsed.edges.map((e: Record<string, unknown>) => e.to)
+          );
+          const validEdges = parsed.edges.filter(
+            (e: Record<string, unknown>) =>
+              nodeIds.has(e.from) && nodeIds.has(e.to)
+          );
+
+          const rootNodes = parsed.nodes.filter(
+            (n: Record<string, unknown>) => n.level === 0
+          );
+          const orphans = parsed.nodes.filter(
+            (n: Record<string, unknown>) =>
+              n.level !== 0 && !targetsWithEdge.has(n.id)
+          );
+
+          // Accept if structure is reasonably valid
+          if (rootNodes.length >= 1 && orphans.length <= 1) {
+            mindMapData = {
+              title: safeText(parsed.title, 200) || question,
+              nodes: parsed.nodes.map((n: Record<string, unknown>) => ({
+                id: safeText(n.id, 80),
+                label: safeText(n.label, 120),
+                level: Number(n.level) || 0
+              })),
+              edges: validEdges.map((e: Record<string, unknown>) => ({
+                from: safeText(e.from, 80),
+                to: safeText(e.to, 80),
+                label: safeText(e.label, 80)
+              }))
+            };
+          }
+        }
+      } catch (mindMapError) {
+        console.error("[ask:mindmap_error]", {
+          message:
+            mindMapError instanceof Error
+              ? mindMapError.message
+              : "Unknown mindmap failure"
+        });
+        // Mind map generation is non-critical; proceed with text answer
+      }
     }
-
-    answer = answer || REFUSAL_MESSAGE;
 
     return json({
       answer,
-      message: answer,
-      content: answer,
+      message: mindMapData ?? answer,
+      content: mindMapData ?? answer,
       citations,
       refused: answer === REFUSAL_MESSAGE,
-      mindMap: false,
-      ...(body.debug === true ? { debug } : {}),
+      mindMap: Boolean(mindMapData),
+      ...(body.debug === true ? { debug } : {})
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown ask failure";
+    const message =
+      error instanceof Error ? error.message : "Unknown ask failure";
     console.error("[ask:error]", { stage, message });
-    return json(
-      {
-        code: "ASK_FAILED",
-        stage,
-        message,
-      },
-      502,
-    );
+    return json({ code: "ASK_FAILED", stage, message }, 502);
   }
 });
