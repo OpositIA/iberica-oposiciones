@@ -246,7 +246,7 @@ export const fetchOppositionById = async (
     const sectionTitle = String(row.section_title ?? "").trim();
     if (sectionTitle && !sectionTitleByTopicId.has(row.opposition_topic_id))
       sectionTitleByTopicId.set(row.opposition_topic_id, sectionTitle);
-    
+
     const subtopicTitle =
       String(row.subtopic_title ?? "").trim() ||
       translateSubtopic(
@@ -260,31 +260,29 @@ export const fetchOppositionById = async (
       subtopicsByTopicId.set(row.opposition_topic_id, []);
     if (!subtopicDetailsByTopicId.has(row.opposition_topic_id))
       subtopicDetailsByTopicId.set(row.opposition_topic_id, []);
-    subtopicsByTopicId
-      .get(row.opposition_topic_id)
-      ?.push(subtopicTitle);
-    subtopicDetailsByTopicId
-      .get(row.opposition_topic_id)
-      ?.push({
-        code: String(row.subtopic_code ?? "").trim(),
-        title: subtopicTitle
-      });
+    subtopicsByTopicId.get(row.opposition_topic_id)?.push(subtopicTitle);
+    subtopicDetailsByTopicId.get(row.opposition_topic_id)?.push({
+      code: String(row.subtopic_code ?? "").trim(),
+      title: subtopicTitle
+    });
   });
 
-  const temasDetalle = (topicRows ?? []).map((row) => ({
-    code: row.topic_code,
-    title:
-      String(row.topic_title ?? "").trim() ||
-      translateTopic(locale, oppositionRow.id, row.topic_code),
-    displayTitle: "",
-    sectionTitle: sectionTitleByTopicId.get(row.id) ?? null,
-    subtopics: subtopicDetailsByTopicId.get(row.id) ?? []
-  })).map((topic) => ({
-    ...topic,
-    displayTitle: topic.sectionTitle
-      ? `${topic.title}. ${topic.sectionTitle}`
-      : topic.title
-  }));
+  const temasDetalle = (topicRows ?? [])
+    .map((row) => ({
+      code: row.topic_code,
+      title:
+        String(row.topic_title ?? "").trim() ||
+        translateTopic(locale, oppositionRow.id, row.topic_code),
+      displayTitle: "",
+      sectionTitle: sectionTitleByTopicId.get(row.id) ?? null,
+      subtopics: subtopicDetailsByTopicId.get(row.id) ?? []
+    }))
+    .map((topic) => ({
+      ...topic,
+      displayTitle: topic.sectionTitle
+        ? `${topic.title}. ${topic.sectionTitle}`
+        : topic.title
+    }));
 
   return {
     id: oppositionRow.id,

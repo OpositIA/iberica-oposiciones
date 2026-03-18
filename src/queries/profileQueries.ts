@@ -235,8 +235,7 @@ const normalizePaidSyllabusSubtopicFileRow = (
     subtopic_code: subtopicCode,
     file_name: fileName,
     file_title: sanitizeSingleLineText(row.file_title, 220) || null,
-    mime_type:
-      sanitizeSingleLineText(row.mime_type, 120) || "application/pdf",
+    mime_type: sanitizeSingleLineText(row.mime_type, 120) || "application/pdf",
     file_size_bytes:
       typeof row.file_size_bytes === "number" &&
       Number.isFinite(row.file_size_bytes) &&
@@ -256,8 +255,16 @@ const fetchPaidSyllabusSubtopicFiles = async (
   const normalizedOppositionId = sanitizeCode(oppositionId, 160);
   if (!normalizedOppositionId) return [];
 
-  const untypedSupabase = supabase as any;
-  const { data, error } = await untypedSupabase.rpc(
+  const rpcClient = supabase as unknown as {
+    rpc: (
+      fn: "get_current_paid_syllabus_subtopic_files",
+      args: { p_opposition_id: string }
+    ) => Promise<{
+      data: Record<string, unknown>[] | null;
+      error: unknown;
+    }>;
+  };
+  const { data, error } = await rpcClient.rpc(
     "get_current_paid_syllabus_subtopic_files",
     {
       p_opposition_id: normalizedOppositionId
@@ -295,17 +302,18 @@ export const getSignedSyllabusPdfUrl = async (
   if (!accessToken)
     throw new Error("Debes iniciar sesion para abrir este PDF.");
 
-  const { data, error } = await supabase.functions.invoke<SyllabusPdfUrlResponse>(
-    "get-syllabus-pdf-url",
-    {
-      body: {
-        subtopic_file_id: normalizedSubtopicFileId
-      },
-      headers: {
-        Authorization: `Bearer ${accessToken}`
+  const { data, error } =
+    await supabase.functions.invoke<SyllabusPdfUrlResponse>(
+      "get-syllabus-pdf-url",
+      {
+        body: {
+          subtopic_file_id: normalizedSubtopicFileId
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
       }
-    }
-  );
+    );
 
   if (error) {
     let message = error.message || "No se pudo abrir el PDF del temario.";
@@ -373,7 +381,8 @@ export const getWatermarkedSyllabusPdfBytes = async (
   );
 
   if (!response.ok) {
-    const contentType = response.headers.get("Content-Type")?.toLowerCase() ?? "";
+    const contentType =
+      response.headers.get("Content-Type")?.toLowerCase() ?? "";
     if (contentType.includes("application/json")) {
       try {
         const parsed = (await response.json()) as { error?: unknown };

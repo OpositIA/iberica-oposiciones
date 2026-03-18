@@ -438,7 +438,10 @@ const AuthenticatedSidebarLayout = () => {
                     isSidebarCollapsed && "lg:hidden"
                   )}
                 >
-                  <div id="assistant-sidebar-history-slot" className="h-full min-h-0" />
+                  <div
+                    id="assistant-sidebar-history-slot"
+                    className="h-full min-h-0"
+                  />
                 </div>
               </nav>
 

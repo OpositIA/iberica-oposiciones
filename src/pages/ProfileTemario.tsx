@@ -58,10 +58,8 @@ const ProfileTemario = () => {
     }));
   }, [oposicionActiva.temas, oposicionActiva.temasDetalle]);
 
-  const { data: syllabusSubtopicFiles = [] } = usePaidSyllabusSubtopicFilesQuery(
-    oposicionActiva.id,
-    isCurrentPlanPaid
-  );
+  const { data: syllabusSubtopicFiles = [] } =
+    usePaidSyllabusSubtopicFilesQuery(oposicionActiva.id, isCurrentPlanPaid);
 
   const subtopicFilesByCode = useMemo(() => {
     const grouped = new Map<
@@ -99,9 +97,7 @@ const ProfileTemario = () => {
     return `/perfil/temario/pdf/${subtopicFileId}${query ? `?${query}` : ""}`;
   };
 
-  if (isLoadingOpposition) {
-    return <AppLoading label={t("syllabus.loading")} />;
-  }
+  if (isLoadingOpposition) return <AppLoading label={t("syllabus.loading")} />;
 
   return (
     <div className="space-y-4">
@@ -168,7 +164,9 @@ const ProfileTemario = () => {
                             >
                               <div className="flex items-start gap-3 text-sm leading-6 text-foreground">
                                 <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-primary" />
-                                <span className="break-words">{subtopic.title}</span>
+                                <span className="break-words">
+                                  {subtopic.title}
+                                </span>
                               </div>
 
                               {isCurrentPlanPaid && subtopicFiles.length > 0 ? (

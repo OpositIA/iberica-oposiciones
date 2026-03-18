@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
 const json = (body: unknown, status = 200) =>
@@ -13,8 +13,8 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+      "Content-Type": "application/json"
+    }
   });
 
 serve(async (req) => {
@@ -29,8 +29,8 @@ serve(async (req) => {
   return json(
     {
       error:
-        "syllabus_pdf_signed_url_disabled: use the protected get-syllabus-pdf endpoint",
+        "syllabus_pdf_signed_url_disabled: use the protected get-syllabus-pdf endpoint"
     },
-    410,
+    410
   );
 });
