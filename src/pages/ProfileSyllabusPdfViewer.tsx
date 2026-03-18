@@ -1,14 +1,11 @@
+import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import { useAuth } from "@/auth/AuthProvider";
 import AppLoading from "@/components/AppLoading";
 import CustomButton from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getWatermarkedSyllabusPdfBytes } from "@/queries/profileQueries";
-import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import { useQuery } from "@tanstack/react-query";
-import { Document, Page, pdfjs } from "react-pdf";
-import type { PDFDocumentProxy } from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -19,8 +16,11 @@ import {
   Plus,
   Search
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { PDFDocumentProxy } from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Document, Page, pdfjs } from "react-pdf";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -86,7 +86,8 @@ const ProfileSyllabusPdfViewer = () => {
   } = useQuery({
     queryKey: ["syllabus", "pdf-viewer", normalizedSubtopicFileId],
     queryFn: () => getWatermarkedSyllabusPdfBytes(normalizedSubtopicFileId),
-    enabled: Number.isFinite(normalizedSubtopicFileId) && normalizedSubtopicFileId > 0,
+    enabled:
+      Number.isFinite(normalizedSubtopicFileId) && normalizedSubtopicFileId > 0,
     staleTime: 4 * 60 * 1000
   });
 
@@ -116,7 +117,8 @@ const ProfileSyllabusPdfViewer = () => {
   }, [pdfBytes]);
 
   const mainPageWidth = useMemo(() => {
-    const baseWidth = viewerWidth > 0 ? Math.min(Math.max(viewerWidth - 64, 280), 940) : 760;
+    const baseWidth =
+      viewerWidth > 0 ? Math.min(Math.max(viewerWidth - 64, 280), 940) : 760;
     return Math.round(baseWidth * zoom);
   }, [viewerWidth, zoom]);
   const viewerWatermarkLabel = useMemo(() => {
@@ -211,10 +213,29 @@ const ProfileSyllabusPdfViewer = () => {
     );
   }, [searchMatches]);
 
+  const scrollToPage = useCallback(
+    (pageNumber: number) => {
+      const nextPage = clamp(pageNumber, 1, pageCount || 1);
+      setCurrentPage(nextPage);
+      setPageInput(String(nextPage));
+
+      const node = pageRefs.current.get(nextPage);
+      const container = viewerScrollRef.current;
+      if (!node || !container) return;
+
+      const nextTop = Math.max(0, node.offsetTop - 24);
+      container.scrollTo({
+        top: nextTop,
+        behavior: "smooth"
+      });
+    },
+    [pageCount]
+  );
+
   useEffect(() => {
     if (!searchTerm || searchMatches.length === 0) return;
     scrollToPage(searchMatches[activeSearchMatchIndex]);
-  }, [activeSearchMatchIndex, searchMatches, searchTerm]);
+  }, [activeSearchMatchIndex, searchMatches, searchTerm, scrollToPage]);
 
   useEffect(() => {
     const container = viewerScrollRef.current;
@@ -255,22 +276,6 @@ const ProfileSyllabusPdfViewer = () => {
       container.removeEventListener("scroll", onScroll);
     };
   }, [currentPage, pageCount]);
-
-  const scrollToPage = (pageNumber: number) => {
-    const nextPage = clamp(pageNumber, 1, pageCount || 1);
-    setCurrentPage(nextPage);
-    setPageInput(String(nextPage));
-
-    const node = pageRefs.current.get(nextPage);
-    const container = viewerScrollRef.current;
-    if (!node || !container) return;
-
-    const nextTop = Math.max(0, node.offsetTop - 24);
-    container.scrollTo({
-      top: nextTop,
-      behavior: "smooth"
-    });
-  };
 
   const commitPageInput = () => {
     if (!pageCount) {
@@ -314,7 +319,8 @@ const ProfileSyllabusPdfViewer = () => {
 
     void Promise.all(
       Array.from({ length: pdf.numPages }, (_, index) => index + 1).map(
-        async (pageNumber) => [pageNumber, await extractPageText(pdf, pageNumber)] as const
+        async (pageNumber) =>
+          [pageNumber, await extractPageText(pdf, pageNumber)] as const
       )
     )
       .then((entries) => {
@@ -335,7 +341,10 @@ const ProfileSyllabusPdfViewer = () => {
     setDocumentError(loadError.message || "No se ha podido cargar el PDF.");
   };
 
-  if (!Number.isFinite(normalizedSubtopicFileId) || normalizedSubtopicFileId <= 0) {
+  if (
+    !Number.isFinite(normalizedSubtopicFileId) ||
+    normalizedSubtopicFileId <= 0
+  ) {
     return (
       <section className="space-y-4">
         <div className="border border-border bg-background p-6">
@@ -429,7 +438,9 @@ const ProfileSyllabusPdfViewer = () => {
     <section
       className={`select-none overflow-hidden rounded-[1.5rem] border shadow-[0_32px_90px_-52px_rgba(15,23,42,0.45)] ${shellToneClass}`}
     >
-      <header className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}>
+      <header
+        className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}
+      >
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <Link
@@ -445,7 +456,8 @@ const ProfileSyllabusPdfViewer = () => {
             <div className="hidden min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 md:flex">
               <FileText className="h-4 w-4" />
               <span className="max-w-[20rem] truncate lg:max-w-[28rem] xl:max-w-[36rem]">
-                {topicTitle || t("syllabus.viewerBadge", { defaultValue: "Visor PDF" })}
+                {topicTitle ||
+                  t("syllabus.viewerBadge", { defaultValue: "Visor PDF" })}
               </span>
             </div>
           </div>
@@ -543,7 +555,9 @@ const ProfileSyllabusPdfViewer = () => {
               <div className="flex items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm">
                 <Input
                   value={pageInput}
-                  onChange={(event) => setPageInput(event.target.value.replace(/[^0-9]/g, ""))}
+                  onChange={(event) =>
+                    setPageInput(event.target.value.replace(/[^0-9]/g, ""))
+                  }
                   onBlur={commitPageInput}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter") return;
@@ -580,7 +594,15 @@ const ProfileSyllabusPdfViewer = () => {
                 size="iconSm"
                 styleType="unstyled"
                 className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() => setZoom((value) => clamp(Number((value - ZOOM_STEP).toFixed(2)), MIN_ZOOM, MAX_ZOOM))}
+                onClick={() =>
+                  setZoom((value) =>
+                    clamp(
+                      Number((value - ZOOM_STEP).toFixed(2)),
+                      MIN_ZOOM,
+                      MAX_ZOOM
+                    )
+                  )
+                }
                 disabled={zoom <= MIN_ZOOM}
                 aria-label={t("syllabus.viewerZoomOut", {
                   defaultValue: "Alejar"
@@ -595,7 +617,15 @@ const ProfileSyllabusPdfViewer = () => {
                 size="iconSm"
                 styleType="unstyled"
                 className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() => setZoom((value) => clamp(Number((value + ZOOM_STEP).toFixed(2)), MIN_ZOOM, MAX_ZOOM))}
+                onClick={() =>
+                  setZoom((value) =>
+                    clamp(
+                      Number((value + ZOOM_STEP).toFixed(2)),
+                      MIN_ZOOM,
+                      MAX_ZOOM
+                    )
+                  )
+                }
                 disabled={zoom >= MAX_ZOOM}
                 aria-label={t("syllabus.viewerZoomIn", {
                   defaultValue: "Acercar"
@@ -608,8 +638,12 @@ const ProfileSyllabusPdfViewer = () => {
         </div>
       </header>
 
-      <div className={`grid min-h-[78vh] grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}>
-        <aside className={`border-b md:border-b-0 md:border-r ${sidebarToneClass}`}>
+      <div
+        className={`grid min-h-[78vh] grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
+      >
+        <aside
+          className={`border-b md:border-b-0 md:border-r ${sidebarToneClass}`}
+        >
           <ScrollArea className="h-[12rem] md:h-[78vh]">
             <div className="flex gap-3 p-3 md:flex md:flex-col md:gap-2 md:p-4">
               <Document
@@ -634,7 +668,7 @@ const ProfileSyllabusPdfViewer = () => {
                           ? "border-slate-900 bg-white shadow-[0_24px_40px_-28px_rgba(15,23,42,0.75)]"
                           : searchMatchesSet.has(pageNumber)
                             ? "border-amber-400 bg-amber-50/80 shadow-[0_18px_36px_-30px_rgba(217,119,6,0.55)]"
-                          : "border-slate-300/90 bg-white/70 hover:border-slate-400 hover:bg-white"
+                            : "border-slate-300/90 bg-white/70 hover:border-slate-400 hover:bg-white"
                       ].join(" ")}
                       aria-label={t("syllabus.viewerGoToPage", {
                         defaultValue: "Ir a la pagina {{page}}",
@@ -700,7 +734,9 @@ const ProfileSyllabusPdfViewer = () => {
                         defaultValue: "No se pudo cargar el visor"
                       })}
                     </p>
-                    <p className="mt-2 text-sm text-muted-foreground">{documentError}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {documentError}
+                    </p>
                   </div>
                 ) : (
                   <div className="flex w-full max-w-full flex-col items-center gap-6">
@@ -725,7 +761,9 @@ const ProfileSyllabusPdfViewer = () => {
                             renderAnnotationLayer={false}
                             renderTextLayer={false}
                             className="leading-none"
-                            loading={<div className="h-[60vh] w-[42rem] max-w-full bg-slate-50" />}
+                            loading={
+                              <div className="h-[60vh] w-[42rem] max-w-full bg-slate-50" />
+                            }
                           />
                         </div>
                         <div

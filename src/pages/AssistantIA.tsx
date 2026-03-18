@@ -1373,10 +1373,10 @@ const AssistantIA = () => {
           className="list-disc pl-5 space-y-1"
         >
           {bulletItems.map((item, itemIndex) => (
-              <li
-                key={`${keyPrefix}-item-${lineIndex}-${itemIndex}`}
-                className="text-[15px] leading-7"
-              >
+            <li
+              key={`${keyPrefix}-item-${lineIndex}-${itemIndex}`}
+              className="text-[15px] leading-7"
+            >
               {renderInlineMarkdown(
                 item,
                 `${keyPrefix}-item-content-${lineIndex}-${itemIndex}`
@@ -2392,9 +2392,8 @@ const AssistantIA = () => {
 
           setMindMapView({ zoom: z, offsetX: ox, offsetY: oy });
 
-          if (t < 1) {
+          if (t < 1)
             mindMapAnimFrameRef.current = requestAnimationFrame(animate);
-          }
         };
 
         mindMapAnimFrameRef.current = requestAnimationFrame(animate);
@@ -2520,6 +2519,7 @@ const AssistantIA = () => {
     const onWindowPointerMove = (e: globalThis.PointerEvent) => {
       const interaction = mindMapInteractionRef.current;
       if (!interaction || interaction.pointerId !== e.pointerId) return;
+      if (interaction.mode !== "pan") return;
 
       e.preventDefault();
       const deltaX = e.clientX - interaction.startClientX;
@@ -3525,9 +3525,7 @@ const AssistantIA = () => {
                 <div
                   ref={mindMapViewportRef}
                   className={`relative h-full overflow-hidden p-5 select-none touch-none ${
-                    isMindMapPanning
-                      ? "cursor-grabbing"
-                      : "cursor-grab"
+                    isMindMapPanning ? "cursor-grabbing" : "cursor-grab"
                   }`}
                   onPointerDown={onMindMapViewportPointerDown}
                 >
