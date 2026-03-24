@@ -3,8 +3,8 @@ import {
   parseBoeDocument,
   parseBoeSyllabusXml,
   type ParsedBoeDocument,
-  type TopicRow,
-  type SubtopicRow
+  type SubtopicRow,
+  type TopicRow
 } from "./parser.ts";
 
 const OPENROUTER_BASE_URL =
@@ -85,7 +85,10 @@ type ExtractStructuredSyllabusParams = {
 };
 
 function normalizeWhitespace(value: string): string {
-  return value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function stripAccents(value: string): string {
@@ -174,10 +177,9 @@ async function callOpenRouterJson(
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const detail = typeof data === "object" ? JSON.stringify(data) : String(data);
-    throw new Error(
-      `OpenRouter error (${response.status}): ${detail}`
-    );
+    const detail =
+      typeof data === "object" ? JSON.stringify(data) : String(data);
+    throw new Error(`OpenRouter error (${response.status}): ${detail}`);
   }
 
   if (!data || typeof data !== "object" || Array.isArray(data))
@@ -277,9 +279,8 @@ function normalizeAiBlocks(value: unknown): AiBlock[] {
                 topicNumber: safePositiveInt(subtopicRecord.topicNumber)
               };
             })
-            .filter(
-              (subtopic): subtopic is AiBlock["subtopics"][number] =>
-                Boolean(subtopic)
+            .filter((subtopic): subtopic is AiBlock["subtopics"][number] =>
+              Boolean(subtopic)
             )
         : [];
 
@@ -323,7 +324,10 @@ function normalizeAiTestExamConfigs(value: unknown): TestExamConfig[] {
     .filter((config) => {
       const scope = stripAccents(config.systemScope ?? "").toLowerCase();
       const label = stripAccents(config.exerciseLabel).toLowerCase();
-      return !scope.includes("promocion interna") && !label.includes("promocion interna");
+      return (
+        !scope.includes("promocion interna") &&
+        !label.includes("promocion interna")
+      );
     });
 
   return configs.map((config, index) => ({
@@ -339,10 +343,14 @@ function pickPrimaryTestExamConfig(
 
   const preferred =
     configs.find((config) =>
-      stripAccents(config.systemScope ?? "").toLowerCase().includes("acceso libre")
+      stripAccents(config.systemScope ?? "")
+        .toLowerCase()
+        .includes("acceso libre")
     ) ||
     configs.find((config) =>
-      stripAccents(config.exerciseLabel).toLowerCase().includes("primer ejercicio")
+      stripAccents(config.exerciseLabel)
+        .toLowerCase()
+        .includes("primer ejercicio")
     ) ||
     configs[0];
 
@@ -623,7 +631,9 @@ function extractHeuristicTestExamConfigs(
 
     const questionCountMatch =
       nextChunk.match(/cuestionario(?:[^0-9]{0,40})(\d{1,3})\s+preguntas/i) ||
-      nextChunk.match(/(\d{1,3})\s+preguntas\s+con\s+respuestas?\s+alternativas/i);
+      nextChunk.match(
+        /(\d{1,3})\s+preguntas\s+con\s+respuestas?\s+alternativas/i
+      );
 
     const optionsMatch =
       nextChunk.match(/(\d{1,2})\s+respuestas?\s+alternativas/i) ||
@@ -637,9 +647,7 @@ function extractHeuristicTestExamConfigs(
     const passingScoreMatch = nextChunk.match(
       /m[ií]nimo\s+de\s+(\d+(?:[.,]\d+)?)\s+puntos?/i
     );
-    const durationMatch = nextChunk.match(
-      /tiempo m[aá]ximo[^.]{0,80}\./i
-    );
+    const durationMatch = nextChunk.match(/tiempo m[aá]ximo[^.]{0,80}\./i);
 
     const optionsCount =
       safePositiveInt(optionsMatch?.[1]) ??
@@ -657,7 +665,9 @@ function extractHeuristicTestExamConfigs(
       scoreMin: safeNumber(scoreRangeMatch?.[1]),
       scoreMax: safeNumber(scoreRangeMatch?.[2]),
       passingScore: safeNumber(passingScoreMatch?.[1]),
-      durationMinutes: durationMatch ? parseDurationMinutes(durationMatch[0]) : null,
+      durationMinutes: durationMatch
+        ? parseDurationMinutes(durationMatch[0])
+        : null,
       notes: safeString(nextChunk, 1_500),
       sourceExcerpt: safeString(nextChunk, 2_000),
       isPrimary: false

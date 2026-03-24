@@ -75,7 +75,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Expose-Headers":
-    "Content-Disposition, X-Syllabus-Is-Preview, X-Syllabus-Total-Pages",
+    "Content-Disposition, X-Syllabus-Is-Preview, X-Syllabus-Total-Pages"
 };
 
 const json = (body: unknown, status = 200) =>
@@ -112,8 +112,8 @@ const prepareViewerPdfBytes = async (
   sourceBytes: Uint8Array,
   {
     footerLabel,
-    isPreviewOnly,
-  }: { footerLabel: string; isPreviewOnly: boolean },
+    isPreviewOnly
+  }: { footerLabel: string; isPreviewOnly: boolean }
 ) => {
   const sourcePdf = await PDFDocument.load(sourceBytes);
   const totalPages = sourcePdf.getPageCount();
@@ -154,7 +154,7 @@ const prepareViewerPdfBytes = async (
 
   return {
     pdfBytes: await pdfDoc.save(),
-    totalPages,
+    totalPages
   };
 };
 
@@ -322,7 +322,7 @@ serve(async (req) => {
   try {
     viewerPdf = await prepareViewerPdfBytes(sourceBytes, {
       footerLabel: buildFooterLabel(user.id),
-      isPreviewOnly: !hasPaidAccess,
+      isPreviewOnly: !hasPaidAccess
     });
   } catch (error) {
     return json(
@@ -346,7 +346,7 @@ serve(async (req) => {
       "Content-Disposition": `inline; filename="${safeFileName}"`,
       "Cache-Control": "private, no-store, max-age=0",
       "X-Syllabus-Is-Preview": String(!hasPaidAccess),
-      "X-Syllabus-Total-Pages": String(viewerPdf.totalPages),
-    },
+      "X-Syllabus-Total-Pages": String(viewerPdf.totalPages)
+    }
   });
 });

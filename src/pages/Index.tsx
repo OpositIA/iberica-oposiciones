@@ -115,7 +115,9 @@ const Index = () => {
             <h1 className="landing-fade-up-delay-1 text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-display leading-[0.95] tracking-tight text-white max-w-5xl">
               {t("hero.titleMain")}
               <br />
-              <span className="italic text-primary">{t("hero.titleAccent")}</span>
+              <span className="italic text-primary">
+                {t("hero.titleAccent")}
+              </span>
             </h1>
 
             {/* Description */}
@@ -192,7 +194,9 @@ const Index = () => {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-16">
             <div>
               <p className="text-xs font-semibold tracking-[0.3em] uppercase text-primary mb-3">
-                {t("specializations.sector", { num: "—" }).replace("—", "").trim()}
+                {t("specializations.sector", { num: "—" })
+                  .replace("—", "")
+                  .trim()}
               </p>
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-display text-foreground leading-[1.05]">
                 {t("specializations.title")}

@@ -181,7 +181,10 @@ serve(async (req) => {
 
   const file = (fileRow ?? null) as TargetFileRow | null;
   if (fileError)
-    return json({ error: `target_file_lookup_failed:${fileError.message}` }, 400);
+    return json(
+      { error: `target_file_lookup_failed:${fileError.message}` },
+      400
+    );
   if (!file || !file.is_active)
     return json({ error: "syllabus_pdf_not_found" }, 404);
 
@@ -274,7 +277,9 @@ serve(async (req) => {
       cancel_url: cancelUrl,
       client_reference_id: user.id,
       customer: existingCustomerId ?? undefined,
-      customer_email: existingCustomerId ? undefined : user.email ?? undefined,
+      customer_email: existingCustomerId
+        ? undefined
+        : (user.email ?? undefined),
       metadata: {
         purchase_type: "syllabus_download",
         user_id: user.id,

@@ -543,7 +543,6 @@ const MiPerfil = () => {
     });
   };
 
-
   const handleOpenPaymentMethodPortal = async () => {
     if (!hasPaymentMethodManagement) return;
 
@@ -869,7 +868,6 @@ const MiPerfil = () => {
           )}
         </div>
       </section>
-
 
       <ConfirmActionDialog
         open={isOppositionDialogOpen}

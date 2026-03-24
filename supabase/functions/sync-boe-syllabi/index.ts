@@ -333,11 +333,7 @@ serve(async (req) => {
       }
 
       // 8. Deactivate old syllabus and activate new one
-      await setCurrentSyllabus(
-        supabase,
-        syllabusId,
-        payload.opposition_id
-      );
+      await setCurrentSyllabus(supabase, syllabusId, payload.opposition_id);
 
       console.log(
         JSON.stringify({

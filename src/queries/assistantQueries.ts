@@ -43,13 +43,11 @@ export type AssistantConversationsPage = {
   totalCount: number;
 };
 
-export const fetchAssistantConversations = async (
-  params: {
-    userId: string;
-    limit: number;
-    offset?: number;
-  }
-): Promise<AssistantConversationsPage> => {
+export const fetchAssistantConversations = async (params: {
+  userId: string;
+  limit: number;
+  offset?: number;
+}): Promise<AssistantConversationsPage> => {
   const offset = Math.max(0, params.offset ?? 0);
   const limit = Math.max(1, params.limit);
   const { data, error, count } = await supabase
