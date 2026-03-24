@@ -6,10 +6,8 @@ import {
   sanitizeBoolean,
   sanitizeNumberArray
 } from "../_shared/inputSanitization.ts";
-import {
-  fetchBoeXml,
-  parseBoeSyllabusXml
-} from "../sync-boe-syllabi/parser.ts";
+import { fetchBoeXml } from "../sync-boe-syllabi/parser.ts";
+import { extractStructuredSyllabusFromXml } from "../sync-boe-syllabi/structuredExtraction.ts";
 
 /* ───────── Types ───────── */
 
@@ -25,6 +23,7 @@ type SummaryItem = {
   title: string;
   xmlUrl: string | null;
   htmlUrl: string | null;
+  sectionCode: string | null;
   sectionName: string | null;
   departmentName: string | null;
   epigraphName: string | null;
@@ -67,6 +66,7 @@ type ProcessResult = {
     | "error";
   topics_count: number;
   subtopics_count: number;
+  test_exam_count: number;
   error?: string;
 };
 
@@ -77,6 +77,7 @@ type RequestPayload = {
 };
 
 type SummaryContext = {
+  sectionCode: string | null;
   sectionName: string | null;
   departmentName: string | null;
   epigraphName: string | null;
@@ -196,8 +197,10 @@ function collectItems(
   const r = value as Record<string, unknown>;
   const c = { ...ctx };
   const nombre = typeof r.nombre === "string" ? r.nombre.trim() : null;
+  const codigo = typeof r.codigo === "string" ? r.codigo.trim() : null;
 
   if (nombre && parentKey === "seccion") {
+    c.sectionCode = codigo || c.sectionCode;
     c.sectionName = nombre;
     c.departmentName = null;
     c.epigraphName = null;
@@ -218,6 +221,7 @@ function collectItems(
       title: titulo,
       xmlUrl: typeof r.url_xml === "string" ? r.url_xml : null,
       htmlUrl: typeof r.url_html === "string" ? r.url_html : null,
+      sectionCode: c.sectionCode,
       sectionName: c.sectionName,
       departmentName: c.departmentName,
       epigraphName: c.epigraphName
@@ -242,6 +246,7 @@ async function fetchSummary(dateKey: string): Promise<SummaryItem[]> {
   const payload = await res.json();
   const items: SummaryItem[] = [];
   collectItems(payload, items, {
+    sectionCode: null,
     sectionName: null,
     departmentName: null,
     epigraphName: null
@@ -293,6 +298,17 @@ function isRelevantSection(item: SummaryItem): boolean {
 }
 
 /* ───────── Matching & Disambiguation ───────── */
+
+function isRelevantOposicionesSection(item: SummaryItem): boolean {
+  if (item.boeId.startsWith("BOE-B")) return false;
+
+  const sectionCode = (item.sectionCode ?? "").trim().toUpperCase();
+  if (sectionCode === "2B") return true;
+
+  return normalizeSearchText(item.sectionName ?? "").includes(
+    "oposiciones y concursos"
+  );
+}
 
 const STOPWORDS = new Set([
   "de", "del", "la", "las", "los", "el", "en", "por", "para", "con", "que",
@@ -351,7 +367,7 @@ function matchItems(
   const seen = new Set<string>();
 
   for (const item of items) {
-    if (!isRelevantSection(item)) continue;
+    if (!isRelevantOposicionesSection(item)) continue;
 
     const normalizedTitle = normalizeSearchText(item.title);
     for (const wl of watchlists) {
@@ -469,7 +485,7 @@ async function insertNewSyllabus(
   oppositionId: string,
   boeId: string,
   xmlUrl: string | null,
-  parsed: Awaited<ReturnType<typeof parseBoeSyllabusXml>>,
+  parsed: Awaited<ReturnType<typeof extractStructuredSyllabusFromXml>>,
   publishedAt: string | null,
   shouldBeCurrent: boolean
 ): Promise<number> {
@@ -484,10 +500,14 @@ async function insertNewSyllabus(
         source_url:
           xmlUrl ??
           `https://www.boe.es/diario_boe/xml.php?id=${encodeURIComponent(boeId)}`,
+        document_title: parsed.documentTitle,
         published_at: publishedAt,
         sha256: parsed.sourceHash,
         raw_text: parsed.rawText,
-        is_current: shouldBeCurrent
+        is_current: shouldBeCurrent,
+        extraction_provider: parsed.extractionProvider,
+        extraction_model: parsed.extractionModel,
+        extraction_notes: parsed.extractionNotes
       })
       .select("id")
       .single();
@@ -532,15 +552,30 @@ async function insertNewSyllabus(
       .insert(subtopicRows);
     if (subErr) throw subErr;
 
-    await sb.from("rag_reindex_jobs").insert({
-      source_type: "syllabus",
-      opposition_id: oppositionId,
-      syllabus_id: syllabusId,
-      status: "pending",
-      reason: shouldBeCurrent
-        ? "boe-daily-scan-updated"
-        : "boe-daily-scan-backfill"
-    });
+    // Insert test exam config (primary only)
+    const primary = parsed.primaryTestExamConfig;
+    if (primary) {
+      const { error: examErr } = await sb
+        .from("opposition_test_exam_configs")
+        .insert({
+          syllabus_id: syllabusId,
+          opposition_id: oppositionId,
+          exercise_label: primary.exerciseLabel,
+          system_scope: primary.systemScope,
+          question_count: primary.questionCount,
+          options_count: primary.optionsCount,
+          correct_answer_value: primary.correctAnswerValue,
+          wrong_answer_penalty: primary.wrongAnswerPenalty,
+          blank_answer_penalty: primary.blankAnswerPenalty,
+          score_min: primary.scoreMin,
+          score_max: primary.scoreMax,
+          passing_score: primary.passingScore,
+          duration_minutes: primary.durationMinutes,
+          notes: primary.notes,
+          source_excerpt: primary.sourceExcerpt
+        });
+      if (examErr) throw examErr;
+    }
 
     return syllabusId;
   } catch (error) {
@@ -587,7 +622,8 @@ async function processMatch(
     syllabus_changed: false,
     syllabus_id: null,
     topics_count: 0,
-    subtopics_count: 0
+    subtopics_count: 0,
+    test_exam_count: 0
   };
 
   // Skip if already recorded
@@ -606,12 +642,22 @@ async function processMatch(
   }
 
   // Try to extract syllabus (ANEXO I)
-  let parsed: Awaited<ReturnType<typeof parseBoeSyllabusXml>> | null = null;
+  let parsed: Awaited<
+    ReturnType<typeof extractStructuredSyllabusFromXml>
+  > | null = null;
   try {
-    parsed = await parseBoeSyllabusXml(xmlText);
+    parsed = await extractStructuredSyllabusFromXml({
+      supabase: sb,
+      xmlText,
+      boeId: match.boeId,
+      oppositionId: match.oppositionId,
+      watchlistLabel: match.watchlistLabel,
+      candidateTitle: match.title
+    });
     base.has_syllabus = true;
     base.topics_count = parsed.topics.length;
     base.subtopics_count = parsed.subtopics.length;
+    base.test_exam_count = parsed.testExamConfigs.length;
   } catch {
     // No ANEXO I — normal for non-syllabus publications
     parsed = null;
@@ -620,6 +666,18 @@ async function processMatch(
   // If syllabus found, compare with existing
   if (parsed) {
     const current = await getCurrentSyllabus(sb, match.oppositionId);
+    const syllabusPublishedAt = parsed.publishedAt ?? publishedAt;
+
+    // Determine if this syllabus should become the current one
+    let shouldBeCurrent = true;
+    if (current) {
+      if (current.boe_id === match.boeId) {
+        shouldBeCurrent = false;
+      } else if (syllabusPublishedAt && current.published_at) {
+        shouldBeCurrent =
+          syllabusPublishedAt.localeCompare(current.published_at) > 0;
+      }
+    }
 
     // Check if same hash already exists
     const { data: existingByHash } = await sb
@@ -634,6 +692,21 @@ async function processMatch(
       base.syllabus_id = existingByHash.id;
       base.syllabus_changed = false;
 
+      if (!dryRun && shouldBeCurrent && !existingByHash.is_current) {
+        const { error: deactivateError } = await sb
+          .from("opposition_syllabi")
+          .update({ is_current: false })
+          .eq("opposition_id", match.oppositionId)
+          .neq("id", existingByHash.id);
+        if (deactivateError) throw deactivateError;
+
+        const { error: activateError } = await sb
+          .from("opposition_syllabi")
+          .update({ is_current: true })
+          .eq("id", existingByHash.id);
+        if (activateError) throw activateError;
+      }
+
       if (!dryRun) {
         await recordPublication(
           sb,
@@ -643,7 +716,10 @@ async function processMatch(
           false,
           existingByHash.id,
           publishedAt,
-          { existing_syllabus_hash: parsed.sourceHash }
+          {
+            existing_syllabus_hash: parsed.sourceHash,
+            test_exam_count: parsed.testExamConfigs.length
+          }
         );
       }
       return { ...base, action: "no_change" };
@@ -651,17 +727,6 @@ async function processMatch(
 
     // New syllabus detected
     base.syllabus_changed = true;
-    const syllabusPublishedAt = parsed.publishedAt ?? publishedAt;
-
-    let shouldBeCurrent = true;
-    if (current) {
-      if (current.boe_id === match.boeId) {
-        shouldBeCurrent = false;
-      } else if (syllabusPublishedAt && current.published_at) {
-        shouldBeCurrent =
-          syllabusPublishedAt.localeCompare(current.published_at) > 0;
-      }
-    }
 
     if (dryRun) return { ...base, action: "would_insert" };
 
@@ -679,7 +744,10 @@ async function processMatch(
     await recordPublication(sb, match, pubType, true, true, syllabusId, publishedAt, {
       syllabus_hash: parsed.sourceHash,
       is_current: shouldBeCurrent,
-      previous_syllabus_id: current?.id ?? null
+      previous_syllabus_id: current?.id ?? null,
+      test_exam_count: parsed.testExamConfigs.length,
+      extraction_provider: parsed.extractionProvider,
+      extraction_model: parsed.extractionModel
     });
 
     return { ...base, action: "syllabus_updated" };
@@ -847,6 +915,7 @@ serve(async (req) => {
           action: "error",
           topics_count: 0,
           subtopics_count: 0,
+          test_exam_count: 0,
           error: errMsg
         });
       }

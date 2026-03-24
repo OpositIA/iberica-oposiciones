@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Mulish:wght@200;300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Mulish:wght@200;300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -173,6 +173,98 @@
     width: 40px;
     height: 2px;
     background-color: hsl(var(--primary));
+  }
+
+  .landing-fade-up {
+    animation: landingFadeUp 0.8s ease-out both;
+  }
+
+  .landing-fade-up-delay-1 {
+    animation: landingFadeUp 0.8s ease-out 0.15s both;
+  }
+
+  .landing-fade-up-delay-2 {
+    animation: landingFadeUp 0.8s ease-out 0.3s both;
+  }
+
+  .landing-fade-up-delay-3 {
+    animation: landingFadeUp 0.8s ease-out 0.45s both;
+  }
+
+  .landing-fade-up-delay-4 {
+    animation: landingFadeUp 0.8s ease-out 0.6s both;
+  }
+
+  .landing-scale-in {
+    animation: landingScaleIn 1s ease-out 0.3s both;
+  }
+
+  .landing-slide-right {
+    animation: landingSlideRight 1s ease-out 0.5s both;
+  }
+
+  .landing-gradient-bg {
+    background: radial-gradient(
+        ellipse 80% 60% at 70% 40%,
+        hsl(var(--primary) / 0.08) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 80% at 20% 80%,
+        hsl(var(--accent) / 0.05) 0%,
+        transparent 70%
+      ),
+      hsl(var(--background));
+  }
+
+  .landing-stats-marquee {
+    animation: marqueeScroll 30s linear infinite;
+  }
+
+  .landing-stats-marquee:hover {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes landingFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landingScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes landingSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes marqueeScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 

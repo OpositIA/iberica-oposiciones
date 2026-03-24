@@ -25,8 +25,26 @@ export type GenerateQuickTestResponse = {
   limit?: number;
 };
 
+export type OppositionTestExamConfig = {
+  exerciseLabel: string;
+  systemScope: string | null;
+  questionCount: number | null;
+  optionsCount: number | null;
+  correctAnswerValue: number | null;
+  wrongAnswerPenalty: number | null;
+  blankAnswerPenalty: number | null;
+  scoreMin: number | null;
+  scoreMax: number | null;
+  passingScore: number | null;
+  durationMinutes: number | null;
+  notes: string | null;
+  sourceExcerpt: string | null;
+  isPrimary: boolean;
+};
+
 export type QuickTestSessionPayload = {
   testId: string;
+  oppositionId: string | null;
   oppositionName: string;
   questionCount: number;
   selectedTopics: QuickTestTopicSelection[];
@@ -165,6 +183,22 @@ const normalizeSelectedAnswers = (raw: unknown): Record<string, number> => {
   });
 
   return normalized;
+};
+
+const normalizeNullableNumber = (raw: unknown): number | null => {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string" && raw.trim().length > 0) {
+    const parsed = Number(raw.trim().replace(",", "."));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const normalizeNullablePositiveInt = (raw: unknown): number | null => {
+  const parsed = normalizeNullableNumber(raw);
+  if (parsed === null) return null;
+  const integer = Math.floor(parsed);
+  return integer > 0 ? integer : null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -309,6 +343,7 @@ const normalizeQuestionsForEvaluation = (raw: unknown): EvaluatedQuestion[] => {
       const id =
         pickString(item, ["id", "questionId", "uid"]) ?? `question-${idx + 1}`;
       const correctRaw =
+        item.correctIndex ??
         item.correctOptionIndex ??
         item.correct_index ??
         item.correctAnswerIndex ??
@@ -328,14 +363,79 @@ const normalizeQuestionsForEvaluation = (raw: unknown): EvaluatedQuestion[] => {
     .filter((question): question is EvaluatedQuestion => Boolean(question));
 };
 
-const evaluateAttempt = (
+const loadCurrentOppositionTestExamConfigMap = async (
+  oppositionIds: Array<string | null | undefined>
+): Promise<Map<string, OppositionTestExamConfig>> => {
+  const normalizedIds = Array.from(
+    new Set(
+      oppositionIds
+        .map((value) => sanitizeCode(value, 160))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  if (normalizedIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("opposition_test_exam_configs" as never)
+    .select(
+      "opposition_id, exercise_label, system_scope, question_count, options_count, correct_answer_value, wrong_answer_penalty, blank_answer_penalty, score_min, score_max, passing_score, duration_minutes, notes, source_excerpt, opposition_syllabi!inner(is_current)"
+    )
+    .in("opposition_id", normalizedIds)
+    .eq("opposition_syllabi.is_current" as never, true)
+    .overrideTypes<Record<string, unknown>[], { merge: false }>();
+
+  if (error) throw error;
+
+  const configMap = new Map<string, OppositionTestExamConfig>();
+  (Array.isArray(data) ? data : []).forEach((row) => {
+    const oppositionId = sanitizeCode(row.opposition_id, 160);
+    if (!oppositionId) return;
+
+    const config: OppositionTestExamConfig = {
+      exerciseLabel: sanitizeSingleLineText(row.exercise_label, 240) || "",
+      systemScope: sanitizeSingleLineText(row.system_scope, 160) || null,
+      questionCount: normalizeNullablePositiveInt(row.question_count),
+      optionsCount: normalizeNullablePositiveInt(row.options_count),
+      correctAnswerValue: normalizeNullableNumber(row.correct_answer_value),
+      wrongAnswerPenalty: normalizeNullableNumber(row.wrong_answer_penalty),
+      blankAnswerPenalty: normalizeNullableNumber(row.blank_answer_penalty),
+      scoreMin: normalizeNullableNumber(row.score_min),
+      scoreMax: normalizeNullableNumber(row.score_max),
+      passingScore: normalizeNullableNumber(row.passing_score),
+      durationMinutes: normalizeNullablePositiveInt(row.duration_minutes),
+      notes: sanitizeSingleLineText(row.notes, 1500) || null,
+      sourceExcerpt: sanitizeSingleLineText(row.source_excerpt, 2000) || null,
+      isPrimary: true
+    };
+
+    if (config.exerciseLabel) configMap.set(oppositionId, config);
+  });
+
+  return configMap;
+};
+
+export const fetchCurrentOppositionPrimaryTestExamConfig = async (
+  oppositionId: string | null | undefined
+): Promise<OppositionTestExamConfig | null> => {
+  const configMap = await loadCurrentOppositionTestExamConfigMap([oppositionId]);
+  const normalizedId = sanitizeCode(oppositionId, 160);
+  return normalizedId ? configMap.get(normalizedId) ?? null : null;
+};
+
+export const evaluateQuickTestAttempt = (
   questionsRaw: unknown,
-  selectedAnswersRaw: unknown
+  selectedAnswersRaw: unknown,
+  testConfig?: OppositionTestExamConfig | null
 ): {
   answeredCount: number;
   totalQuestions: number;
   score: number;
   accuracy: number;
+  correctCount: number;
+  wrongCount: number;
+  blankCount: number;
+  scoreScaleMax: number;
 } => {
   const questions = normalizeQuestionsForEvaluation(questionsRaw);
   const selectedAnswers = normalizeSelectedAnswers(selectedAnswersRaw);
@@ -354,7 +454,11 @@ const evaluateAttempt = (
       answeredCount,
       totalQuestions: 0,
       score: 0,
-      accuracy: 0
+      accuracy: 0,
+      correctCount: 0,
+      wrongCount: 0,
+      blankCount: 0,
+      scoreScaleMax: normalizeNullableNumber(testConfig?.scoreMax) ?? 10
     };
   }
 
@@ -362,20 +466,48 @@ const evaluateAttempt = (
     const selected = selectedAnswers[question.id];
     return selected === question.correctIndex ? acc + 1 : acc;
   }, 0);
+  const wrongCount = gradeable.reduce((acc, question) => {
+    const selected = selectedAnswers[question.id];
+    if (typeof selected !== "number") return acc;
+    return selected === question.correctIndex ? acc : acc + 1;
+  }, 0);
   const accuracy = (correctCount / denominator) * 100;
-  const score = (correctCount / denominator) * 10;
+  const correctAnswerValue =
+    normalizeNullableNumber(testConfig?.correctAnswerValue) ?? 1;
+  const wrongAnswerPenalty =
+    normalizeNullableNumber(testConfig?.wrongAnswerPenalty) ?? 0;
+  const blankAnswerPenalty =
+    normalizeNullableNumber(testConfig?.blankAnswerPenalty) ?? 0;
+  const scoreMin = normalizeNullableNumber(testConfig?.scoreMin) ?? 0;
+  const scoreMax = normalizeNullableNumber(testConfig?.scoreMax) ?? 10;
+
+  const blankCount = Math.max(0, denominator - correctCount - wrongCount);
+  const maxRawScore = denominator * correctAnswerValue;
+  const rawScore =
+    correctCount * correctAnswerValue -
+    wrongCount * wrongAnswerPenalty -
+    blankCount * blankAnswerPenalty;
+  const normalizedScore =
+    maxRawScore > 0 ? Math.max(0, Math.min(1, rawScore / maxRawScore)) : 0;
+  const score =
+    scoreMin + normalizedScore * Math.max(0, scoreMax - scoreMin);
 
   return {
     answeredCount,
     totalQuestions: questions.length,
     score,
-    accuracy
+    accuracy,
+    correctCount,
+    wrongCount,
+    blankCount,
+    scoreScaleMax: scoreMax
   };
 };
 
 const mapQuickTestRowToPayload = (
   row: {
     id: string;
+    opposition_id: string | null;
     opposition_name: string;
     question_count: number;
     selected_topics: unknown;
@@ -386,6 +518,7 @@ const mapQuickTestRowToPayload = (
 
   return {
     testId: row.id,
+    oppositionId: sanitizeCode(row.opposition_id, 160) || null,
     oppositionName: row.opposition_name,
     questionCount: normalizeQuestionCount(row.question_count),
     selectedTopics: normalizeTopics(row.selected_topics),
@@ -496,7 +629,9 @@ export const upsertQuickTestSession = async ({
         onConflict: "id"
       }
     )
-    .select("id, opposition_name, question_count, selected_topics, questions")
+    .select(
+      "id, opposition_id, opposition_name, question_count, selected_topics, questions"
+    )
     .maybeSingle();
 
   if (error) throw error;
@@ -514,7 +649,9 @@ export const fetchQuickTestSessionById = async (
 
   const { data, error } = await supabase
     .from("quick_tests")
-    .select("id, opposition_name, question_count, selected_topics, questions")
+    .select(
+      "id, opposition_id, opposition_name, question_count, selected_topics, questions"
+    )
     .eq("id", testId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -540,7 +677,7 @@ export const fetchReusableQuickTestSession = async ({
   let query = supabase
     .from("quick_tests")
     .select(
-      "id, opposition_name, question_count, selected_topics, questions, created_at"
+      "id, opposition_id, opposition_name, question_count, selected_topics, questions, created_at"
     )
     .eq("user_id", userId)
     .eq("question_count", normalizeQuestionCount(questionCount))
@@ -616,6 +753,7 @@ export const cloneQuickTestSession = async ({
         maybeSingle: () => Promise<{
           data: {
             id: string;
+            opposition_id: string | null;
             opposition_name: string;
             question_count: number;
             selected_topics: unknown;
@@ -647,7 +785,9 @@ export const cloneQuickTestSession = async ({
 
   const { data, error } = await quickTestsTable
     .insert(clonedRow)
-    .select("id, opposition_name, question_count, selected_topics, questions")
+    .select(
+      "id, opposition_id, opposition_name, question_count, selected_topics, questions"
+    )
     .maybeSingle();
   if (error) throw error;
 
@@ -714,10 +854,12 @@ type FetchQuickTestHistoryPageParams = {
 const resolveLinkedQuickTest = (
   raw:
     | {
+        opposition_id: string | null;
         opposition_name: string | null;
         questions: unknown;
       }
     | {
+        opposition_id: string | null;
         opposition_name: string | null;
         questions: unknown;
       }[]
@@ -743,10 +885,12 @@ type QuickTestAttemptJoinedRow = {
   last_interaction_at: string;
   quick_tests:
     | {
+        opposition_id: string | null;
         opposition_name: string | null;
         questions: unknown;
       }
     | {
+        opposition_id: string | null;
         opposition_name: string | null;
         questions: unknown;
       }[]
@@ -754,7 +898,8 @@ type QuickTestAttemptJoinedRow = {
 };
 
 const mapCompletedAttemptToHistoryRecord = (
-  row: QuickTestAttemptJoinedRow
+  row: QuickTestAttemptJoinedRow,
+  configByOppositionId: Map<string, OppositionTestExamConfig>
 ): QuickTestHistoryRecord | null => {
   const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests);
   if (!linkedQuickTest) return null;
@@ -769,9 +914,11 @@ const mapCompletedAttemptToHistoryRecord = (
       ? Math.max(1, Math.round(Math.max(0, finishMs - startMs) / 60000))
       : 1;
 
-  const evaluated = evaluateAttempt(
+  const oppositionId = sanitizeCode(linkedQuickTest.opposition_id, 160);
+  const evaluated = evaluateQuickTestAttempt(
     linkedQuickTest.questions,
-    row.selected_answers
+    row.selected_answers,
+    oppositionId ? configByOppositionId.get(oppositionId) ?? null : null
   );
 
   return {
@@ -794,7 +941,7 @@ export const fetchQuickTestsDashboardBundle = async (
   const { data, error } = await supabase
     .from("quick_test_attempts")
     .select(
-      "test_id, selected_answers, started_at, finished_at, last_interaction_at, quick_tests!inner(opposition_name, questions)"
+      "test_id, selected_answers, started_at, finished_at, last_interaction_at, quick_tests!inner(opposition_id, opposition_name, questions)"
     )
     .eq("user_id", userId)
     .order("last_interaction_at", { ascending: false })
@@ -804,6 +951,12 @@ export const fetchQuickTestsDashboardBundle = async (
   if (error) throw error;
 
   const rows = Array.isArray(data) ? data : [];
+  const configByOppositionId = await loadCurrentOppositionTestExamConfigMap(
+    rows.map((row) => {
+      const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests);
+      return linkedQuickTest?.opposition_id ?? null;
+    })
+  );
 
   const inProgress =
     rows
@@ -833,7 +986,7 @@ export const fetchQuickTestsDashboardBundle = async (
         new Date(b.finished_at ?? b.started_at).valueOf() -
         new Date(a.finished_at ?? a.started_at).valueOf()
     )
-    .map((row) => mapCompletedAttemptToHistoryRecord(row))
+    .map((row) => mapCompletedAttemptToHistoryRecord(row, configByOppositionId))
     .filter((item): item is QuickTestHistoryRecord => Boolean(item));
 
   const completedTests = historyItems.length;
@@ -878,7 +1031,7 @@ export const fetchQuickTestHistoryPage = async ({
   const { data, error, count } = await supabase
     .from("quick_test_attempts")
     .select(
-      "test_id, selected_answers, started_at, finished_at, quick_tests!inner(opposition_name, questions)",
+      "test_id, selected_answers, started_at, finished_at, quick_tests!inner(opposition_id, opposition_name, questions)",
       { count: "exact" }
     )
     .eq("user_id", userId)
@@ -889,6 +1042,12 @@ export const fetchQuickTestHistoryPage = async ({
   if (error) throw error;
 
   const rows = Array.isArray(data) ? data : [];
+  const configByOppositionId = await loadCurrentOppositionTestExamConfigMap(
+    rows.map((row) => {
+      const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests as never);
+      return linkedQuickTest?.opposition_id ?? null;
+    })
+  );
   const items = rows
     .map((row) => {
       const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests as never);
@@ -903,9 +1062,11 @@ export const fetchQuickTestHistoryPage = async ({
           ? Math.max(1, Math.round(Math.max(0, finishMs - startMs) / 60000))
           : 1;
 
-      const evaluated = evaluateAttempt(
+      const oppositionId = sanitizeCode(linkedQuickTest.opposition_id, 160);
+      const evaluated = evaluateQuickTestAttempt(
         linkedQuickTest.questions,
-        row.selected_answers
+        row.selected_answers,
+        oppositionId ? configByOppositionId.get(oppositionId) ?? null : null
       );
 
       return {
@@ -964,7 +1125,7 @@ export const fetchQuickTestDashboardStats = async (
   while (offset < STATS_MAX_ROWS) {
     const { data, error } = await supabase
       .from("quick_test_attempts")
-      .select("selected_answers, quick_tests!inner(questions)")
+      .select("selected_answers, quick_tests!inner(opposition_id, questions)")
       .eq("user_id", userId)
       .not("finished_at", "is", null)
       .order("finished_at", { ascending: false })
@@ -973,12 +1134,21 @@ export const fetchQuickTestDashboardStats = async (
     if (error) throw error;
     if (!Array.isArray(data) || data.length === 0) break;
 
+    const configByOppositionId = await loadCurrentOppositionTestExamConfigMap(
+      data.map((row) => {
+        const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests as never);
+        return linkedQuickTest?.opposition_id ?? null;
+      })
+    );
+
     data.forEach((row) => {
       const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests as never);
       if (!linkedQuickTest) return;
-      const evaluated = evaluateAttempt(
+      const oppositionId = sanitizeCode(linkedQuickTest.opposition_id, 160);
+      const evaluated = evaluateQuickTestAttempt(
         linkedQuickTest.questions,
-        row.selected_answers
+        row.selected_answers,
+        oppositionId ? configByOppositionId.get(oppositionId) ?? null : null
       );
       scoreSum += evaluated.score;
       accuracySum += evaluated.accuracy;

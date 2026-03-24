@@ -14,6 +14,7 @@ export type Oposicion = {
     displayTitle: string;
     sectionTitle: string | null;
     subtopics: {
+      id: number;
       code: string;
       title: string;
     }[];
@@ -39,6 +40,7 @@ type OppositionTopicRow = {
 };
 
 type OppositionSubtopicRow = {
+  id: number;
   opposition_topic_id: number;
   subtopic_code: string;
   subtopic_title: string | null;
@@ -206,7 +208,7 @@ export const fetchOppositionById = async (
           // Use the runtime columns already verified in the database.
           .from("opposition_subtopics")
           .select(
-            "opposition_topic_id, subtopic_code, subtopic_title, section_title, order_index"
+            "id, opposition_topic_id, subtopic_code, subtopic_title, section_title, order_index"
           )
           .in("opposition_topic_id", topicIds)
           .order("order_index", { ascending: true })
@@ -237,6 +239,7 @@ export const fetchOppositionById = async (
   const subtopicDetailsByTopicId = new Map<
     number,
     Array<{
+      id: number;
       code: string;
       title: string;
     }>
@@ -262,6 +265,7 @@ export const fetchOppositionById = async (
       subtopicDetailsByTopicId.set(row.opposition_topic_id, []);
     subtopicsByTopicId.get(row.opposition_topic_id)?.push(subtopicTitle);
     subtopicDetailsByTopicId.get(row.opposition_topic_id)?.push({
+      id: row.id,
       code: String(row.subtopic_code ?? "").trim(),
       title: subtopicTitle
     });

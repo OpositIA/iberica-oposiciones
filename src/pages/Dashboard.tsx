@@ -174,7 +174,7 @@ const Dashboard = () => {
             </p>
           </div>
           <p className="text-2xl font-serif text-foreground">
-            {mediaNota.toFixed(1)}/10
+            {mediaNota.toFixed(1)}
           </p>
         </div>
 

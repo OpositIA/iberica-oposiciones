@@ -245,6 +245,78 @@ const syncSubscriptionState = async (
     );
 };
 
+const syncSyllabusDownloadPurchase = async (
+  serviceClient: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session,
+  eventType: string
+) => {
+  if (asString(session.metadata?.purchase_type, 80) !== "syllabus_download")
+    return;
+
+  const userId = sanitizeCode(
+    session.metadata?.user_id ?? session.client_reference_id,
+    80
+  );
+  const oppositionId = sanitizeCode(session.metadata?.opposition_id, 160);
+  const syllabusIdRaw = Number.parseInt(
+    sanitizeSingleLineText(session.metadata?.syllabus_id, 40),
+    10
+  );
+  const syllabusId =
+    Number.isFinite(syllabusIdRaw) && syllabusIdRaw > 0
+      ? Math.floor(syllabusIdRaw)
+      : null;
+
+  if (!userId) throw new Error("syllabus_purchase_user_id_missing");
+  if (!oppositionId) throw new Error("syllabus_purchase_opposition_id_missing");
+  if (!syllabusId) throw new Error("syllabus_purchase_syllabus_id_missing");
+
+  const stripeCheckoutSessionId = asString(session.id, 120);
+  const stripePaymentIntentId = asString(
+    resolveObjectId(
+      session.payment_intent as string | { id: string } | null
+    ),
+    120
+  );
+  const stripeCustomerId = asString(resolveCustomerId(session.customer), 120);
+  const amountTotal =
+    typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+      ? Math.max(0, Math.floor(session.amount_total))
+      : 2999;
+  const currency = (asString(session.currency, 10) ?? "EUR").toUpperCase();
+
+  const { error } = await serviceClient
+    .from("syllabus_download_purchases")
+    .upsert(
+      {
+        user_id: userId,
+        opposition_id: oppositionId,
+        syllabus_id: syllabusId,
+        provider: "stripe",
+        status: "completed",
+        amount_cents: amountTotal,
+        currency,
+        stripe_checkout_session_id: stripeCheckoutSessionId,
+        stripe_payment_intent_id: stripePaymentIntentId,
+        stripe_customer_id: stripeCustomerId,
+        purchased_at: new Date().toISOString(),
+        metadata: {
+          stripe_event_type: eventType,
+          stripe_synced_from_webhook_at: new Date().toISOString(),
+          stripe_checkout_session_status: asString(session.status, 60),
+          stripe_payment_status: asString(session.payment_status, 60),
+          stripe_customer_email: asString(session.customer_details?.email, 180)
+        }
+      },
+      {
+        onConflict: "user_id,syllabus_id"
+      }
+    );
+
+  if (error)
+    throw new Error(`upsert_syllabus_download_purchase_failed:${error.message}`);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
@@ -324,6 +396,14 @@ serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        if (
+          asString(session.mode, 40) === "payment" &&
+          asString(session.metadata?.purchase_type, 80) === "syllabus_download"
+        ) {
+          await syncSyllabusDownloadPurchase(serviceClient, session, event.type);
+          break;
+        }
+
         const stripeSubscriptionId = resolveObjectId(session.subscription);
         if (!stripeSubscriptionId) break;
 

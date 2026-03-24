@@ -68,7 +68,8 @@ export default {
       },
       fontFamily: {
         sans: ["Muli", "Mulish", "sans-serif"],
-        serif: ["Muli", "Mulish", "sans-serif"]
+        serif: ["Muli", "Mulish", "sans-serif"],
+        display: ["Muli", "Mulish", "sans-serif"]
       },
       borderRadius: {
         lg: "var(--radius)",

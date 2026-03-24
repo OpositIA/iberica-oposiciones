@@ -25,11 +25,6 @@ import {
 } from "@/lib/inputSanitization";
 import { isPaidPlan } from "@/lib/plans";
 import {
-  applyAccentColor,
-  getDefaultAccentColor,
-  getStoredAccentColor
-} from "@/lib/theme";
-import {
   useOppositionOptionsQuery,
   useProfileDetailsQuery,
   useResolvedOppositionQuery
@@ -165,7 +160,6 @@ const MiPerfil = () => {
   const [isOpeningPaymentPortal, setIsOpeningPaymentPortal] = useState(false);
   const [activeOppositionId, setActiveOppositionId] = useState("");
   const [isOppositionDialogOpen, setIsOppositionDialogOpen] = useState(false);
-  const [accentColor, setAccentColor] = useState(() => getStoredAccentColor());
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
@@ -549,17 +543,6 @@ const MiPerfil = () => {
     });
   };
 
-  const handleAccentColorChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextColor = event.target.value;
-    setAccentColor(nextColor);
-    applyAccentColor(nextColor);
-  };
-
-  const handleResetAccentColor = () => {
-    const defaultColor = getDefaultAccentColor();
-    setAccentColor(defaultColor);
-    applyAccentColor(defaultColor);
-  };
 
   const handleOpenPaymentMethodPortal = async () => {
     if (!hasPaymentMethodManagement) return;
@@ -619,6 +602,7 @@ const MiPerfil = () => {
                         src={profile.avatarUrl}
                         alt={t("profile:myProfile.avatarAlt")}
                         className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       <div className="h-full w-full inline-flex items-center justify-center">
@@ -886,46 +870,6 @@ const MiPerfil = () => {
         </div>
       </section>
 
-      <section className="border border-border bg-background p-6 md:p-8">
-        <div className="mb-5">
-          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-            {t("profile:myProfile.colorSection.badge")}
-          </p>
-          <h2 className="text-xl font-serif text-foreground">
-            {t("profile:myProfile.fields.accentColor")}
-          </h2>
-        </div>
-
-        <div className="rounded-xl border border-border bg-secondary/20 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="color"
-              value={accentColor}
-              onChange={handleAccentColorChange}
-              aria-label={t("profile:myProfile.fields.accentColor")}
-              className="h-10 w-16 cursor-pointer rounded border border-border bg-background p-1"
-            />
-            <span
-              className="h-8 w-8 rounded-full border border-border"
-              style={{ backgroundColor: accentColor }}
-            />
-            <span className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
-              {accentColor}
-            </span>
-            <CustomButton
-              type="button"
-              styleType="menu"
-              size="sm"
-              onClick={handleResetAccentColor}
-            >
-              {t("profile:myProfile.colorSection.reset")}
-            </CustomButton>
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            {t("profile:myProfile.colorSection.description")}
-          </p>
-        </div>
-      </section>
 
       <ConfirmActionDialog
         open={isOppositionDialogOpen}

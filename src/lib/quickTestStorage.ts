@@ -95,6 +95,7 @@ const normalizeQuickTestSessionPayload = (
 
   return {
     testId,
+    oppositionId: sanitizeCode(value.oppositionId, 160) || null,
     oppositionName: sanitizeSingleLineText(value.oppositionName, 160),
     questionCount,
     selectedTopics,

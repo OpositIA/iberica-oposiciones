@@ -1,12 +1,12 @@
 import { XMLParser } from "https://esm.sh/fast-xml-parser@4.5.3";
 
-type TopicRow = {
+export type TopicRow = {
   topic_title: string;
   topic_code: string;
   order_index: number;
 };
 
-type SubtopicRow = {
+export type SubtopicRow = {
   parent_topic_code: string;
   subtopic_code: string;
   topic_number: number;
@@ -29,9 +29,19 @@ export type ParsedSyllabus = {
 
 type XmlEntry = Record<string, unknown>;
 type XmlNodeList = XmlEntry[];
-type ParsedLine = {
+export type ParsedLine = {
   text: string;
   className: string | null;
+};
+
+export type ParsedBoeDocument = {
+  documentTitle: string | null;
+  publishedAt: string | null;
+  department: string | null;
+  sectionCode: string | null;
+  subsectionCode: string | null;
+  lines: ParsedLine[];
+  fullText: string;
 };
 
 const parser = new XMLParser({
@@ -62,6 +72,9 @@ const CONTENT_LOCALNAMES = new Set([
 ]);
 const PUBLISHED_AT_LOCALNAMES = new Set(["fecha_publicacion", "fecha"]);
 const TITLE_LOCALNAMES = new Set(["titulo"]);
+const DEPARTMENT_LOCALNAMES = new Set(["departamento"]);
+const SECTION_LOCALNAMES = new Set(["seccion"]);
+const SUBSECTION_LOCALNAMES = new Set(["subseccion"]);
 const ANNEX_SCAN_WINDOW = 250;
 const ANNEX_MIN_THEME_MATCHES = 3;
 
@@ -257,7 +270,7 @@ function findFirstTextByLocalName(
   return findFirstTextByLocalName(getEntryChildren(entry), names);
 }
 
-function extractPublishedAt(doc: XmlNodeList): string | null {
+export function extractPublishedAt(doc: XmlNodeList): string | null {
   const raw = findFirstTextByLocalName(doc, PUBLISHED_AT_LOCALNAMES);
   if (!raw) return null;
 
@@ -271,6 +284,20 @@ function extractPublishedAt(doc: XmlNodeList): string | null {
 
 function extractDocumentTitle(doc: XmlNodeList): string | null {
   return findFirstTextByLocalName(doc, TITLE_LOCALNAMES);
+}
+
+function extractDepartment(doc: XmlNodeList): string | null {
+  return findFirstTextByLocalName(doc, DEPARTMENT_LOCALNAMES);
+}
+
+function extractSectionCode(doc: XmlNodeList): string | null {
+  const value = findFirstTextByLocalName(doc, SECTION_LOCALNAMES);
+  return value ? normalizeLine(value) : null;
+}
+
+function extractSubsectionCode(doc: XmlNodeList): string | null {
+  const value = findFirstTextByLocalName(doc, SUBSECTION_LOCALNAMES);
+  return value ? normalizeLine(value) : null;
 }
 
 function countThemeMatches(lines: ParsedLine[]): number {
@@ -295,29 +322,21 @@ function findAnnexBounds(lines: ParsedLine[]): {
     endIdx: number;
     themeCount: number;
   }> = [];
-  const candidatesBeforeAnnexII: Array<{
-    startIdx: number;
-    endIdx: number;
-    themeCount: number;
-  }> = [];
 
   for (const startIdx of annexCandidates) {
     const endIdx = lines.findIndex(
       (line, idx) => idx > startIdx && ANNEX_II_RE.test(line.text)
     );
-    if (endIdx === -1) continue;
+    // If no ANEXO II found, use end of document
+    const effectiveEndIdx = endIdx === -1 ? lines.length : endIdx;
 
     const themeCount = countThemeMatches(
       lines.slice(startIdx + 1, startIdx + 1 + ANNEX_SCAN_WINDOW)
     );
-    const row = { startIdx, endIdx, themeCount };
-    candidateData.push(row);
-    candidatesBeforeAnnexII.push(row);
+    candidateData.push({ startIdx, endIdx: effectiveEndIdx, themeCount });
   }
 
-  if (candidateData.length === 0)
-    throw new Error("No se encontro ANEXO II tras ANEXO I en el XML del BOE.");
-
+  // Prefer candidates with enough theme matches
   const valid = candidateData.filter(
     (row) => row.themeCount >= ANNEX_MIN_THEME_MATCHES
   );
@@ -333,18 +352,15 @@ function findAnnexBounds(lines: ParsedLine[]): {
     });
   }
 
-  if (candidatesBeforeAnnexII.length > 0)
-    return candidatesBeforeAnnexII[candidatesBeforeAnnexII.length - 1];
+  // Prefer candidates bounded by ANEXO II over unbounded ones
+  const bounded = candidateData.filter(
+    (row) => row.endIdx < lines.length
+  );
+  if (bounded.length > 0)
+    return bounded[bounded.length - 1];
 
-  return candidateData.reduce((best, current) => {
-    if (current.themeCount > best.themeCount) return current;
-    if (
-      current.themeCount === best.themeCount &&
-      current.startIdx < best.startIdx
-    )
-      return current;
-    return best;
-  });
+  // Last resort: use the last candidate (extends to end of document)
+  return candidateData[candidateData.length - 1];
 }
 
 function shouldSkipHeading(line: ParsedLine): boolean {
@@ -398,8 +414,13 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): {
 
   const createTopic = (rawTitle: string): string => {
     const blockNumber = topics.length + 1;
-    const displayTitle = `Bloque ${blockNumber}`;
-    const code = uniqueSlug(`bloque-${blockNumber}`, usedTopicCodes);
+    const displayTitle = rawTitle && rawTitle !== "General"
+      ? rawTitle
+      : `Bloque ${blockNumber}`;
+    const code = uniqueSlug(
+      slugify(displayTitle, 80) || `bloque-${blockNumber}`,
+      usedTopicCodes
+    );
     topics.push({
       topic_title: displayTitle,
       topic_code: code,
@@ -411,7 +432,23 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): {
   };
 
   for (const line of normalizedLines) {
+    // Handle ANEXO sub-section lines (class="anexo", "anexo_num", "anexo_tit")
+    if (
+      line.className === "anexo" ||
+      line.className === "anexo_num" ||
+      line.className === "anexo_tit"
+    ) {
+      if (/^ANEXO\s+I(?:\.\d+)+/i.test(line.text)) {
+        isAwaitingAnchoredBlockTitle = true;
+      }
+      lastTheme = null;
+      continue;
+    }
+
+    // Centered italic text = block/section title (e.g. "Derecho Civil")
     if (line.className === "centro_cursiva") {
+      currentTopicCode = createTopic(line.text);
+      isAwaitingAnchoredBlockTitle = false;
       lastTheme = null;
       continue;
     }
@@ -422,6 +459,7 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): {
       continue;
     }
 
+    // Centered round text = block title (e.g. "Organización del Estado...")
     if (line.className === "centro_redonda") {
       currentTopicCode = createTopic(line.text);
       isAwaitingAnchoredBlockTitle = false;
@@ -498,6 +536,27 @@ async function sha256Hex(value: string): Promise<string> {
     .join("");
 }
 
+function extractPublishedAtFromRawXml(xmlText: string): string | null {
+  const match = xmlText.match(/<fecha_publicacion>(\d{8})<\/fecha_publicacion>/);
+  if (match) return `${match[1].slice(0, 4)}-${match[1].slice(4, 6)}-${match[1].slice(6, 8)}`;
+  return null;
+}
+
+export function parseBoeDocument(xmlText: string): ParsedBoeDocument {
+  const doc = parseXml(xmlText);
+  const lines = xmlToLines(xmlText);
+
+  return {
+    documentTitle: extractDocumentTitle(doc),
+    publishedAt: extractPublishedAt(doc) ?? extractPublishedAtFromRawXml(xmlText),
+    department: extractDepartment(doc),
+    sectionCode: extractSectionCode(doc),
+    subsectionCode: extractSubsectionCode(doc),
+    lines,
+    fullText: lines.map((line) => line.text).join("\n")
+  };
+}
+
 export async function fetchBoeXml(
   boeId: string,
   directXmlUrl?: string | null
@@ -520,8 +579,9 @@ export async function fetchBoeXml(
 export async function parseBoeSyllabusXml(
   xmlText: string
 ): Promise<ParsedSyllabus> {
+  const document = parseBoeDocument(xmlText);
   const doc = parseXml(xmlText);
-  const lines = xmlToLines(xmlText);
+  const lines = document.lines;
   const { startIdx, endIdx, themeCount } = findAnnexBounds(lines);
   const annexLines = lines.slice(startIdx, endIdx);
   const rawText = annexLines.map((line) => line.text).join("\n");
@@ -529,8 +589,8 @@ export async function parseBoeSyllabusXml(
   const sourceHash = await sha256Hex(rawText);
 
   return {
-    documentTitle: extractDocumentTitle(doc),
-    publishedAt: extractPublishedAt(doc),
+    documentTitle: document.documentTitle ?? extractDocumentTitle(doc),
+    publishedAt: document.publishedAt ?? extractPublishedAt(doc),
     sourceHash,
     rawText,
     topics,

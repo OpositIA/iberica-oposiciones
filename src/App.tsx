@@ -33,6 +33,9 @@ import { StudyTimerProvider } from "./study/StudyTimerProvider";
 const ProfileSyllabusPdfViewer = lazy(
   () => import("./pages/ProfileSyllabusPdfViewer")
 );
+const ProfileSyllabusDownload = lazy(
+  () => import("./pages/ProfileSyllabusDownload")
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,7 +43,7 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000,
       gcTime: 30 * 60 * 1000,
       refetchOnMount: "always",
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
       retry: 1
     }
   }
@@ -149,6 +152,10 @@ const App = () => (
               <Route
                 path="/perfil/temario/pdf/:subtopicFileId"
                 element={<ProfileSyllabusPdfViewer />}
+              />
+              <Route
+                path="/perfil/temario/descarga/:subtopicFileId"
+                element={<ProfileSyllabusDownload />}
               />
               <Route path="/perfil/a-estudiar" element={<ProfileStudy />} />
               <Route path="/perfil/mi-perfil" element={<MiPerfil />} />

@@ -4,101 +4,82 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import {
   parseJsonBody,
   sanitizeBoolean,
-  sanitizeCode,
-  sanitizeNumberArray
+  sanitizeCode
 } from "../_shared/inputSanitization.ts";
 
-import { fetchBoeXml, parseBoeSyllabusXml } from "./parser.ts";
+import { fetchBoeXml } from "./parser.ts";
+import { extractStructuredSyllabusFromXml } from "./structuredExtraction.ts";
 
-type WatchlistRow = {
-  id: number;
-  opposition_id: string;
-  label: string;
-  search_terms: string[] | null;
-  exclude_terms: string[] | null;
-  direct_boe_id: string | null;
-  direct_xml_url: string | null;
-  search_days_back: number;
-  is_active: boolean;
-};
+/* ───────── Types ───────── */
 
-type SummaryCandidate = {
-  boeId: string;
-  title: string;
-  xmlUrl: string | null;
-  htmlUrl: string | null;
-  publishedAt: string | null;
-  matchedBy: "summary" | "direct";
-};
+const BOE_XML_BASE_URL = "https://www.boe.es/diario_boe/xml.php";
 
 type RequestPayload = {
-  watchlist_ids?: number[];
+  boe_id: string;
+  boe_url: string;
+  opposition_id: string;
   dry_run?: boolean;
 };
 
-type ExistingSyllabusRow = {
-  id: number;
-  is_current: boolean;
-};
-
-type CurrentSyllabusRow = {
-  id: number;
-  boe_id: string | null;
-  published_at: string | null;
-  sha256: string | null;
-};
+/* ───────── Constants ───────── */
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-cron-secret",
+    "authorization, x-client-info, apikey, content-type, x-cron-secret, x-edge-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
+
+/* ───────── Helpers ───────── */
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json"
-    }
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
 
-function normalizeSearchText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+function createServiceClient() {
+  const url = Deno.env.get("SUPABASE_URL")?.trim();
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+  if (!url || !key)
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
 }
 
-function ensureCronSecret(req: Request): Response | null {
-  const expected = Deno.env.get("CRON_SECRET");
-  if (!expected)
-    return json({ error: "Missing CRON_SECRET environment variable" }, 500);
-
-  const received = req.headers.get("x-cron-secret");
-  if (!received || received !== expected)
-    return json({ error: "Unauthorized (x-cron-secret)" }, 401);
-
-  return null;
+async function getRuntimeSecret(
+  supabase: ReturnType<typeof createServiceClient>,
+  name: string
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("get_runtime_secret", {
+    p_name: name
+  });
+  if (error)
+    throw new Error(`get_runtime_secret(${name}) failed: ${error.message}`);
+  return typeof data === "string" && data.trim() ? data.trim() : null;
 }
 
-function toDateKey(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}${month}${day}`;
+async function ensureAuth(
+  req: Request,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<Response | null> {
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (cronSecret) {
+    const h = req.headers.get("x-cron-secret")?.trim();
+    if (h && h === cronSecret) return null;
+  }
+
+  const edgeSecret = await getRuntimeSecret(supabase, "rag_edge_secret");
+  if (edgeSecret) {
+    const h = req.headers.get("x-edge-secret")?.trim();
+    if (h && h === edgeSecret) return null;
+  }
+
+  return json({ error: "Unauthorized" }, 401);
 }
 
-function isoFromDateKey(dateKey: string): string {
-  return `${dateKey.slice(0, 4)}-${dateKey.slice(4, 6)}-${dateKey.slice(6, 8)}`;
-}
-
-function deriveBoeIdFromUrl(url: string | null): string | null {
-  if (!url) return null;
-
+function deriveBoeIdFromUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
     const boeId = parsed.searchParams.get("id");
@@ -108,272 +89,18 @@ function deriveBoeIdFromUrl(url: string | null): string | null {
   }
 }
 
-function matchesWatchlist(
-  title: string,
-  searchTerms: string[],
-  excludeTerms: string[]
-): boolean {
-  const normalizedTitle = normalizeSearchText(title);
-  const normalizedSearchTerms = searchTerms
-    .map(normalizeSearchText)
-    .filter(Boolean);
-  const normalizedExcludeTerms = excludeTerms
-    .map(normalizeSearchText)
-    .filter(Boolean);
-
-  const hasIncludeMatch =
-    normalizedSearchTerms.length === 0 ||
-    normalizedSearchTerms.some((term) => normalizedTitle.includes(term));
-
-  const hasExcludeMatch = normalizedExcludeTerms.some((term) =>
-    normalizedTitle.includes(term)
-  );
-  return hasIncludeMatch && !hasExcludeMatch;
-}
-
-function collectSummaryItems(
-  value: unknown,
-  items: SummaryCandidate[],
-  publishedAt: string
-): void {
-  if (Array.isArray(value)) {
-    for (const item of value) collectSummaryItems(item, items, publishedAt);
-    return;
-  }
-
-  if (!value || typeof value !== "object") return;
-
-  const record = value as Record<string, unknown>;
-  const boeId =
-    typeof record.identificador === "string" ? record.identificador : null;
-  const title = typeof record.titulo === "string" ? record.titulo : null;
-  const xmlUrl = typeof record.url_xml === "string" ? record.url_xml : null;
-  const htmlUrl = typeof record.url_html === "string" ? record.url_html : null;
-
-  if (boeId && title) {
-    items.push({
-      boeId,
-      title,
-      xmlUrl,
-      htmlUrl,
-      publishedAt,
-      matchedBy: "summary"
-    });
-  }
-
-  for (const nested of Object.values(record))
-    collectSummaryItems(nested, items, publishedAt);
-}
-
-async function fetchDailySummaryCandidates(
-  dateKey: string
-): Promise<SummaryCandidate[]> {
-  const response = await fetch(
-    `https://www.boe.es/datosabiertos/api/boe/sumario/${dateKey}`,
-    {
-      headers: {
-        Accept: "application/json"
-      }
-    }
-  );
-
-  if (!response.ok)
-    throw new Error(
-      `BOE summary fetch failed (${response.status}) for ${dateKey}`
-    );
-
-  const payload = await response.json();
-  const items: SummaryCandidate[] = [];
-  collectSummaryItems(payload, items, isoFromDateKey(dateKey));
-  return items;
-}
-
-function dedupeCandidates(candidates: SummaryCandidate[]): SummaryCandidate[] {
-  const byBoeId = new Map<string, SummaryCandidate>();
-
-  for (const candidate of candidates) {
-    const key = candidate.boeId;
-    const existing = byBoeId.get(key);
-    if (!existing) {
-      byBoeId.set(key, candidate);
-      continue;
-    }
-
-    const existingScore = Number(
-      existing.publishedAt?.replaceAll("-", "") ?? "0"
-    );
-    const currentScore = Number(
-      candidate.publishedAt?.replaceAll("-", "") ?? "0"
-    );
-    if (currentScore > existingScore) {
-      byBoeId.set(key, candidate);
-      continue;
-    }
-
-    if (!existing.xmlUrl && candidate.xmlUrl)
-      byBoeId.set(key, { ...existing, xmlUrl: candidate.xmlUrl });
-  }
-
-  return Array.from(byBoeId.values()).sort((a, b) => {
-    if (a.matchedBy !== b.matchedBy) return a.matchedBy === "direct" ? -1 : 1;
-
-    const aScore = Number(a.publishedAt?.replaceAll("-", "") ?? "0");
-    const bScore = Number(b.publishedAt?.replaceAll("-", "") ?? "0");
-    return bScore - aScore;
-  });
-}
-
-async function getWatchlists(
-  supabase: ReturnType<typeof createClient>,
-  ids?: number[]
-) {
-  let query = supabase
-    .from("opposition_watchlist")
-    .select(
-      "id, opposition_id, label, search_terms, exclude_terms, direct_boe_id, direct_xml_url, search_days_back, is_active"
-    )
-    .eq("is_active", true)
-    .order("id", { ascending: true });
-
-  if (ids && ids.length > 0) query = query.in("id", ids);
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as WatchlistRow[];
-}
-
-async function discoverCandidatesForWatchlist(
-  watchlist: WatchlistRow
-): Promise<SummaryCandidate[]> {
-  const candidates: SummaryCandidate[] = [];
-
-  if (watchlist.direct_boe_id || watchlist.direct_xml_url) {
-    const boeId =
-      watchlist.direct_boe_id ?? deriveBoeIdFromUrl(watchlist.direct_xml_url);
-    if (boeId) {
-      candidates.push({
-        boeId,
-        title: watchlist.label,
-        xmlUrl: watchlist.direct_xml_url,
-        htmlUrl: boeId
-          ? `https://www.boe.es/diario_boe/txt.php?id=${encodeURIComponent(boeId)}`
-          : null,
-        publishedAt: null,
-        matchedBy: "direct"
-      });
-    }
-  }
-
-  const daysBack = Math.max(1, watchlist.search_days_back || 7);
-  const searchTerms = watchlist.search_terms ?? [];
-  const excludeTerms = watchlist.exclude_terms ?? [];
-
-  for (let offset = 0; offset < daysBack; offset += 1) {
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() - offset);
-    const dateKey = toDateKey(date);
-
-    let dayCandidates: SummaryCandidate[] = [];
-    try {
-      dayCandidates = await fetchDailySummaryCandidates(dateKey);
-    } catch (error) {
-      console.warn(
-        JSON.stringify({
-          msg: "summary_fetch_failed",
-          watchlist_id: watchlist.id,
-          date_key: dateKey,
-          error: error instanceof Error ? error.message : String(error)
-        })
-      );
-      continue;
-    }
-
-    for (const candidate of dayCandidates) {
-      if (!matchesWatchlist(candidate.title, searchTerms, excludeTerms))
-        continue;
-      candidates.push(candidate);
-    }
-  }
-
-  return dedupeCandidates(candidates);
-}
-
-async function findExistingSyllabus(
-  supabase: ReturnType<typeof createClient>,
-  oppositionId: string,
-  sourceHash: string
-): Promise<ExistingSyllabusRow | null> {
-  const { data, error } = await supabase
-    .from("opposition_syllabi")
-    .select("id, is_current")
-    .eq("opposition_id", oppositionId)
-    .eq("sha256", sourceHash)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return (data as ExistingSyllabusRow | null) ?? null;
-}
-
-async function getCurrentSyllabus(
-  supabase: ReturnType<typeof createClient>,
-  oppositionId: string
-): Promise<CurrentSyllabusRow | null> {
-  const { data, error } = await supabase
-    .from("opposition_syllabi")
-    .select("id, boe_id, published_at, sha256")
-    .eq("opposition_id", oppositionId)
-    .eq("is_current", true)
-    .order("published_at", { ascending: false, nullsFirst: false })
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return (data as CurrentSyllabusRow | null) ?? null;
-}
-
-function comparePublishedAt(
-  candidatePublishedAt: string | null,
-  currentPublishedAt: string | null
-): number {
-  if (candidatePublishedAt && currentPublishedAt)
-    return candidatePublishedAt.localeCompare(currentPublishedAt);
-
-  if (candidatePublishedAt) return 1;
-  if (currentPublishedAt) return -1;
-  return 0;
-}
-
-function shouldPromoteCandidate(
-  candidate: SummaryCandidate,
-  parsedPublishedAt: string | null,
-  currentSyllabus: CurrentSyllabusRow | null
-): boolean {
-  if (!currentSyllabus) return true;
-
-  if (currentSyllabus.boe_id === candidate.boeId) return false;
-
-  const publishedAtComparison = comparePublishedAt(
-    parsedPublishedAt,
-    currentSyllabus.published_at
-  );
-  if (publishedAtComparison > 0) return true;
-  if (publishedAtComparison < 0) return false;
-
-  return false;
-}
-
 async function setCurrentSyllabus(
   supabase: ReturnType<typeof createClient>,
   syllabusId: number,
   oppositionId: string
 ): Promise<void> {
+  // Try RPC first
   const rpc = await supabase.rpc("set_current_opposition_syllabus", {
     p_syllabus_id: syllabusId
   });
   if (!rpc.error) return;
 
+  // Fallback: manual deactivate + activate
   const { error: unsetError } = await supabase
     .from("opposition_syllabi")
     .update({ is_current: false })
@@ -388,184 +115,7 @@ async function setCurrentSyllabus(
   if (setError) throw setError;
 }
 
-async function enqueueReindexJob(
-  supabase: ReturnType<typeof createClient>,
-  oppositionId: string,
-  syllabusId: number,
-  reason: string
-): Promise<void> {
-  const { error } = await supabase.from("rag_reindex_jobs").insert({
-    source_type: "syllabus",
-    opposition_id: oppositionId,
-    syllabus_id: syllabusId,
-    status: "pending",
-    reason
-  });
-  if (error) throw error;
-}
-
-async function processCandidate(
-  supabase: ReturnType<typeof createClient>,
-  watchlist: WatchlistRow,
-  candidate: SummaryCandidate,
-  currentSyllabus: CurrentSyllabusRow | null,
-  dryRun: boolean
-) {
-  const xmlText = await fetchBoeXml(candidate.boeId, candidate.xmlUrl);
-  const parsed = await parseBoeSyllabusXml(xmlText);
-  const parsedPublishedAt = parsed.publishedAt ?? candidate.publishedAt;
-  const shouldBeCurrent = shouldPromoteCandidate(
-    candidate,
-    parsedPublishedAt,
-    currentSyllabus
-  );
-
-  console.log(
-    JSON.stringify({
-      msg: "candidate_parsed",
-      watchlist_id: watchlist.id,
-      opposition_id: watchlist.opposition_id,
-      boe_id: candidate.boeId,
-      hash: parsed.sourceHash,
-      start_line_idx: parsed.startLineIdx,
-      end_line_idx: parsed.endLineIdx,
-      num_temas_detectados: parsed.numThemesDetected
-    })
-  );
-
-  const existing = await findExistingSyllabus(
-    supabase,
-    watchlist.opposition_id,
-    parsed.sourceHash
-  );
-  if (existing) {
-    if (!dryRun && shouldBeCurrent && !existing.is_current)
-      await setCurrentSyllabus(supabase, existing.id, watchlist.opposition_id);
-
-    return {
-      status: "no_change",
-      boe_id: candidate.boeId,
-      hash: parsed.sourceHash,
-      syllabus_id: existing.id,
-      published_at: parsedPublishedAt,
-      topics_count: parsed.topics.length,
-      subtopics_count: parsed.subtopics.length,
-      current_applied: shouldBeCurrent
-    };
-  }
-
-  if (dryRun) {
-    return {
-      status: "would_insert",
-      boe_id: candidate.boeId,
-      hash: parsed.sourceHash,
-      published_at: parsedPublishedAt,
-      topics_count: parsed.topics.length,
-      subtopics_count: parsed.subtopics.length,
-      current_applied: shouldBeCurrent
-    };
-  }
-
-  let syllabusId: number | null = null;
-
-  try {
-    const { data: syllabusData, error: syllabusError } = await supabase
-      .from("opposition_syllabi")
-      .insert({
-        opposition_id: watchlist.opposition_id,
-        boe_id: candidate.boeId,
-        source_url:
-          candidate.xmlUrl ??
-          `https://www.boe.es/diario_boe/xml.php?id=${encodeURIComponent(candidate.boeId)}`,
-        published_at: parsedPublishedAt,
-        sha256: parsed.sourceHash,
-        raw_text: parsed.rawText,
-        is_current: shouldBeCurrent
-      })
-      .select("id")
-      .single();
-
-    if (syllabusError) throw syllabusError;
-    syllabusId = syllabusData.id as number;
-
-    const topicRows = parsed.topics.map((topic) => ({
-      syllabus_id: syllabusId,
-      opposition_id: watchlist.opposition_id,
-      topic_code: topic.topic_code,
-      topic_title: topic.topic_title,
-      order_index: topic.order_index
-    }));
-
-    const { data: insertedTopics, error: topicsError } = await supabase
-      .from("opposition_topics")
-      .insert(topicRows)
-      .select("id, topic_code");
-    if (topicsError) throw topicsError;
-
-    const topicIdByCode = new Map<string, number>();
-    for (const row of insertedTopics ?? [])
-      topicIdByCode.set(String(row.topic_code), Number(row.id));
-
-    if (topicIdByCode.size !== topicRows.length)
-      throw new Error(
-        "No se pudieron mapear todos los opposition_topics insertados."
-      );
-
-    const subtopicRows = parsed.subtopics.map((subtopic) => ({
-      syllabus_id: syllabusId,
-      opposition_topic_id: topicIdByCode.get(subtopic.parent_topic_code),
-      subtopic_code: subtopic.subtopic_code,
-      topic_number: subtopic.topic_number,
-      subtopic_title: subtopic.subtopic_title,
-      section_title: subtopic.section_title,
-      order_index: subtopic.order_index
-    }));
-
-    const { error: subtopicsError } = await supabase
-      .from("opposition_subtopics")
-      .insert(subtopicRows);
-    if (subtopicsError) throw subtopicsError;
-
-    if (shouldBeCurrent)
-      await setCurrentSyllabus(supabase, syllabusId, watchlist.opposition_id);
-
-    await enqueueReindexJob(
-      supabase,
-      watchlist.opposition_id,
-      syllabusId,
-      shouldBeCurrent ? "syllabus-updated" : "syllabus-backfill"
-    );
-
-    return {
-      status: "inserted",
-      boe_id: candidate.boeId,
-      hash: parsed.sourceHash,
-      syllabus_id: syllabusId,
-      published_at: parsedPublishedAt,
-      topics_count: parsed.topics.length,
-      subtopics_count: parsed.subtopics.length,
-      current_applied: shouldBeCurrent
-    };
-  } catch (error) {
-    if (syllabusId !== null) {
-      const { error: cleanupError } = await supabase
-        .from("opposition_syllabi")
-        .delete()
-        .eq("id", syllabusId);
-      if (cleanupError) {
-        console.error(
-          JSON.stringify({
-            msg: "rollback_failed",
-            watchlist_id: watchlist.id,
-            syllabus_id: syllabusId,
-            error: cleanupError.message
-          })
-        );
-      }
-    }
-    throw error;
-  }
-}
+/* ───────── Main handler ───────── */
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -573,138 +123,283 @@ serve(async (req) => {
 
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const authError = ensureCronSecret(req);
-  if (authError) return authError;
+  const supabase = createServiceClient();
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey)
-    return json(
-      { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
-      500
-    );
+  const authErr = await ensureAuth(req, supabase);
+  if (authErr) return authErr;
 
-  let payload: RequestPayload = {};
+  // Parse payload
+  let payload: RequestPayload;
   try {
-    const parsed = await parseJsonBody<RequestPayload>(req);
-    payload = {
-      watchlist_ids: sanitizeNumberArray(parsed.watchlist_ids, {
-        min: 1,
-        max: Number.MAX_SAFE_INTEGER,
-        maxItems: 100
-      }),
-      dry_run: sanitizeBoolean(parsed.dry_run)
-    };
-  } catch (error) {
-    if (error instanceof Error && error.message === "Invalid JSON body")
-      return json({ error: error.message }, 400);
+    const raw = await parseJsonBody<Record<string, unknown>>(req);
+    const oppositionId = sanitizeCode(raw.opposition_id as string, 160);
+    if (!oppositionId) return json({ error: "Missing opposition_id" }, 400);
 
-    throw error;
+    // Accept boe_id directly (e.g. "BOE-A-2025-27056") or boe_url
+    let boeId: string | null = null;
+    let boeUrl = "";
+    const rawBoeId = typeof raw.boe_id === "string" ? raw.boe_id.trim() : "";
+    const rawBoeUrl = typeof raw.boe_url === "string" ? raw.boe_url.trim() : "";
+
+    if (rawBoeId) {
+      boeId = sanitizeCode(rawBoeId, 40) || null;
+      boeUrl = `${BOE_XML_BASE_URL}?id=${rawBoeId}`;
+    } else if (rawBoeUrl) {
+      boeId = deriveBoeIdFromUrl(rawBoeUrl);
+      boeUrl = rawBoeUrl;
+    }
+
+    if (!boeId) return json({ error: "Missing boe_id or boe_url" }, 400);
+
+    payload = {
+      boe_id: boeId,
+      boe_url: boeUrl,
+      opposition_id: oppositionId,
+      dry_run: sanitizeBoolean(raw.dry_run)
+    };
+  } catch (err) {
+    if (err instanceof Error && err.message === "Invalid JSON body")
+      return json({ error: err.message }, 400);
+    throw err;
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-
   try {
-    const watchlists = await getWatchlists(supabase, payload.watchlist_ids);
-    const watchlistResults: Array<Record<string, unknown>> = [];
+    const boeId = payload.boe_id;
 
-    for (const watchlist of watchlists) {
-      const candidates = await discoverCandidatesForWatchlist(watchlist);
-      let currentSyllabus = await getCurrentSyllabus(
+    const dryRun = Boolean(payload.dry_run);
+
+    console.log(
+      JSON.stringify({
+        msg: "sync_start",
+        boe_id: boeId,
+        opposition_id: payload.opposition_id,
+        dry_run: dryRun
+      })
+    );
+
+    // 1. Verify opposition exists
+    const { count: oppCount, error: oppError } = await supabase
+      .from("oppositions")
+      .select("id", { count: "exact", head: true })
+      .eq("id", payload.opposition_id);
+    if (oppError) throw oppError;
+    if (!oppCount || oppCount === 0)
+      return json(
+        { error: `Opposition not found: ${payload.opposition_id}` },
+        404
+      );
+
+    // 2. Fetch and parse BOE XML
+    const xmlText = await fetchBoeXml(boeId, payload.boe_url);
+
+    const parsed = await extractStructuredSyllabusFromXml({
+      supabase,
+      xmlText,
+      boeId,
+      oppositionId: payload.opposition_id,
+      watchlistLabel: payload.opposition_id,
+      candidateTitle: ""
+    });
+
+    console.log(
+      JSON.stringify({
+        msg: "extraction_complete",
+        boe_id: boeId,
+        opposition_id: payload.opposition_id,
+        document_title: parsed.documentTitle,
+        topics_count: parsed.topics.length,
+        subtopics_count: parsed.subtopics.length,
+        test_exam_count: parsed.testExamConfigs.length,
+        has_primary_test: parsed.primaryTestExamConfig !== null,
+        extraction_provider: parsed.extractionProvider,
+        source_hash: parsed.sourceHash
+      })
+    );
+
+    if (dryRun) {
+      return json({
+        ok: true,
+        dry_run: true,
+        boe_id: boeId,
+        opposition_id: payload.opposition_id,
+        document_title: parsed.documentTitle,
+        published_at: parsed.publishedAt,
+        source_hash: parsed.sourceHash,
+        topics_count: parsed.topics.length,
+        subtopics_count: parsed.subtopics.length,
+        test_exam_configs: parsed.testExamConfigs,
+        primary_test_exam_config: parsed.primaryTestExamConfig,
+        extraction_provider: parsed.extractionProvider,
+        extraction_model: parsed.extractionModel,
+        extraction_notes: parsed.extractionNotes,
+        topics: parsed.topics,
+        subtopics: parsed.subtopics.map((s) => ({
+          parent_topic_code: s.parent_topic_code,
+          subtopic_code: s.subtopic_code,
+          topic_number: s.topic_number,
+          subtopic_title: s.subtopic_title
+        }))
+      });
+    }
+
+    // 3. Insert new syllabus (always creates a new record)
+    let syllabusId: number | null = null;
+
+    try {
+      const { data: syllabusData, error: syllabusError } = await supabase
+        .from("opposition_syllabi")
+        .insert({
+          opposition_id: payload.opposition_id,
+          boe_id: boeId,
+          source_url: payload.boe_url,
+          document_title: parsed.documentTitle,
+          published_at: parsed.publishedAt,
+          sha256: parsed.sourceHash,
+          raw_text: parsed.rawText,
+          is_current: false, // activate after all inserts succeed
+          extraction_provider: parsed.extractionProvider,
+          extraction_model: parsed.extractionModel,
+          extraction_notes: parsed.extractionNotes
+        })
+        .select("id")
+        .single();
+
+      if (syllabusError) throw syllabusError;
+      syllabusId = syllabusData.id as number;
+
+      // 5. Insert topics
+      const topicRows = parsed.topics.map((t) => ({
+        syllabus_id: syllabusId,
+        opposition_id: payload.opposition_id,
+        topic_code: t.topic_code,
+        topic_title: t.topic_title,
+        order_index: t.order_index
+      }));
+
+      const { data: insertedTopics, error: topicsErr } = await supabase
+        .from("opposition_topics")
+        .insert(topicRows)
+        .select("id, topic_code");
+      if (topicsErr) throw topicsErr;
+
+      const topicIdByCode = new Map<string, number>();
+      for (const row of insertedTopics ?? [])
+        topicIdByCode.set(String(row.topic_code), Number(row.id));
+
+      if (topicIdByCode.size !== topicRows.length)
+        throw new Error(
+          "No se pudieron mapear todos los opposition_topics insertados."
+        );
+
+      // 6. Insert subtopics
+      const subtopicRows = parsed.subtopics.map((s) => ({
+        syllabus_id: syllabusId,
+        opposition_topic_id: topicIdByCode.get(s.parent_topic_code),
+        subtopic_code: s.subtopic_code,
+        topic_number: s.topic_number,
+        subtopic_title: s.subtopic_title,
+        section_title: s.section_title,
+        order_index: s.order_index
+      }));
+
+      const { error: subErr } = await supabase
+        .from("opposition_subtopics")
+        .insert(subtopicRows);
+      if (subErr) throw subErr;
+
+      // 7. Insert test exam config (primary only)
+      const primary = parsed.primaryTestExamConfig;
+      if (primary) {
+        const { error: examErr } = await supabase
+          .from("opposition_test_exam_configs")
+          .insert({
+            syllabus_id: syllabusId,
+            opposition_id: payload.opposition_id,
+            exercise_label: primary.exerciseLabel,
+            system_scope: primary.systemScope,
+            question_count: primary.questionCount,
+            options_count: primary.optionsCount,
+            correct_answer_value: primary.correctAnswerValue,
+            wrong_answer_penalty: primary.wrongAnswerPenalty,
+            blank_answer_penalty: primary.blankAnswerPenalty,
+            score_min: primary.scoreMin,
+            score_max: primary.scoreMax,
+            passing_score: primary.passingScore,
+            duration_minutes: primary.durationMinutes,
+            notes: primary.notes,
+            source_excerpt: primary.sourceExcerpt
+          });
+        if (examErr) throw examErr;
+      }
+
+      // 8. Deactivate old syllabus and activate new one
+      await setCurrentSyllabus(
         supabase,
-        watchlist.opposition_id
+        syllabusId,
+        payload.opposition_id
       );
 
       console.log(
         JSON.stringify({
-          msg: "watchlist_candidates",
-          watchlist_id: watchlist.id,
-          opposition_id: watchlist.opposition_id,
-          label: watchlist.label,
-          candidates_found: candidates.length,
-          boe_ids: candidates.map((candidate) => candidate.boeId)
+          msg: "sync_complete",
+          boe_id: boeId,
+          opposition_id: payload.opposition_id,
+          syllabus_id: syllabusId,
+          topics_count: parsed.topics.length,
+          subtopics_count: parsed.subtopics.length,
+          test_exam_count: parsed.testExamConfigs.length
         })
       );
 
-      const processed: Array<Record<string, unknown>> = [];
-
-      for (const candidate of candidates) {
-        try {
-          const result = await processCandidate(
-            supabase,
-            watchlist,
-            candidate,
-            currentSyllabus,
-            Boolean(payload.dry_run)
-          );
-
-          if (
-            result.current_applied === true &&
-            typeof result.syllabus_id === "number"
-          ) {
-            currentSyllabus = {
-              id: result.syllabus_id,
-              boe_id: typeof result.boe_id === "string" ? result.boe_id : null,
-              published_at:
-                typeof result.published_at === "string"
-                  ? result.published_at
-                  : null,
-              sha256: typeof result.hash === "string" ? result.hash : null
-            };
-          }
-
-          console.log(
-            JSON.stringify({
-              msg: "watchlist_candidate_result",
-              watchlist_id: watchlist.id,
-              opposition_id: watchlist.opposition_id,
-              result
-            })
-          );
-
-          processed.push(result);
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
+      return json({
+        ok: true,
+        action: "inserted",
+        boe_id: boeId,
+        opposition_id: payload.opposition_id,
+        syllabus_id: syllabusId,
+        document_title: parsed.documentTitle,
+        published_at: parsed.publishedAt,
+        source_hash: parsed.sourceHash,
+        topics_count: parsed.topics.length,
+        subtopics_count: parsed.subtopics.length,
+        has_test_exam_config: parsed.primaryTestExamConfig !== null,
+        extraction_provider: parsed.extractionProvider,
+        extraction_model: parsed.extractionModel
+      });
+    } catch (error) {
+      // Rollback: delete partially inserted syllabus
+      if (syllabusId !== null) {
+        const { error: cleanupErr } = await supabase
+          .from("opposition_syllabi")
+          .delete()
+          .eq("id", syllabusId);
+        if (cleanupErr) {
           console.error(
             JSON.stringify({
-              msg: "watchlist_candidate_error",
-              watchlist_id: watchlist.id,
-              opposition_id: watchlist.opposition_id,
-              boe_id: candidate.boeId,
-              error: message
+              msg: "rollback_failed",
+              opposition_id: payload.opposition_id,
+              syllabus_id: syllabusId,
+              error: cleanupErr.message
             })
           );
-          processed.push({
-            status: "error",
-            boe_id: candidate.boeId,
-            error: message
-          });
         }
       }
-
-      watchlistResults.push({
-        watchlist_id: watchlist.id,
-        opposition_id: watchlist.opposition_id,
-        label: watchlist.label,
-        candidates_found: candidates.length,
-        processed
-      });
+      throw error;
     }
-
-    return json({
-      ok: true,
-      dry_run: Boolean(payload.dry_run),
-      watchlists_processed: watchlistResults.length,
-      results: watchlistResults
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch (err) {
+    const errMsg =
+      err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+          ? String((err as Record<string, unknown>).message)
+          : JSON.stringify(err);
     console.error(
-      JSON.stringify({ msg: "sync_boe_syllabi_failed", error: message })
+      JSON.stringify({
+        msg: "sync_boe_syllabi_failed",
+        error: errMsg,
+        raw: typeof err === "object" ? JSON.stringify(err) : String(err)
+      })
     );
-    return json({ ok: false, error: message }, 500);
+    return json({ ok: false, error: errMsg }, 500);
   }
 });
