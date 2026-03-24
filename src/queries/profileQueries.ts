@@ -7,7 +7,7 @@ import {
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 const PROFILE_BASE_SELECT = "preferred_opposition_id, preferred_opposition";
 
@@ -43,11 +43,20 @@ type SyllabusPdfUrlResponse = {
   error?: string;
 };
 
+type SyllabusPdfPayload = {
+  pdfBytes: Uint8Array;
+  totalPages: number;
+  isPreviewOnly: boolean;
+};
+
 const SUPABASE_FUNCTIONS_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const QUERY_STALE_MS = 5 * 60 * 1000;
-const QUERY_GC_MS = 30 * 60 * 1000;
+const PROFILE_QUERY_CONFIG = {
+  staleTime: 0,
+  gcTime: 0,
+  refetchOnMount: "always" as const
+};
 
 export const profileQueryKeys = {
   base: (userId: string) => ["profiles", "base", userId] as const,
@@ -73,7 +82,7 @@ export const profileQueryKeys = {
     ] as const,
   oppositionOptions: (locale: string) =>
     ["oppositions", "options", normalizeLocale(locale)] as const,
-  paidSyllabusSubtopicFiles: (oppositionId: string) =>
+  syllabusSubtopicFiles: (oppositionId: string) =>
     ["syllabus", "subtopic-files", oppositionId] as const
 };
 
@@ -119,8 +128,7 @@ export const useProfileBaseQuery = (userId: string | null | undefined) =>
       : ["profiles", "base", "guest"],
     queryFn: () => fetchProfileBase(userId as string),
     enabled: Boolean(userId),
-    staleTime: QUERY_STALE_MS,
-    gcTime: QUERY_GC_MS
+    ...PROFILE_QUERY_CONFIG
   });
 
 export const useProfileDetailsQuery = (userId: string | null | undefined) =>
@@ -130,8 +138,7 @@ export const useProfileDetailsQuery = (userId: string | null | undefined) =>
       : ["profiles", "details", "guest"],
     queryFn: () => fetchProfileDetails(userId as string),
     enabled: Boolean(userId),
-    staleTime: QUERY_STALE_MS,
-    gcTime: QUERY_GC_MS
+    ...PROFILE_QUERY_CONFIG
   });
 
 type PreferredOppositionParams = {
@@ -143,7 +150,6 @@ export const usePreferredOppositionQuery = ({
   userId,
   locale
 }: PreferredOppositionParams) => {
-  const queryClient = useQueryClient();
   const normalizedLocale = normalizeLocale(locale);
 
   return useQuery<Oposicion>({
@@ -151,11 +157,7 @@ export const usePreferredOppositionQuery = ({
       ? profileQueryKeys.preferredOpposition(userId, normalizedLocale)
       : ["profiles", "preferred-opposition", "guest", normalizedLocale],
     queryFn: async () => {
-      const base = await queryClient.fetchQuery({
-        queryKey: profileQueryKeys.base(userId as string),
-        queryFn: () => fetchProfileBase(userId as string),
-        staleTime: QUERY_STALE_MS
-      });
+      const base = await fetchProfileBase(userId as string);
 
       return resolveOppositionFromProfile({
         preferredOppositionId: base?.preferred_opposition_id,
@@ -164,8 +166,7 @@ export const usePreferredOppositionQuery = ({
       });
     },
     enabled: Boolean(userId),
-    staleTime: QUERY_STALE_MS,
-    gcTime: QUERY_GC_MS
+    ...PROFILE_QUERY_CONFIG
   });
 };
 
@@ -193,18 +194,16 @@ export const useResolvedOppositionQuery = ({
         preferredOppositionId,
         preferredOppositionName,
         locale
-      }),
+    }),
     enabled,
-    staleTime: QUERY_STALE_MS,
-    gcTime: QUERY_GC_MS
+    ...PROFILE_QUERY_CONFIG
   });
 
 export const useOppositionOptionsQuery = (locale: string | null | undefined) =>
   useQuery<OppositionOption[]>({
     queryKey: profileQueryKeys.oppositionOptions(normalizeLocale(locale)),
     queryFn: () => fetchOppositionOptions(locale),
-    staleTime: QUERY_STALE_MS,
-    gcTime: QUERY_GC_MS
+    ...PROFILE_QUERY_CONFIG
   });
 
 const normalizePaidSyllabusSubtopicFileRow = (
@@ -242,7 +241,7 @@ const normalizePaidSyllabusSubtopicFileRow = (
   };
 };
 
-const fetchPaidSyllabusSubtopicFiles = async (
+const fetchSyllabusSubtopicFiles = async (
   oppositionId: string
 ): Promise<PaidSyllabusSubtopicFileRow[]> => {
   const normalizedOppositionId = sanitizeCode(oppositionId, 160);
@@ -257,12 +256,9 @@ const fetchPaidSyllabusSubtopicFiles = async (
       error: unknown;
     }>;
   };
-  const { data, error } = await rpcClient.rpc(
-    "get_current_paid_syllabus_subtopic_files",
-    {
-      p_opposition_id: normalizedOppositionId
-    }
-  );
+  const { data, error } = await rpcClient.rpc("get_current_syllabus_subtopic_files", {
+    p_opposition_id: normalizedOppositionId
+  });
 
   if (error) throw error;
   if (!Array.isArray(data)) return [];
@@ -340,7 +336,7 @@ export const getSignedSyllabusPdfUrl = async (
 
 export const getWatermarkedSyllabusPdfBytes = async (
   subtopicFileId: number
-): Promise<Uint8Array> => {
+): Promise<SyllabusPdfPayload> => {
   const normalizedSubtopicFileId =
     typeof subtopicFileId === "number" && Number.isFinite(subtopicFileId)
       ? Math.max(1, Math.floor(subtopicFileId))
@@ -393,19 +389,30 @@ export const getWatermarkedSyllabusPdfBytes = async (
   if (!contentType.includes("application/pdf"))
     throw new Error("La respuesta del visor no contiene un PDF valido.");
 
-  return new Uint8Array(await response.arrayBuffer());
+  const totalPagesHeader = Number.parseInt(
+    response.headers.get("X-Syllabus-Total-Pages") ?? "",
+    10
+  );
+
+  return {
+    pdfBytes: new Uint8Array(await response.arrayBuffer()),
+    totalPages:
+      Number.isFinite(totalPagesHeader) && totalPagesHeader > 0
+        ? totalPagesHeader
+        : 1,
+    isPreviewOnly: response.headers.get("X-Syllabus-Is-Preview") === "true"
+  };
 };
 
-export const usePaidSyllabusSubtopicFilesQuery = (
+export const useSyllabusSubtopicFilesQuery = (
   oppositionId: string | null | undefined,
   enabled = true
 ) =>
   useQuery<PaidSyllabusSubtopicFileRow[]>({
     queryKey: oppositionId
-      ? profileQueryKeys.paidSyllabusSubtopicFiles(oppositionId)
+      ? profileQueryKeys.syllabusSubtopicFiles(oppositionId)
       : ["syllabus", "subtopic-files", "guest"],
-    queryFn: () => fetchPaidSyllabusSubtopicFiles(oppositionId as string),
+    queryFn: () => fetchSyllabusSubtopicFiles(oppositionId as string),
     enabled: enabled && Boolean(oppositionId),
-    staleTime: QUERY_STALE_MS,
-    gcTime: QUERY_GC_MS
+    ...PROFILE_QUERY_CONFIG
   });

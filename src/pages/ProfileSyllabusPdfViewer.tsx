@@ -1,10 +1,12 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import { useAuth } from "@/auth/AuthProvider";
 import AppLoading from "@/components/AppLoading";
+import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import CustomButton from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getWatermarkedSyllabusPdfBytes } from "@/queries/profileQueries";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -12,6 +14,7 @@ import {
   ChevronRight,
   Eye,
   FileText,
+  Lock,
   Minus,
   Plus,
   Search
@@ -34,6 +37,7 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.4;
 const ZOOM_STEP = 0.2;
 const THUMBNAIL_WIDTH = 120;
+const FREE_PREVIEW_PAGE_LIMIT = 1;
 const VIEWER_WATERMARK_BLOCKS = [
   { left: "8%", top: "10%" },
   { right: "8%", top: "24%" },
@@ -47,6 +51,17 @@ const clamp = (value: number, min: number, max: number) =>
 type LoadedPdfDocument = Parameters<
   NonNullable<ComponentProps<typeof Document>["onLoadSuccess"]>
 >[0];
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 const extractPageText = async (pdf: LoadedPdfDocument, pageNumber: number) => {
   const page = await pdf.getPage(pageNumber);
@@ -63,6 +78,7 @@ const extractPageText = async (pdf: LoadedPdfDocument, pageNumber: number) => {
 const ProfileSyllabusPdfViewer = () => {
   const { t } = useTranslation(["profile"]);
   const { user } = useAuth();
+  const { data: planState } = useUserPlanStateQuery(user?.id);
   const params = useParams<{ subtopicFileId: string }>();
   const [searchParams] = useSearchParams();
   const normalizedSubtopicFileId = Number.parseInt(
@@ -72,8 +88,11 @@ const ProfileSyllabusPdfViewer = () => {
   const topicTitle = searchParams.get("topicTitle")?.trim() || "";
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const viewerScrollRef = useRef<HTMLDivElement | null>(null);
+  const thumbnailScrollAreaRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
+  const thumbnailRefs = useRef(new Map<number, HTMLButtonElement>());
   const [pageCount, setPageCount] = useState(0);
+  const [renderedPageCount, setRenderedPageCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [searchInput, setSearchInput] = useState("");
@@ -85,16 +104,22 @@ const ProfileSyllabusPdfViewer = () => {
   const [zoom, setZoom] = useState(1);
   const [viewerWidth, setViewerWidth] = useState(0);
   const [documentError, setDocumentError] = useState<string | null>(null);
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const searchIndexTaskRef = useRef(0);
+  const currentPageRef = useRef(1);
+  const isProgrammaticScrollRef = useRef(false);
+  const targetPageRef = useRef<number | null>(null);
+  const targetScrollTopRef = useRef<number | null>(null);
+  const scrollReleaseTimeoutRef = useRef<number | null>(null);
 
   const {
-    data: pdfBytes,
+    data: pdfPayload,
     isLoading: isLoadingPdfBytes,
     isFetching,
     refetch,
     error: pdfBytesError
   } = useQuery({
-    queryKey: ["syllabus", "pdf-viewer", normalizedSubtopicFileId],
+    queryKey: ["syllabus", "pdf-viewer", normalizedSubtopicFileId, user?.id ?? "guest"],
     queryFn: () => getWatermarkedSyllabusPdfBytes(normalizedSubtopicFileId),
     enabled:
       Number.isFinite(normalizedSubtopicFileId) && normalizedSubtopicFileId > 0,
@@ -117,14 +142,27 @@ const ProfileSyllabusPdfViewer = () => {
     () => new Set(searchMatches),
     [searchMatches]
   );
+  const activeSearchPage = searchMatches[activeSearchMatchIndex] ?? null;
+  const highlightSearchTerm = searchTerm.trim();
+  const searchHighlightRegex = useMemo(() => {
+    if (!highlightSearchTerm) return null;
+    return new RegExp(`(${escapeRegExp(highlightSearchTerm)})`, "gi");
+  }, [highlightSearchTerm]);
+  const isPreviewOnly = Boolean(pdfPayload?.isPreviewOnly);
   const thumbnailPdfFile = useMemo(() => {
-    if (!pdfBytes) return null;
-    return { data: new Uint8Array(pdfBytes) };
-  }, [pdfBytes]);
+    if (!pdfPayload?.pdfBytes) return null;
+    return { data: new Uint8Array(pdfPayload.pdfBytes) };
+  }, [pdfPayload]);
   const mainPdfFile = useMemo(() => {
-    if (!pdfBytes) return null;
-    return { data: new Uint8Array(pdfBytes) };
-  }, [pdfBytes]);
+    if (!pdfPayload?.pdfBytes) return null;
+    return { data: new Uint8Array(pdfPayload.pdfBytes) };
+  }, [pdfPayload]);
+  const pdfDocumentOptions = useMemo(
+    () => ({
+      standardFontDataUrl: `${import.meta.env.BASE_URL}standard_fonts/`
+    }),
+    []
+  );
 
   const mainPageWidth = useMemo(() => {
     const baseWidth =
@@ -138,6 +176,26 @@ const ProfileSyllabusPdfViewer = () => {
     const shortUserId = user?.id?.trim().slice(0, 8);
     return shortUserId ? `ID ${shortUserId}` : "Uso personal";
   }, [user?.email, user?.id]);
+  const maxPreviewPage = isPreviewOnly ? FREE_PREVIEW_PAGE_LIMIT : pageCount || 1;
+  const isPageLocked = useCallback(
+    (pageNumber: number) => pageNumber > maxPreviewPage,
+    [maxPreviewPage]
+  );
+  const renderSearchHighlight = (
+    pageNumber: number,
+    textItem: { str?: string }
+  ) => {
+    const value = typeof textItem?.str === "string" ? textItem.str : "";
+    const safeValue = escapeHtml(value);
+    if (!safeValue || !searchHighlightRegex || !searchMatchesSet.has(pageNumber))
+      return safeValue;
+
+    const activeClass = activeSearchPage === pageNumber ? " is-active" : "";
+    return safeValue.replace(
+      searchHighlightRegex,
+      `<mark class="pdf-search-highlight${activeClass}">$1</mark>`
+    );
+  };
 
   useEffect(() => {
     if (!viewerContainerRef.current) return;
@@ -199,8 +257,35 @@ const ProfileSyllabusPdfViewer = () => {
   }, [currentPage]);
 
   useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  useEffect(() => {
+    const activeThumbnail = thumbnailRefs.current.get(currentPage);
+    const scrollAreaRoot = thumbnailScrollAreaRef.current;
+    const viewport = scrollAreaRoot?.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]"
+    );
+    if (!activeThumbnail || !viewport) return;
+
+    const thumbnailTop = activeThumbnail.offsetTop;
+    const thumbnailBottom = thumbnailTop + activeThumbnail.offsetHeight;
+    const viewportTop = viewport.scrollTop;
+    const viewportBottom = viewportTop + viewport.clientHeight;
+
+    if (thumbnailTop >= viewportTop && thumbnailBottom <= viewportBottom) return;
+
+    activeThumbnail.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "smooth"
+    });
+  }, [currentPage]);
+
+  useEffect(() => {
     setDocumentError(null);
     setPageCount(0);
+    setRenderedPageCount(0);
     setCurrentPage(1);
     setPageInput("1");
     setSearchInput("");
@@ -209,8 +294,10 @@ const ProfileSyllabusPdfViewer = () => {
     setActiveSearchMatchIndex(0);
     setIsIndexingText(false);
     setZoom(1);
+    setIsUpgradeDialogOpen(false);
+    pageRefs.current.clear();
     searchIndexTaskRef.current += 1;
-  }, [pdfBytes]);
+  }, [pdfPayload]);
 
   useEffect(() => {
     if (searchMatches.length === 0) {
@@ -223,39 +310,103 @@ const ProfileSyllabusPdfViewer = () => {
     );
   }, [searchMatches]);
 
-  const scrollToPage = useCallback(
-    (pageNumber: number) => {
-      const nextPage = clamp(pageNumber, 1, pageCount || 1);
-      setCurrentPage(nextPage);
-      setPageInput(String(nextPage));
+  const scrollToResolvedPage = useCallback((
+    pageNumber: number,
+    behavior: ScrollBehavior = "smooth"
+  ) => {
+    const node = pageRefs.current.get(pageNumber);
+    const container = viewerScrollRef.current;
+    if (!node || !container) return;
 
-      const node = pageRefs.current.get(nextPage);
-      const container = viewerScrollRef.current;
-      if (!node || !container) return;
+    const nextTop = Math.max(0, node.offsetTop - 24);
+    isProgrammaticScrollRef.current = behavior === "smooth";
+    targetPageRef.current = pageNumber;
+    targetScrollTopRef.current = nextTop;
 
-      const nextTop = Math.max(0, node.offsetTop - 24);
-      container.scrollTo({
-        top: nextTop,
-        behavior: "smooth"
-      });
-    },
-    [pageCount]
-  );
+    if (scrollReleaseTimeoutRef.current) {
+      window.clearTimeout(scrollReleaseTimeoutRef.current);
+      scrollReleaseTimeoutRef.current = null;
+    }
+
+    if (behavior === "smooth") {
+      scrollReleaseTimeoutRef.current = window.setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+        targetPageRef.current = null;
+        targetScrollTopRef.current = null;
+        scrollReleaseTimeoutRef.current = null;
+      }, 500);
+    }
+
+    container.scrollTo({
+      top: nextTop,
+      behavior
+    });
+  }, []);
+
+  const scrollToFirstPage = useCallback((behavior: ScrollBehavior = "smooth") => {
+    setCurrentPage(1);
+    setPageInput("1");
+    scrollToResolvedPage(1, behavior);
+  }, [scrollToResolvedPage]);
+
+  const scrollToPage = useCallback((pageNumber: number) => {
+    const resolvedPage = clamp(pageNumber, 1, pageCount || 1);
+    if (isPageLocked(resolvedPage)) {
+      setIsUpgradeDialogOpen(true);
+      scrollToFirstPage();
+      return;
+    }
+
+    setCurrentPage(resolvedPage);
+    setPageInput(String(resolvedPage));
+    scrollToResolvedPage(resolvedPage, "smooth");
+  }, [isPageLocked, pageCount, scrollToFirstPage, scrollToResolvedPage]);
 
   useEffect(() => {
     if (!searchTerm || searchMatches.length === 0) return;
     scrollToPage(searchMatches[activeSearchMatchIndex]);
-  }, [activeSearchMatchIndex, searchMatches, searchTerm, scrollToPage]);
+  }, [activeSearchMatchIndex, scrollToPage, searchMatches, searchTerm]);
+
+  useEffect(() => {
+    setSearchTerm(searchInput.trim());
+    setActiveSearchMatchIndex(0);
+  }, [searchInput]);
 
   useEffect(() => {
     const container = viewerScrollRef.current;
     if (!container || pageCount <= 0) return;
 
     let frameId = 0;
+    const releaseProgrammaticScroll = () => {
+      isProgrammaticScrollRef.current = false;
+      targetPageRef.current = null;
+      targetScrollTopRef.current = null;
+      if (scrollReleaseTimeoutRef.current) {
+        window.clearTimeout(scrollReleaseTimeoutRef.current);
+        scrollReleaseTimeoutRef.current = null;
+      }
+    };
+
     const syncPageFromScroll = () => {
+      if (isProgrammaticScrollRef.current) {
+        const targetScrollTop = targetScrollTopRef.current;
+        const targetPage = targetPageRef.current;
+
+        if (
+          targetScrollTop !== null &&
+          targetPage !== null &&
+          Math.abs(container.scrollTop - targetScrollTop) <= 8
+        ) {
+          releaseProgrammaticScroll();
+          setCurrentPage(targetPage);
+        }
+
+        return;
+      }
+
       const containerRect = container.getBoundingClientRect();
       const containerCenter = containerRect.top + containerRect.height / 2;
-      let closestPage = currentPage;
+      let closestPage = currentPageRef.current;
       let closestDistance = Number.POSITIVE_INFINITY;
 
       pageRefs.current.forEach((node, pageNumber) => {
@@ -267,6 +418,12 @@ const ProfileSyllabusPdfViewer = () => {
         closestDistance = distance;
         closestPage = pageNumber;
       });
+
+      if (isPageLocked(closestPage)) {
+        setIsUpgradeDialogOpen(true);
+        scrollToFirstPage("smooth");
+        return;
+      }
 
       setCurrentPage((previousPage) =>
         previousPage === closestPage ? previousPage : closestPage
@@ -283,9 +440,10 @@ const ProfileSyllabusPdfViewer = () => {
 
     return () => {
       if (frameId) cancelAnimationFrame(frameId);
+      releaseProgrammaticScroll();
       container.removeEventListener("scroll", onScroll);
     };
-  }, [currentPage, pageCount]);
+  }, [isPageLocked, pageCount, scrollToFirstPage]);
 
   const commitPageInput = () => {
     if (!pageCount) {
@@ -301,12 +459,6 @@ const ProfileSyllabusPdfViewer = () => {
     scrollToPage(nextPage);
   };
 
-  const commitSearchInput = () => {
-    const normalizedSearch = searchInput.trim();
-    setSearchTerm(normalizedSearch);
-    setActiveSearchMatchIndex(0);
-  };
-
   const goToSearchMatch = (nextIndex: number) => {
     if (searchMatches.length === 0) return;
 
@@ -315,13 +467,14 @@ const ProfileSyllabusPdfViewer = () => {
       searchMatches.length;
 
     setActiveSearchMatchIndex(normalizedIndex);
-    scrollToPage(searchMatches[normalizedIndex]);
   };
 
   const handleDocumentLoad = (pdf: LoadedPdfDocument) => {
     setDocumentError(null);
-    setPageCount(pdf.numPages);
-    setCurrentPage((previousPage) => clamp(previousPage, 1, pdf.numPages));
+    const totalPages = Math.max(pdf.numPages, pdfPayload?.totalPages ?? 0);
+    setRenderedPageCount(pdf.numPages);
+    setPageCount(totalPages);
+    setCurrentPage((previousPage) => clamp(previousPage, 1, totalPages));
 
     const taskId = searchIndexTaskRef.current + 1;
     searchIndexTaskRef.current = taskId;
@@ -445,12 +598,11 @@ const ProfileSyllabusPdfViewer = () => {
     : undefined;
 
   return (
-    <section
-      className={`select-none overflow-hidden rounded-[1.5rem] border shadow-[0_32px_90px_-52px_rgba(15,23,42,0.45)] ${shellToneClass}`}
-    >
-      <header
-        className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}
+    <>
+      <section
+        className={`select-none overflow-hidden rounded-[1.5rem] border shadow-[0_32px_90px_-52px_rgba(15,23,42,0.45)] ${shellToneClass}`}
       >
+      <header className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <Link
@@ -492,14 +644,7 @@ const ProfileSyllabusPdfViewer = () => {
                 <Input
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  onBlur={commitSearchInput}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      commitSearchInput();
-                      return;
-                    }
-
                     if (event.key !== "F3") return;
                     event.preventDefault();
                     goToSearchMatch(activeSearchMatchIndex + 1);
@@ -507,7 +652,7 @@ const ProfileSyllabusPdfViewer = () => {
                   placeholder={t("syllabus.viewerSearchPlaceholder", {
                     defaultValue: "Buscar en el PDF"
                   })}
-                  className="h-7 w-32 border-0 bg-transparent px-0 py-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 md:w-40"
+                  className="h-7 w-32 border-0 bg-transparent px-0 py-0 text-sm font-medium text-slate-900 placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0 md:w-40"
                   aria-label={t("syllabus.viewerSearchLabel", {
                     defaultValue: "Buscar en el PDF"
                   })}
@@ -590,7 +735,12 @@ const ProfileSyllabusPdfViewer = () => {
                 styleType="unstyled"
                 className="rounded-full text-slate-600 hover:bg-white"
                 onClick={() => scrollToPage(currentPage + 1)}
-                disabled={!pageCount || currentPage >= pageCount}
+                disabled={
+                  !pageCount ||
+	                  (isPreviewOnly
+	                    ? currentPage >= maxPreviewPage
+	                    : currentPage >= pageCount)
+                }
                 aria-label={t("syllabus.viewerNextPage", {
                   defaultValue: "Pagina siguiente"
                 })}
@@ -654,26 +804,39 @@ const ProfileSyllabusPdfViewer = () => {
         <aside
           className={`border-b md:border-b-0 md:border-r ${sidebarToneClass}`}
         >
-          <ScrollArea className="h-[12rem] md:h-[78vh]">
-            <div className="flex gap-3 p-3 md:flex md:flex-col md:gap-2 md:p-4">
-              <Document
-                file={thumbnailPdfFile}
-                loading={null}
-                onLoadSuccess={handleDocumentLoad}
-                onLoadError={handleDocumentLoadError}
-                error={null}
+	          <ScrollArea ref={thumbnailScrollAreaRef} className="h-[12rem] md:h-[78vh]">
+            <div className="flex items-center gap-3 p-3 md:flex md:flex-col md:items-center md:gap-2 md:p-4">
+	              <Document
+	                file={thumbnailPdfFile}
+	                options={pdfDocumentOptions}
+	                loading={null}
+	                onLoadSuccess={handleDocumentLoad}
+	                onLoadError={handleDocumentLoadError}
+	                error={null}
                 className="contents"
               >
                 {thumbnailPages.map((pageNumber) => {
                   const isActive = currentPage === pageNumber;
+                  const isLocked = isPageLocked(pageNumber);
 
                   return (
-                    <button
-                      key={`thumb-${pageNumber}`}
-                      type="button"
-                      onClick={() => scrollToPage(pageNumber)}
+	                    <button
+	                      key={`thumb-${pageNumber}`}
+	                      ref={(node) => {
+	                        if (node) {
+	                          thumbnailRefs.current.set(pageNumber, node);
+	                          return;
+	                        }
+
+	                        thumbnailRefs.current.delete(pageNumber);
+	                      }}
+	                      type="button"
+	                      onClick={() => scrollToPage(pageNumber)}
                       className={[
                         "group inline-flex w-fit flex-col items-center overflow-hidden rounded-[1.15rem] border p-2 text-left transition-all",
+                        isLocked
+                          ? "border-slate-300/90 bg-slate-100/90 hover:border-amber-300 hover:bg-slate-50"
+                        : "",
                         isActive
                           ? "border-slate-900 bg-white shadow-[0_24px_40px_-28px_rgba(15,23,42,0.75)]"
                           : searchMatchesSet.has(pageNumber)
@@ -685,19 +848,28 @@ const ProfileSyllabusPdfViewer = () => {
                         page: pageNumber
                       })}
                     >
-                      <div
-                        className="inline-block overflow-hidden rounded-[0.5rem] border border-slate-200 bg-transparent leading-none shadow-inner"
-                        style={pdfPageFilterStyle}
-                      >
-                        <Page
-                          pageNumber={pageNumber}
-                          width={THUMBNAIL_WIDTH}
-                          renderAnnotationLayer={false}
-                          renderTextLayer={false}
-                          className="leading-none"
-                          loading={<div className="h-[10.5rem] bg-slate-100" />}
-                        />
-                      </div>
+                      {isLocked ? (
+                        <div className="flex h-[10.5rem] w-[7.55rem] flex-col items-center justify-center rounded-[0.5rem] border border-dashed border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(226,232,240,0.94))] px-3 text-slate-500 shadow-inner">
+                          <Lock className="h-5 w-5" />
+                          <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em]">
+                            Premium
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          className="inline-block overflow-hidden rounded-[0.5rem] border border-slate-200 bg-transparent leading-none shadow-inner"
+                          style={pdfPageFilterStyle}
+                        >
+                          <Page
+                            pageNumber={pageNumber}
+                            width={THUMBNAIL_WIDTH}
+                            renderAnnotationLayer={false}
+                            renderTextLayer={false}
+                            className="leading-none"
+                            loading={<div className="h-[10.5rem] bg-slate-100" />}
+                          />
+                        </div>
+                      )}
 
                       <div className="mt-3 flex justify-center">
                         {isActive ? (
@@ -721,13 +893,14 @@ const ProfileSyllabusPdfViewer = () => {
         <div ref={viewerContainerRef} className="min-w-0">
           <div
             ref={viewerScrollRef}
-            className="h-[calc(78vh-1px)] overflow-y-auto"
+            className="relative h-[calc(78vh-1px)] overflow-y-auto"
           >
             <div className="flex min-h-full items-start justify-center p-4 md:p-8">
-              <Document
-                file={mainPdfFile}
-                loading={
-                  <AppLoading
+	              <Document
+	                file={mainPdfFile}
+	                options={pdfDocumentOptions}
+	                loading={
+	                  <AppLoading
                     label={t("syllabus.viewerDocumentLoading", {
                       defaultValue: "Preparando paginas del PDF..."
                     })}
@@ -750,64 +923,117 @@ const ProfileSyllabusPdfViewer = () => {
                   </div>
                 ) : (
                   <div className="flex w-full max-w-full flex-col items-center gap-6">
-                    {thumbnailPages.map((pageNumber) => (
-                      <div
-                        key={`page-${pageNumber}`}
-                        ref={(node) => {
-                          if (node) {
-                            pageRefs.current.set(pageNumber, node);
-                            return;
-                          }
+	                    {thumbnailPages.map((pageNumber) => {
+	                      const isLockedPage = isPageLocked(pageNumber);
+	                      const isRenderedPage = pageNumber <= renderedPageCount;
+	                      const canRenderPage = !isLockedPage && isRenderedPage;
 
-                          pageRefs.current.delete(pageNumber);
-                        }}
-                        className={`relative inline-block overflow-hidden rounded-[0.75rem] border leading-none ${pageFrameToneClass}`}
-                        data-page-number={pageNumber}
-                      >
-                        <div style={pdfPageFilterStyle} draggable={false}>
-                          <Page
-                            pageNumber={pageNumber}
-                            width={mainPageWidth}
-                            renderAnnotationLayer={false}
-                            renderTextLayer={false}
-                            className="leading-none"
-                            loading={
-                              <div className="h-[60vh] w-[42rem] max-w-full bg-slate-50" />
-                            }
-                          />
-                        </div>
-                        <div
-                          aria-hidden="true"
-                          className="pointer-events-none absolute inset-0 overflow-hidden"
-                        >
-                          {VIEWER_WATERMARK_BLOCKS.map((position, index) => (
-                            <div
-                              key={`viewer-watermark-${pageNumber}-${index}`}
-                              className="absolute flex w-[30%] min-w-[10rem] max-w-[16rem] rotate-[-24deg] flex-col items-center opacity-45"
-                              style={position}
-                            >
-                              <img
-                                src={opositaiHorizontalLogo}
-                                alt=""
-                                draggable={false}
-                                className="w-full object-contain opacity-[0.50]"
-                              />
-                              <span className="mt-2 rounded-full bg-white/35 px-3 py-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-600 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.28)]">
-                                {viewerWatermarkLabel}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+	                      return (
+	                        <div
+	                          key={`page-${pageNumber}`}
+	                          ref={(node) => {
+	                            if (node) {
+	                              pageRefs.current.set(pageNumber, node);
+	                              return;
+	                            }
+
+	                            pageRefs.current.delete(pageNumber);
+	                          }}
+	                        className={`relative inline-block overflow-hidden rounded-[0.75rem] border leading-none ${pageFrameToneClass}`}
+	                        data-page-number={pageNumber}
+	                      >
+	                        {canRenderPage ? (
+	                          <>
+	                            <div style={pdfPageFilterStyle} draggable={false}>
+	                              <Page
+	                                pageNumber={pageNumber}
+	                                width={mainPageWidth}
+	                                renderAnnotationLayer={false}
+	                                renderTextLayer={Boolean(
+	                                  searchHighlightRegex &&
+	                                    searchMatchesSet.has(pageNumber)
+	                                )}
+	                                customTextRenderer={(textItem) =>
+	                                  renderSearchHighlight(pageNumber, textItem)
+	                                }
+	                                className="pdf-viewer-page leading-none"
+	                                loading={
+	                                  <div className="h-[60vh] w-[42rem] max-w-full bg-slate-50" />
+	                                }
+	                              />
+	                            </div>
+	                            <div
+	                              aria-hidden="true"
+	                              className="pointer-events-none absolute inset-0 overflow-hidden"
+	                            >
+	                              {VIEWER_WATERMARK_BLOCKS.map((position, index) => (
+	                                <div
+	                                  key={`viewer-watermark-${pageNumber}-${index}`}
+	                                  className="absolute flex w-[30%] min-w-[10rem] max-w-[16rem] rotate-[-24deg] flex-col items-center opacity-45"
+	                                  style={position}
+	                                >
+	                                  <img
+	                                    src={opositaiHorizontalLogo}
+	                                    alt=""
+	                                    draggable={false}
+	                                    className="w-full object-contain opacity-[0.50]"
+	                                  />
+	                                  <span className="mt-2 rounded-full bg-white/35 px-3 py-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-600 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.28)]">
+	                                    {viewerWatermarkLabel}
+	                                  </span>
+	                                </div>
+	                              ))}
+	                            </div>
+	                          </>
+	                        ) : (
+	                          <div className="flex min-h-[60vh] w-[42rem] max-w-full flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(226,232,240,0.94))] px-6 text-center text-slate-500">
+	                            {isLockedPage ? (
+	                              <>
+	                                <Lock className="h-8 w-8" />
+	                                <span className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">
+	                                  Premium
+	                                </span>
+	                                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
+	                                  {t("syllabus.viewerPremiumPageMessage", {
+	                                    defaultValue:
+	                                      "Esta pagina forma parte de la vista completa del temario."
+	                                  })}
+	                                </p>
+	                              </>
+	                            ) : (
+	                              <>
+	                                <FileText className="h-8 w-8" />
+	                                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
+	                                  {t("syllabus.viewerPageUnavailable", {
+	                                    defaultValue:
+	                                      "Esta pagina no esta disponible en este momento."
+	                                  })}
+	                                </p>
+	                              </>
+	                            )}
+	                          </div>
+	                        )}
+	                      </div>
+	                    );
+	                  })}
+	                  </div>
                 )}
               </Document>
             </div>
           </div>
         </div>
       </div>
-    </section>
+      </section>
+
+      <PlanUpgradeDialog
+        open={isUpgradeDialogOpen}
+        onOpenChange={setIsUpgradeDialogOpen}
+        feature="syllabus-pdf"
+        currentPlanName={planState?.plan_name ?? null}
+        currentLimit={FREE_PREVIEW_PAGE_LIMIT}
+        targetLimit={pageCount || FREE_PREVIEW_PAGE_LIMIT}
+      />
+    </>
   );
 };
 

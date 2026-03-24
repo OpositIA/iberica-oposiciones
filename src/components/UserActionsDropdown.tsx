@@ -8,8 +8,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { isPaidPlan } from "@/lib/plans";
 import { applyTheme, getStoredTheme, type AppTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   Brain,
   CircleUserRound,
@@ -37,6 +39,7 @@ const UserActionsDropdown = ({
 }: UserActionsDropdownProps) => {
   const { t } = useTranslation(["profile", "common"]);
   const { forceLogout, profile, user, isAuthenticated } = useAuth();
+  const { data: planState } = useUserPlanStateQuery(user?.id);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
   const avatarUrl =
@@ -67,6 +70,7 @@ const UserActionsDropdown = ({
 
   const dropdownActionClassName =
     "cursor-pointer hover:bg-primary/15 hover:text-foreground data-[highlighted]:bg-primary/15 data-[highlighted]:text-foreground focus:bg-primary/15 focus:text-foreground";
+  const shouldShowPlansMenuItem = !isPaidPlan(planState);
 
   return (
     <DropdownMenu>
@@ -103,16 +107,20 @@ const UserActionsDropdown = ({
           <p className="truncate text-sm text-foreground">{accountName}</p>
         </DropdownMenuLabel>
 
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground">
-          {t("profile:layout.accountMenu.sections.web")}
-        </DropdownMenuLabel>
-        <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/perfil/planes" className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            {t("profile:layout.menuItems.plans")}
-          </Link>
-        </DropdownMenuItem>
+        {shouldShowPlansMenuItem ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              {t("profile:layout.accountMenu.sections.web")}
+            </DropdownMenuLabel>
+            <DropdownMenuItem asChild className={dropdownActionClassName}>
+              <Link to="/perfil/planes" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                {t("profile:layout.menuItems.plans")}
+              </Link>
+            </DropdownMenuItem>
+          </>
+        ) : null}
 
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground">

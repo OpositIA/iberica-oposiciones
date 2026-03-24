@@ -3381,7 +3381,7 @@ const AssistantIA = () => {
                       {t("assistant:header.dailyLimit")}
                     </p>
                     <div
-                      className="relative grid h-10 w-10 place-items-center rounded-full border border-border/70 shadow-sm transition-[background] duration-300"
+                      className="relative grid h-10 w-10 place-items-center rounded-full border  shadow-sm transition-[background] duration-300"
                       style={{
                         background: `conic-gradient(${dailyUsageProgressColor} ${dailyUsageFillPercent}%, hsl(var(--border)) 0%)`
                       }}

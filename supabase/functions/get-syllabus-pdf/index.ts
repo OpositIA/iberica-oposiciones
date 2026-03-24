@@ -73,7 +73,9 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Expose-Headers":
+    "Content-Disposition, X-Syllabus-Is-Preview, X-Syllabus-Total-Pages",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -106,11 +108,23 @@ const buildFooterLabel = (userId: string) =>
     64
   ).slice(0, 8)}`;
 
-const watermarkPdfBytes = async (
+const prepareViewerPdfBytes = async (
   sourceBytes: Uint8Array,
-  { footerLabel }: { footerLabel: string }
+  {
+    footerLabel,
+    isPreviewOnly,
+  }: { footerLabel: string; isPreviewOnly: boolean },
 ) => {
-  const pdfDoc = await PDFDocument.load(sourceBytes);
+  const sourcePdf = await PDFDocument.load(sourceBytes);
+  const totalPages = sourcePdf.getPageCount();
+  let pdfDoc = sourcePdf;
+
+  if (isPreviewOnly && totalPages > 1) {
+    pdfDoc = await PDFDocument.create();
+    const [firstPage] = await pdfDoc.copyPages(sourcePdf, [0]);
+    pdfDoc.addPage(firstPage);
+  }
+
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
   for (const page of pdfDoc.getPages()) {
@@ -138,7 +152,10 @@ const watermarkPdfBytes = async (
     });
   }
 
-  return await pdfDoc.save();
+  return {
+    pdfBytes: await pdfDoc.save(),
+    totalPages,
+  };
 };
 
 serve(async (req) => {
@@ -213,9 +230,6 @@ serve(async (req) => {
   }
 
   const hasPaidAccess = Boolean(planRows?.[0]?.is_paid);
-  if (!hasPaidAccess) {
-    return json({ error: "paid_plan_required" }, 403);
-  }
 
   const { data: fileRow, error: fileError } = await serviceClient
     .from("opposition_subtopic_files")
@@ -286,10 +300,11 @@ serve(async (req) => {
     );
   }
 
-  let watermarkedBytes: Uint8Array;
+  let viewerPdf: { pdfBytes: Uint8Array; totalPages: number };
   try {
-    watermarkedBytes = await watermarkPdfBytes(sourceBytes, {
-      footerLabel: buildFooterLabel(user.id)
+    viewerPdf = await prepareViewerPdfBytes(sourceBytes, {
+      footerLabel: buildFooterLabel(user.id),
+      isPreviewOnly: !hasPaidAccess,
     });
   } catch (error) {
     return json(
@@ -305,13 +320,15 @@ serve(async (req) => {
   const safeFileName =
     sanitizeSingleLineText(file.file_name, 160) || `temario-${file.id}.pdf`;
 
-  return new Response(watermarkedBytes, {
+  return new Response(viewerPdf.pdfBytes, {
     status: 200,
     headers: {
       ...corsHeaders,
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${safeFileName}"`,
-      "Cache-Control": "private, no-store, max-age=0"
-    }
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Syllabus-Is-Preview": String(!hasPaidAccess),
+      "X-Syllabus-Total-Pages": String(viewerPdf.totalPages),
+    },
   });
 });

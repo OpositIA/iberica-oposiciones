@@ -24,7 +24,8 @@ const normalizeInt = (value: unknown, fallback = 0) =>
 
 export const subscriptionQueryConfig = {
   staleTime: SUBSCRIPTION_QUERY_STALE_MS,
-  gcTime: SUBSCRIPTION_QUERY_GC_MS
+  gcTime: SUBSCRIPTION_QUERY_GC_MS,
+  refetchOnMount: "always" as const
 };
 
 export const subscriptionQueryKeys = {
