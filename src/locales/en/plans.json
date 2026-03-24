@@ -168,6 +168,13 @@
       "currentValue": "Current access: this plan does not include tests.",
       "targetLabel": "Full access to tests",
       "targetValue": "With Premium you can generate and take tests."
+    },
+    "syllabus-pdf": {
+      "title": "The full PDF is available only in Premium",
+      "description": "Your current plan lets you read only the first PDF page. Switch to Premium to unlock full navigation.",
+      "currentValue": "Current access: only the first PDF page.",
+      "targetLabel": "Full PDF access",
+      "targetValue": "With Premium you can navigate the {{value}} PDF pages."
     }
   },
   "billingIssue": {

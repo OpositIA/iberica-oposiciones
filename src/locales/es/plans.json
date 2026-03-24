@@ -168,6 +168,13 @@
       "currentValue": "Uso actual: este plan no incluye tests.",
       "targetLabel": "Acceso completo a tests",
       "targetValue": "Con Premium puedes generar y realizar tests."
+    },
+    "syllabus-pdf": {
+      "title": "El PDF completo esta disponible solo en Premium",
+      "description": "Tu plan actual solo permite leer la primera pagina del PDF. Cambia a Premium para desbloquear la navegacion completa.",
+      "currentValue": "Acceso actual: solo la primera pagina del PDF.",
+      "targetLabel": "Acceso completo al PDF",
+      "targetValue": "Con Premium puedes navegar las {{value}} paginas del PDF."
     }
   },
   "billingIssue": {

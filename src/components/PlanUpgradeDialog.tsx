@@ -1,14 +1,21 @@
 import CustomButton from "@/components/ui/custom-button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { getPlanKey } from "@/lib/plans";
-import { ArrowRight, Brain, Crown, ListChecks, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Brain,
+  Crown,
+  FileText,
+  ListChecks,
+  Sparkles
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 type PlanUpgradeDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  feature: "assistant" | "quick-test";
+  feature: "assistant" | "quick-test" | "syllabus-pdf";
   currentPlanName?: string | null;
   currentLimit: number;
   targetLimit: number;
@@ -16,7 +23,8 @@ type PlanUpgradeDialogProps = {
 
 const featureIconMap = {
   assistant: Brain,
-  "quick-test": ListChecks
+  "quick-test": ListChecks,
+  "syllabus-pdf": FileText
 } as const;
 
 const PlanUpgradeDialog = ({
