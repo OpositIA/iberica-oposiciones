@@ -33,7 +33,7 @@ import {
   TimerReset,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
@@ -63,7 +63,18 @@ const AuthenticatedSidebarLayout = () => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSE_STORAGE_KEY) === "1";
   });
-  const avatarUrl = profile?.avatarUrl ?? "";
+  const avatarUrl =
+    profile?.avatarUrl ||
+    (typeof user?.user_metadata?.avatar_url === "string"
+      ? user.user_metadata.avatar_url
+      : "");
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const handleAvatarError = useCallback(() => setAvatarLoadError(true), []);
+  const previousAvatarUrlRef = useRef(avatarUrl);
+  if (previousAvatarUrlRef.current !== avatarUrl) {
+    previousAvatarUrlRef.current = avatarUrl;
+    if (avatarLoadError) setAvatarLoadError(false);
+  }
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${
       profile?.lastName ?? ""
@@ -142,6 +153,8 @@ const AuthenticatedSidebarLayout = () => {
 
   const closeMobileSidebar = () => setIsMobileOpen(false);
   const isPdfViewerRoute = location.pathname.startsWith("/perfil/temario/pdf/");
+  const isAssistantRoute = location.pathname === "/perfil/opositAI";
+  const showTopHeader = !isPdfViewerRoute;
   const desktopSidebarOffsetClass = isPdfViewerRoute
     ? ""
     : isSidebarCollapsed
@@ -208,94 +221,101 @@ const AuthenticatedSidebarLayout = () => {
 
   return (
     <TooltipProvider delayDuration={120}>
-      <div className="min-h-screen bg-background relative overflow-hidden">
+      <div
+        className={cn(
+          "min-h-screen bg-background relative overflow-hidden",
+          isAssistantRoute && "h-screen max-h-screen flex flex-col"
+        )}
+      >
         <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-charcoal/10 blur-3xl" />
 
-        <header
-          className={`sticky top-0 relative z-30 transition-all duration-300 ${
-            isHeaderScrolled
-              ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
-              : "border-b border-transparent bg-transparent"
-          }`}
-        >
-          <div
-            className={cn(
-              "w-full max-w-[110rem] mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300",
-              desktopSidebarOffsetClass
-            )}
-          >
-            <div className="flex items-center gap-3">
-              {!isPdfViewerRoute ? (
-                <CustomButton
-                  type="button"
-                  onClick={() => setIsMobileOpen(true)}
-                  styleType="ghost"
-                  size="icon"
-                  radius="full"
-                  className="h-10 w-10 lg:hidden"
-                  aria-label={t("profile:layout.mobileMenuOpen")}
-                >
-                  <Menu className="h-4 w-4" />
-                </CustomButton>
-              ) : null}
+	        {showTopHeader ? (
+	          <header
+	            className={cn(
+	              "sticky top-0 relative z-30 transition-all duration-300",
+	              isHeaderScrolled
+	                ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
+	                : "border-b border-transparent bg-transparent",
+	              isAssistantRoute && "lg:hidden"
+	            )}
+	          >
+	            <div
+	              className={cn(
+	                "w-full max-w-[110rem] mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300",
+	                desktopSidebarOffsetClass
+	              )}
+	            >
+	              <div className="flex items-center gap-3">
+	                <CustomButton
+	                  type="button"
+	                  onClick={() => setIsMobileOpen(true)}
+	                  styleType="ghost"
+	                  size="icon"
+	                  radius="full"
+	                  className="h-10 w-10 lg:hidden"
+	                  aria-label={t("profile:layout.mobileMenuOpen")}
+	                >
+	                  <Menu className="h-4 w-4" />
+	                </CustomButton>
 
-              <Link
-                to="/"
-                className="inline-flex items-center gap-2"
-                onClick={closeMobileSidebar}
-              >
-                <img
-                  src={opositaiHorizontalLogo}
-                  alt="OpositAI"
-                  className="h-20 w-auto"
-                />
-              </Link>
-            </div>
+	                <Link
+	                  to="/"
+	                  className="inline-flex items-center gap-2"
+	                  onClick={closeMobileSidebar}
+	                >
+	                  <img
+	                    src={opositaiHorizontalLogo}
+	                    alt="OpositAI"
+	                    className="h-20 w-auto"
+	                  />
+	                </Link>
+	              </div>
 
-            <div className="flex items-center gap-2">
-              {showHeaderTimer && (
-                <div className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 p-1 text-primary">
-                  <span className="px-2 text-[11px] font-semibold tracking-widest uppercase">
-                    {formattedRemaining}
-                  </span>
-                  {status === "running" && (
-                    <button
-                      type="button"
-                      onClick={pause}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-                      aria-label={t("profile:study.pause")}
-                      title={t("profile:study.pause")}
-                    >
-                      <Pause className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {status === "paused" && (
-                    <button
-                      type="button"
-                      onClick={resume}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-                      aria-label={t("profile:study.resume")}
-                      title={t("profile:study.resume")}
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={stop}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-                    aria-label={t("profile:study.stop")}
-                    title={t("profile:study.stop")}
-                  >
-                    <Square className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-              <UserActionsDropdown />
-            </div>
-          </div>
-        </header>
+	              <div className="flex items-center gap-2">
+	                {showHeaderTimer && (
+	                  <div className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 p-1 text-primary">
+	                    <span className="px-2 text-[11px] font-semibold tracking-widest uppercase">
+	                      {formattedRemaining}
+	                    </span>
+	                    {status === "running" && (
+	                      <button
+	                        type="button"
+	                        onClick={pause}
+	                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+	                        aria-label={t("profile:study.pause")}
+	                        title={t("profile:study.pause")}
+	                      >
+	                        <Pause className="h-3.5 w-3.5" />
+	                      </button>
+	                    )}
+	                    {status === "paused" && (
+	                      <button
+	                        type="button"
+	                        onClick={resume}
+	                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+	                        aria-label={t("profile:study.resume")}
+	                        title={t("profile:study.resume")}
+	                      >
+	                        <Play className="h-3.5 w-3.5" />
+	                      </button>
+	                    )}
+	                    <button
+	                      type="button"
+	                      onClick={stop}
+	                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+	                      aria-label={t("profile:study.stop")}
+	                      title={t("profile:study.stop")}
+	                    >
+	                      <Square className="h-3.5 w-3.5" />
+	                    </button>
+	                  </div>
+	                )}
+	                <UserActionsDropdown />
+	              </div>
+	            </div>
+	          </header>
+	        ) : null}
 
         {!isPdfViewerRoute && isMobileOpen && (
           <CustomButton
@@ -457,11 +477,13 @@ const AuthenticatedSidebarLayout = () => {
                   className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-secondary/70"
                 >
                   <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
-                    {avatarUrl ? (
+                    {avatarUrl && !avatarLoadError ? (
                       <img
                         src={avatarUrl}
                         alt={t("profile:myProfile.avatarAlt")}
                         className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={handleAvatarError}
                       />
                     ) : (
                       <CircleUserRound className="h-4 w-4 text-muted-foreground" />
@@ -522,12 +544,16 @@ const AuthenticatedSidebarLayout = () => {
           </aside>
         ) : null}
 
-        <main
-          className={cn(
-            "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
-            desktopSidebarOffsetClass
-          )}
-        >
+	        <main
+	          className={cn(
+	            isPdfViewerRoute
+	              ? "h-screen w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300"
+	              : isAssistantRoute
+	                ? "flex-1 min-h-0 w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300 flex flex-col"
+	                : "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
+	            desktopSidebarOffsetClass
+	          )}
+	        >
           {showBillingIssueBanner && billingIssue && (
             <section className="mb-4 rounded-2xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 to-background px-4 py-3 shadow-[0_20px_45px_-40px_rgba(217,119,6,0.7)]">
               <div className="flex items-start gap-3">
@@ -569,7 +595,13 @@ const AuthenticatedSidebarLayout = () => {
               </div>
             </section>
           )}
-          <Outlet />
+          {isAssistantRoute ? (
+            <div className="min-h-0 flex-1">
+              <Outlet />
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </TooltipProvider>

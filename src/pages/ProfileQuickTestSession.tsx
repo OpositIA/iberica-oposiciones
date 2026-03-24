@@ -23,11 +23,14 @@ import { cn } from "@/lib/utils";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   cloneQuickTestSession,
+  evaluateQuickTestAttempt,
   ensureQuickTestAttempt,
+  fetchCurrentOppositionPrimaryTestExamConfig,
   fetchQuickTestSessionById,
   isUuid,
   resetQuickTestAttempt,
   saveQuickTestAttemptProgress,
+  type OppositionTestExamConfig,
   type QuickTestSessionPayload
 } from "@/queries/testQueries";
 import { useQueryClient } from "@tanstack/react-query";
@@ -328,6 +331,8 @@ const ProfileQuickTestSession = () => {
     initialPayload
   );
   const [isLoadingPayload, setIsLoadingPayload] = useState(!initialPayload);
+  const [testExamConfig, setTestExamConfig] =
+    useState<OppositionTestExamConfig | null>(null);
 
   useEffect(() => {
     setPayload(initialPayload);
@@ -385,6 +390,29 @@ const ProfileQuickTestSession = () => {
       isCancelled = true;
     };
   }, [isAuthReady, payload?.testId, routeTestId, user?.id]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const oppositionId = payload?.oppositionId ?? null;
+
+    if (!oppositionId) {
+      setTestExamConfig(null);
+      return;
+    }
+
+    void fetchCurrentOppositionPrimaryTestExamConfig(oppositionId)
+      .then((config) => {
+        if (!isCancelled) setTestExamConfig(config);
+      })
+      .catch((error) => {
+        console.error("[quick-test] load test exam config failed", error);
+        if (!isCancelled) setTestExamConfig(null);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [payload?.oppositionId]);
 
   const questions = useMemo(
     () =>
@@ -513,34 +541,24 @@ const ProfileQuickTestSession = () => {
     });
   }, [activeQuestionId, questions.length, routeTestId, selectedAnswers]);
 
-  const answeredCount = useMemo(
-    () =>
-      questions.filter(
-        (question) => typeof selectedAnswers[question.id] === "number"
-      ).length,
-    [questions, selectedAnswers]
+  const evaluatedAttempt = useMemo(
+    () => evaluateQuickTestAttempt(questions, selectedAnswers, testExamConfig),
+    [questions, selectedAnswers, testExamConfig]
   );
-
-  const gradeableQuestions = useMemo(
-    () => questions.filter((question) => question.correctIndex !== null),
-    [questions]
-  );
-
-  const gradeableAnsweredCount = useMemo(
+  const answeredCount = evaluatedAttempt.answeredCount;
+  const displayScore = useMemo(
     () =>
-      gradeableQuestions.filter(
-        (question) => typeof selectedAnswers[question.id] === "number"
-      ).length,
-    [gradeableQuestions, selectedAnswers]
+      Number.isInteger(evaluatedAttempt.score)
+        ? String(evaluatedAttempt.score)
+        : evaluatedAttempt.score.toFixed(1),
+    [evaluatedAttempt.score]
   );
-
-  const score = useMemo(
+  const displayScoreScaleMax = useMemo(
     () =>
-      gradeableQuestions.reduce((acc, question) => {
-        const userAnswer = selectedAnswers[question.id];
-        return userAnswer === question.correctIndex ? acc + 1 : acc;
-      }, 0),
-    [gradeableQuestions, selectedAnswers]
+      Number.isInteger(evaluatedAttempt.scoreScaleMax)
+        ? String(evaluatedAttempt.scoreScaleMax)
+        : evaluatedAttempt.scoreScaleMax.toFixed(1),
+    [evaluatedAttempt.scoreScaleMax]
   );
   const isReadOnlyHistoryView =
     !hasQuickTestsAccess && Boolean(attemptFinishedAt);
@@ -642,7 +660,48 @@ const ProfileQuickTestSession = () => {
 
   const isAllAnswered =
     questions.length > 0 && answeredCount === questions.length;
-  const wrongAnswers = Math.max(0, gradeableAnsweredCount - score);
+  const wrongAnswers = evaluatedAttempt.wrongCount;
+  const correctAnswers = evaluatedAttempt.correctCount;
+  const blankAnswers = evaluatedAttempt.blankCount;
+
+  const officialQuestionCount = testExamConfig?.questionCount ?? null;
+  const extrapolatedScore = useMemo(() => {
+    if (
+      !officialQuestionCount ||
+      officialQuestionCount <= 0 ||
+      evaluatedAttempt.totalQuestions <= 0 ||
+      officialQuestionCount === evaluatedAttempt.totalQuestions
+    )
+      return null;
+    const ratio = officialQuestionCount / evaluatedAttempt.totalQuestions;
+    const correctAnswerValue = testExamConfig?.correctAnswerValue ?? 1;
+    const wrongAnswerPenalty = testExamConfig?.wrongAnswerPenalty ?? 0;
+    const blankAnswerPenalty = testExamConfig?.blankAnswerPenalty ?? 0;
+    const scoreMin = testExamConfig?.scoreMin ?? 0;
+    const scoreMax = testExamConfig?.scoreMax ?? 10;
+    const extCorrect = correctAnswers * ratio;
+    const extWrong = wrongAnswers * ratio;
+    const extBlank = Math.max(0, officialQuestionCount - extCorrect - extWrong);
+    const maxRaw = officialQuestionCount * correctAnswerValue;
+    const raw =
+      extCorrect * correctAnswerValue -
+      extWrong * wrongAnswerPenalty -
+      extBlank * blankAnswerPenalty;
+    const norm = maxRaw > 0 ? Math.max(0, Math.min(1, raw / maxRaw)) : 0;
+    return scoreMin + norm * Math.max(0, scoreMax - scoreMin);
+  }, [
+    officialQuestionCount,
+    evaluatedAttempt.totalQuestions,
+    correctAnswers,
+    wrongAnswers,
+    testExamConfig
+  ]);
+  const displayExtrapolatedScore = useMemo(() => {
+    if (extrapolatedScore === null) return null;
+    return Number.isInteger(extrapolatedScore)
+      ? String(extrapolatedScore)
+      : extrapolatedScore.toFixed(1);
+  }, [extrapolatedScore]);
 
   const handleRetry = async () => {
     if (isReadOnlyHistoryView) return;
@@ -909,8 +968,8 @@ const ProfileQuickTestSession = () => {
           <CheckCircle2 className="h-4 w-4 text-primary" />
           <p className="text-sm font-semibold text-foreground">
             {t("testSession.scoreLabel", {
-              score,
-              total: gradeableAnsweredCount
+              score: displayScore,
+              total: displayScoreScaleMax
             })}
           </p>
         </div>
@@ -1107,32 +1166,79 @@ const ProfileQuickTestSession = () => {
         open={isResultDialogOpen}
         onOpenChange={handleResultDialogOpenChange}
       >
-        <DialogContent className="max-w-md rounded-2xl border border-border/70 bg-background/95">
-          <DialogHeader className="space-y-2">
-            <DialogTitle>{t("testSession.resultDialogTitle")}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-lg rounded-2xl border border-border/70 bg-background/95 p-8">
+          <DialogHeader className="space-y-3 text-center">
+            <DialogTitle className="text-2xl">
+              {t("testSession.resultDialogTitle")}
+            </DialogTitle>
+            <DialogDescription className="text-sm">
               {t("testSession.resultDialogDescription")}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
+
+          <div className="my-6 flex flex-col items-center gap-3">
+            <div className="text-center">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                {t("testSession.yourTestLabel", {
+                  count: evaluatedAttempt.totalQuestions,
+                  defaultValue: "Tu test ({{count}} preguntas)"
+                })}
+              </p>
+              <p className="mt-1 text-5xl font-bold tracking-tight text-foreground">
+                {displayScore}
+                <span className="text-2xl font-normal text-muted-foreground">
+                  {" "}
+                  / {displayScoreScaleMax}
+                </span>
+              </p>
+            </div>
+            {displayExtrapolatedScore !== null && officialQuestionCount && (
+              <div className="text-center">
+                <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                  {t("testSession.officialExtrapolationLabel", {
+                    count: officialQuestionCount,
+                    defaultValue: "Proyección examen oficial ({{count}} preguntas)"
+                  })}
+                </p>
+                <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground/80">
+                  {displayExtrapolatedScore}
+                  <span className="text-lg font-normal text-muted-foreground">
+                    {" "}
+                    / {displayScoreScaleMax}
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-center">
               <p className="text-xs text-muted-foreground">
                 {t("testSession.correctCountLabel")}
               </p>
-              <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">
-                {score}
+              <p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">
+                {correctAnswers}
               </p>
             </div>
-            <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2">
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-center">
               <p className="text-xs text-muted-foreground">
                 {t("testSession.wrongCountLabel")}
               </p>
-              <p className="text-lg font-semibold text-destructive">
+              <p className="mt-1 text-2xl font-semibold text-destructive">
                 {wrongAnswers}
               </p>
             </div>
+            <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-center">
+              <p className="text-xs text-muted-foreground">
+                {t("testSession.blankCountLabel", { defaultValue: "En blanco" })}
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-muted-foreground">
+                {blankAnswers}
+              </p>
+            </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="mt-4">
             <CustomButton
               type="button"
               styleType="primary"

@@ -53,7 +53,7 @@ const MAX_CONTEXT_HITS = Math.max(
 );
 const CHAT_MAX_TOKENS = Math.max(
   400,
-  Number(Deno.env.get("ASK_CHAT_MAX_TOKENS") ?? "700")
+  Number(Deno.env.get("ASK_CHAT_MAX_TOKENS") ?? "1500")
 );
 const MAX_MESSAGE_CHARS = 3000;
 
@@ -109,8 +109,9 @@ const safeCompactText = (value: unknown, max = 300) =>
     .trim();
 const normalizeAnswerText = (value: unknown, max = 12000) =>
   safeText(value, max)
-    .replace(/<br\s*\/?>/gi, " / ")
-    .replace(/\s{2,}/g, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 const normalizeLooseText = (value: string) =>
   stripAccents(value)
@@ -436,22 +437,25 @@ const buildMessages = (
   {
     role: "system",
     content:
-      `Respondes SOLO con el contexto juridico recuperado. No uses conocimiento externo.\n` +
-      `Solo puedes responder exactamente "${REFUSAL_MESSAGE}" si el contexto esta vacio.\n` +
-      `Si hay contexto, responde siempre lo que si este respaldado y explica limites.\n` +
-      `Cita la norma, articulo o epigrafe.\n` +
+      `Eres un profesor experto en Derecho español que ayuda a opositores a preparar sus examenes.\n` +
+      `Responde de forma natural, clara y bien estructurada a cualquier cosa que te pregunte el usuario.\n` +
+      `Basa tus respuestas en el contexto juridico que se te proporciona. Cita normas y articulos cuando sea relevante.\n` +
+      `Si no hay contexto suficiente, responde exactamente "${REFUSAL_MESSAGE}".\n` +
       (forceGrounded
-        ? `Una negativa total seria incorrecta porque ya hay fragmentos recuperados.\n`
+        ? `Ya hay informacion relevante disponible, asi que no rechaces la pregunta.\n`
         : "") +
-      `Formato:\n**Respuesta**\n...\n\n**Base legal o tematica**\n...\n\n**Limites**\n...`
+      `Nunca menciones terminos internos del sistema (RAG, embeddings, fragmentos, modelo, contexto recuperado, etc.).\n` +
+      `Formatea bien tu respuesta con saltos de linea, negritas y listas cuando ayuden a la claridad.`
   },
   {
     role: "user",
     content:
-      `Historial auxiliar:\n${history.map((item) => `${item.role}: ${item.text}`).join("\n") || "(sin historial)"}\n\n` +
-      `Notas de recuperacion:\n${notes.join("\n") || "(sin notas)"}\n\n` +
-      `Pregunta:\n${question}\n\n` +
-      `Contexto juridico recuperado:\n${context || "(sin contexto recuperado)"}`
+      (history.length > 0
+        ? `Conversacion previa:\n${history.map((item) => `${item.role}: ${item.text}`).join("\n")}\n\n`
+        : "") +
+      (notes.length > 0 ? `Notas:\n${notes.join("\n")}\n\n` : "") +
+      `${question}` +
+      (context ? `\n\nMaterial de referencia:\n${context}` : "")
   }
 ];
 
@@ -497,22 +501,22 @@ const buildMindMapMessages = (question: string, context: string) => [
 ];
 
 const buildDeterministicFallback = (hits: RetrievalHit[]) =>
-  `**Respuesta**\nHe recuperado fragmentos relevantes, pero el modelo no los ha sintetizado con fiabilidad. Te dejo solo la base que consta en RAG:\n` +
+  `**Respuesta**\nHe encontrado informacion relacionada con tu consulta:\n\n` +
   `${hits
     .slice(0, 3)
     .map(
       (hit) =>
-        `- ${hit.articulo_num || hit.titulo_ley || hit.id_boe || "Fragmento"}: ${safeCompactText(hit.contenido, 320)}`
+        `- **${hit.articulo_num || hit.titulo_ley || hit.id_boe || "Referencia"}**: ${safeCompactText(hit.contenido, 320)}`
     )
-    .join("\n")}\n\n` +
+    .join("\n\n")}\n\n` +
   `**Base legal o tematica**\n${hits
     .slice(0, 3)
     .map(
       (hit) =>
-        `- ${hit.articulo_num || hit.titulo_ley || hit.id_boe || "Fragmento"}`
+        `- ${hit.articulo_num || hit.titulo_ley || hit.id_boe || "Referencia"}`
     )
     .join("\n")}\n\n` +
-  `**Limites**\nLa respuesta queda restringida a esos fragmentos y puede no cubrir toda la pregunta.`;
+  `**Limites**\nLa respuesta se basa en los articulos encontrados y puede no cubrir todos los aspectos de tu pregunta.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")

@@ -315,6 +315,7 @@ const ProfileTest = () => {
 
       const quickTestPayload: QuickTestSessionPayload = {
         testId: resolvedTestId,
+        oppositionId: oposicionActiva.id,
         oppositionName: oposicionActiva.nombre,
         questionCount: generatedQuestionCount,
         selectedTopics: resolvedSelectedTopics,

@@ -78,6 +78,7 @@ import {
   useState
 } from "react";
 import { createPortal } from "react-dom";
+import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
 
 type ChatMessage = {
@@ -170,6 +171,8 @@ type MindMapNodePosition = {
 
 const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
 const MESSAGES_PAGE_SIZE = 8;
+const INITIAL_CONVERSATIONS_PAGE_SIZE = 20;
+const CONVERSATIONS_LOAD_MORE_PAGE_SIZE = 10;
 const CONVERSATIONS_LOAD_TIMEOUT_MS = 12000;
 const MESSAGES_LOAD_TIMEOUT_MS = 15000;
 const CONCEPT_MAP_STORAGE_PREFIX = "__CONCEPT_MAP__:";
@@ -429,6 +432,18 @@ const sortConversationItems = (items: ConversationItem[]) =>
     return compareConversationDates(a.lastMessageAt, b.lastMessageAt);
   });
 
+const mergeConversationItems = (
+  currentItems: ConversationItem[],
+  nextItems: ConversationItem[]
+) =>
+  sortConversationItems(
+    Array.from(
+      new Map(
+        [...currentItems, ...nextItems].map((item) => [item.id, item] as const)
+      ).values()
+    )
+  );
+
 const sortConversationRows = (rows: AssistantConversationRow[]) =>
   rows.slice().sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -467,10 +482,11 @@ const AssistantIA = () => {
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [estadoEscrituraIdx, setEstadoEscrituraIdx] = useState(0);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMoreConversations, setIsLoadingMoreConversations] =
+    useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [deletingConversationId, setDeletingConversationId] = useState<
     string | null
   >(null);
@@ -485,6 +501,7 @@ const AssistantIA = () => {
     string | null
   >(null);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [totalConversationCount, setTotalConversationCount] = useState(0);
   const chatFormRef = useRef<HTMLFormElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const inputTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -589,6 +606,7 @@ const AssistantIA = () => {
     : "hsl(var(--primary))";
   const showInitialConversationsLoader =
     isLoadingConversations && conversations.length === 0;
+  const hasMoreConversations = conversations.length < totalConversationCount;
   const showInitialMessagesLoader = isLoadingMessages && mensajes.length === 0;
 
   const resizeChatTextarea = useCallback(() => {
@@ -655,13 +673,26 @@ const AssistantIA = () => {
   );
 
   const getConversations = useCallback(
-    async (userId: string) => {
+    async ({
+      userId,
+      limit,
+      offset = 0
+    }: {
+      userId: string;
+      limit: number;
+      offset?: number;
+    }) => {
       try {
         let timeoutId: number | undefined;
         const data = await Promise.race([
           queryClient.fetchQuery({
-            queryKey: assistantQueryKeys.conversations(userId),
-            queryFn: () => fetchAssistantConversations(userId),
+            queryKey: assistantQueryKeys.conversations(userId, limit, offset),
+            queryFn: () =>
+              fetchAssistantConversations({
+                userId,
+                limit,
+                offset
+              }),
             ...assistantQueryConfig
           }),
           new Promise<never>((_resolve, reject) => {
@@ -671,7 +702,10 @@ const AssistantIA = () => {
           })
         ]);
         if (timeoutId) window.clearTimeout(timeoutId);
-        return sortConversationRows(data).map((row) => mapConversation(row));
+        return {
+          items: sortConversationRows(data.rows).map((row) => mapConversation(row)),
+          totalCount: data.totalCount
+        };
       } catch (error) {
         const message =
           error instanceof Error
@@ -709,17 +743,9 @@ const AssistantIA = () => {
       }
 
       const createdConversation = mapConversation(data);
-      queryClient.setQueryData(
-        assistantQueryKeys.conversations(userId),
-        (prev: AssistantConversationRow[] | undefined) => {
-          const mappedRow = data as AssistantConversationRow;
-          if (!prev || prev.length === 0) return [mappedRow];
-          const withoutExisting = prev.filter(
-            (item) => item.id !== mappedRow.id
-          );
-          return sortConversationRows([mappedRow, ...withoutExisting]);
-        }
-      );
+      void queryClient.invalidateQueries({
+        queryKey: assistantQueryKeys.conversationList(userId)
+      });
 
       return createdConversation;
     },
@@ -729,11 +755,47 @@ const AssistantIA = () => {
   const refreshConversations = useCallback(async () => {
     if (!currentUserId) return;
     await queryClient.invalidateQueries({
-      queryKey: assistantQueryKeys.conversations(currentUserId)
+      queryKey: assistantQueryKeys.conversationList(currentUserId)
     });
-    const data = await getConversations(currentUserId);
-    if (data) setConversations(sortConversationItems(data));
+    const data = await getConversations({
+      userId: currentUserId,
+      limit: INITIAL_CONVERSATIONS_PAGE_SIZE
+    });
+    if (!data) return;
+    setConversations(sortConversationItems(data.items));
+    setTotalConversationCount(data.totalCount);
   }, [currentUserId, getConversations, queryClient]);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (
+      !currentUserId ||
+      isLoadingConversations ||
+      isLoadingMoreConversations ||
+      !hasMoreConversations
+    )
+      return;
+
+    setIsLoadingMoreConversations(true);
+    const data = await getConversations({
+      userId: currentUserId,
+      limit: CONVERSATIONS_LOAD_MORE_PAGE_SIZE,
+      offset: conversations.length
+    });
+
+    if (data) {
+      setConversations((prev) => mergeConversationItems(prev, data.items));
+      setTotalConversationCount(data.totalCount);
+    }
+
+    setIsLoadingMoreConversations(false);
+  }, [
+    conversations.length,
+    currentUserId,
+    getConversations,
+    hasMoreConversations,
+    isLoadingConversations,
+    isLoadingMoreConversations
+  ]);
 
   const refreshDailyUsage = useCallback(
     async (userId: string) => {
@@ -1012,8 +1074,10 @@ const AssistantIA = () => {
       setIsLoadingMessages(false);
       setIsLoadingOlderMessages(false);
       setPinningConversationId(null);
+      setIsLoadingMoreConversations(false);
       setDailyUsedRequests(0);
       setDailyRequestLimit(0);
+      setTotalConversationCount(0);
       setIsLoadingDailyUsage(false);
       setIsLoadingConversations(false);
       return;
@@ -1027,7 +1091,11 @@ const AssistantIA = () => {
 
     const bootstrap = async () => {
       setIsLoadingConversations(true);
-      const loadedConversations = await getConversations(userId);
+      setIsLoadingMoreConversations(false);
+      const loadedConversations = await getConversations({
+        userId,
+        limit: INITIAL_CONVERSATIONS_PAGE_SIZE
+      });
       if (isCancelled) return;
 
       if (!loadedConversations) {
@@ -1036,20 +1104,23 @@ const AssistantIA = () => {
         return;
       }
 
-      if (loadedConversations.length === 0) {
-        const created = await createConversationRecord(userId);
-        if (isCancelled) return;
-        if (created) {
-          setConversations(sortConversationItems([created]));
-          setActiveConversationId(created.id);
-        } else bootstrappedUserIdRef.current = null;
-
+      if (loadedConversations.items.length === 0) {
+        lastLoadedConversationIdRef.current = null;
+        setConversations([]);
+        setTotalConversationCount(0);
+        setActiveConversationId(null);
+        setMensajes([]);
+        setHasMoreMessages(false);
         setIsLoadingConversations(false);
         return;
       }
 
-      setConversations(sortConversationItems(loadedConversations));
-      setActiveConversationId(loadedConversations[0].id);
+      setConversations(sortConversationItems(loadedConversations.items));
+      setTotalConversationCount(loadedConversations.totalCount);
+      lastLoadedConversationIdRef.current = null;
+      setActiveConversationId(null);
+      setMensajes([]);
+      setHasMoreMessages(false);
       setIsLoadingConversations(false);
     };
 
@@ -1058,7 +1129,7 @@ const AssistantIA = () => {
     return () => {
       isCancelled = true;
     };
-  }, [createConversationRecord, getConversations, isAuthReady, user?.id]);
+  }, [getConversations, isAuthReady, user?.id]);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -1358,216 +1429,89 @@ const AssistantIA = () => {
     return tables;
   };
 
-  const renderAssistantContent = (content: string, keyPrefix: string) => {
-    const lines = content.split(/\r?\n/);
-    const blocks: JSX.Element[] = [];
-    let bulletItems: string[] = [];
-    let tableLines: string[] = [];
-
-    const flushBulletItems = (lineIndex: number) => {
-      if (bulletItems.length === 0) return;
-
-      blocks.push(
-        <ul
-          key={`${keyPrefix}-list-${lineIndex}`}
-          className="list-disc pl-5 space-y-1"
-        >
-          {bulletItems.map((item, itemIndex) => (
-            <li
-              key={`${keyPrefix}-item-${lineIndex}-${itemIndex}`}
-              className="text-[15px] leading-7"
-            >
-              {renderInlineMarkdown(
-                item,
-                `${keyPrefix}-item-content-${lineIndex}-${itemIndex}`
-              )}
-            </li>
-          ))}
-        </ul>
-      );
-      bulletItems = [];
-    };
-
-    const isTableCandidateLine = (line: string) => {
-      if (!line.includes("|")) return false;
-      const rawCells = line
-        .trim()
-        .replace(/^\|/, "")
-        .replace(/\|$/, "")
-        .split("|")
-        .map((cell) => cell.trim());
-      return rawCells.length >= 2;
-    };
-
-    const parseTableCells = (line: string) =>
-      line
-        .trim()
-        .replace(/^\|/, "")
-        .replace(/\|$/, "")
-        .split("|")
-        .map((cell) => cell.trim());
-
-    const isMarkdownSeparatorRow = (row: string[]) =>
-      row.length > 0 &&
-      row.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
-
-    const flushTableLines = (lineIndex: number) => {
-      if (tableLines.length === 0) return;
-
-      const rows = tableLines
-        .map(parseTableCells)
-        .filter((row) => row.length > 0);
-      tableLines = [];
-      if (rows.length === 0) return;
-
-      const hasHeaderSeparator =
-        rows.length > 1 && isMarkdownSeparatorRow(rows[1]);
-      const headerRow = hasHeaderSeparator ? rows[0] : null;
-      const bodyRows = hasHeaderSeparator ? rows.slice(2) : rows;
-      const totalColumns = Math.max(
-        headerRow?.length ?? 0,
-        ...bodyRows.map((row) => row.length),
-        0
-      );
-
-      if (totalColumns === 0) return;
-
-      const tableData: AssistantTableData = {
-        headerRow,
-        bodyRows,
-        totalColumns
-      };
-
-      blocks.push(
-        <div key={`${keyPrefix}-table-wrap-${lineIndex}`}>
-          {renderAssistantTable(tableData, `${keyPrefix}-table-${lineIndex}`)}
-        </div>
-      );
-    };
-
-    lines.forEach((rawLine, lineIndex) => {
-      const line = rawLine.trim();
-
-      if (!line) {
-        flushBulletItems(lineIndex);
-        flushTableLines(lineIndex);
-        return;
-      }
-
-      if (isTableCandidateLine(line)) {
-        flushBulletItems(lineIndex);
-        tableLines.push(line);
-        return;
-      }
-
-      flushTableLines(lineIndex);
-
-      const bulletMatch = line.match(/^[-*]\s+(.+)$/);
-      if (bulletMatch) {
-        bulletItems.push(bulletMatch[1]);
-        return;
-      }
-
-      flushBulletItems(lineIndex);
-
-      const hrMatch = line.match(/^(-{3,}|\*{3,}|_{3,})$/);
-      if (hrMatch) {
-        blocks.push(
-          <hr
-            key={`${keyPrefix}-hr-${lineIndex}`}
-            className="my-2 border-border/60"
-          />
-        );
-        return;
-      }
-
-      const h1Match = line.match(/^#\s+(.+)$/);
-      if (h1Match) {
-        blocks.push(
-          <h1
-            key={`${keyPrefix}-h1-${lineIndex}`}
-            className="mt-3 text-xl font-bold tracking-tight text-foreground"
-          >
-            {renderInlineMarkdown(
-              h1Match[1],
-              `${keyPrefix}-h1-content-${lineIndex}`
-            )}
+  const renderAssistantContent = (content: string, _keyPrefix: string) => (
+    <ReactMarkdown
+      components={{
+        h1: ({ children }) => (
+          <h1 className="mt-3 text-xl font-bold tracking-tight text-foreground">
+            {children}
           </h1>
-        );
-        return;
-      }
-
-      const h2Match = line.match(/^##\s+(.+)$/);
-      if (h2Match) {
-        blocks.push(
-          <h2
-            key={`${keyPrefix}-h2-${lineIndex}`}
-            className="mt-3 border-l-2 border-primary/55 pl-2 text-lg font-semibold tracking-tight text-foreground"
-          >
-            {renderInlineMarkdown(
-              h2Match[1],
-              `${keyPrefix}-h2-content-${lineIndex}`
-            )}
+        ),
+        h2: ({ children }) => (
+          <h2 className="mt-3 border-l-2 border-primary/55 pl-2 text-lg font-semibold tracking-tight text-foreground">
+            {children}
           </h2>
-        );
-        return;
-      }
-
-      const h3Match = line.match(/^###\s+(.+)$/);
-      if (h3Match) {
-        blocks.push(
-          <h3
-            key={`${keyPrefix}-h3-${lineIndex}`}
-            className="mt-2 text-base font-semibold tracking-wide text-foreground/95"
-          >
-            {renderInlineMarkdown(
-              h3Match[1],
-              `${keyPrefix}-h3-content-${lineIndex}`
-            )}
+        ),
+        h3: ({ children }) => (
+          <h3 className="mt-2 text-base font-semibold tracking-wide text-foreground/95">
+            {children}
           </h3>
-        );
-        return;
-      }
-
-      const h4Match = line.match(/^####\s+(.+)$/);
-      if (h4Match) {
-        blocks.push(
-          <h4
-            key={`${keyPrefix}-h4-${lineIndex}`}
-            className="mt-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground"
-          >
-            {renderInlineMarkdown(
-              h4Match[1],
-              `${keyPrefix}-h4-content-${lineIndex}`
-            )}
+        ),
+        h4: ({ children }) => (
+          <h4 className="mt-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            {children}
           </h4>
-        );
-        return;
-      }
-
-      blocks.push(
-        <p
-          key={`${keyPrefix}-p-${lineIndex}`}
-          className="text-[15px] leading-7 text-foreground/95"
-        >
-          {renderInlineMarkdown(line, `${keyPrefix}-p-content-${lineIndex}`)}
-        </p>
-      );
-    });
-
-    flushBulletItems(lines.length + 1);
-    flushTableLines(lines.length + 1);
-
-    if (blocks.length === 0) {
-      return (
-        <p className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
-          {content}
-        </p>
-      );
-    }
-
-    return <div className="space-y-2">{blocks}</div>;
-  };
+        ),
+        p: ({ children }) => (
+          <p className="text-[15px] leading-7 text-foreground/95">{children}</p>
+        ),
+        strong: ({ children }) => (
+          <strong className="font-semibold">{children}</strong>
+        ),
+        em: ({ children }) => <em className="italic">{children}</em>,
+        ul: ({ children }) => (
+          <ul className="list-disc pl-5 space-y-1">{children}</ul>
+        ),
+        ol: ({ children }) => (
+          <ol className="list-decimal pl-5 space-y-1">{children}</ol>
+        ),
+        li: ({ children }) => (
+          <li className="text-[15px] leading-7">{children}</li>
+        ),
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-3 border-primary/40 pl-4 italic text-foreground/80">
+            {children}
+          </blockquote>
+        ),
+        hr: () => <hr className="my-2 border-border/60" />,
+        table: ({ children }) => (
+          <div className="overflow-x-auto rounded-lg border border-border/70">
+            <table className="min-w-full border-collapse text-sm">
+              {children}
+            </table>
+          </div>
+        ),
+        thead: ({ children }) => (
+          <thead className="bg-secondary/40">{children}</thead>
+        ),
+        th: ({ children }) => (
+          <th className="border-b border-border/70 px-3 py-2 text-left font-semibold">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="border-b border-border/40 px-3 py-2">{children}</td>
+        ),
+        tr: ({ children }) => (
+          <tr className="odd:bg-background even:bg-secondary/15">{children}</tr>
+        ),
+        code: ({ children, className }) => {
+          const isBlock = className?.includes("language-");
+          return isBlock ? (
+            <pre className="overflow-x-auto rounded-lg bg-secondary/30 p-3 text-sm">
+              <code>{children}</code>
+            </pre>
+          ) : (
+            <code className="rounded bg-secondary/40 px-1.5 py-0.5 text-sm">
+              {children}
+            </code>
+          );
+        }
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
 
   const renderConceptMapMessage = (message: ChatMessage) => {
     if (!message.conceptMap) return null;
@@ -1630,81 +1574,16 @@ const AssistantIA = () => {
     [i18n, t]
   );
 
-  const isConversationEmpty = useCallback(
-    (conversation: ConversationItem) => {
-      const createdAtMs = Date.parse(conversation.createdAt);
-      const lastMessageAtMs = Date.parse(conversation.lastMessageAt);
-      const hasNoMessagesByTimestamps =
-        !Number.isNaN(createdAtMs) &&
-        !Number.isNaN(lastMessageAtMs) &&
-        Math.abs(lastMessageAtMs - createdAtMs) < 1000;
-      return (
-        isDefaultConversationTitle(conversation.title) ||
-        hasNoMessagesByTimestamps
-      );
-    },
-    [isDefaultConversationTitle]
-  );
-
-  const moveConversationToSectionTop = useCallback((conversationId: string) => {
-    setConversations((prev) => {
-      const found = prev.find(
-        (conversation) => conversation.id === conversationId
-      );
-      if (!found) return prev;
-
-      const remaining = prev.filter(
-        (conversation) => conversation.id !== conversationId
-      );
-
-      if (found.pinned) return [found, ...remaining];
-
-      const firstUnpinnedIndex = remaining.findIndex(
-        (conversation) => !conversation.pinned
-      );
-
-      if (firstUnpinnedIndex === -1) return [...remaining, found];
-
-      return [
-        ...remaining.slice(0, firstUnpinnedIndex),
-        found,
-        ...remaining.slice(firstUnpinnedIndex)
-      ];
-    });
-  }, []);
-
-  const getExistingEmptyConversation = useCallback(
-    (list: ConversationItem[]) => list.find(isConversationEmpty) ?? null,
-    [isConversationEmpty]
-  );
-
   const onCreateConversation = async () => {
-    if (!currentUserId || isCreatingConversation) return;
+    if (!currentUserId || isSendingChat) return;
 
-    const existingEmpty = getExistingEmptyConversation(conversations);
-    if (existingEmpty) {
-      moveConversationToSectionTop(existingEmpty.id);
-      setActiveConversationId(existingEmpty.id);
-      setInputChat("");
-      return;
-    }
-
-    setIsCreatingConversation(true);
-    const created = await createConversationRecord(currentUserId);
-    setIsCreatingConversation(false);
-
-    if (!created) return;
-
-    setConversations((prev) =>
-      sortConversationItems([
-        created,
-        ...prev.filter((item) => item.id !== created.id)
-      ])
-    );
-    setActiveConversationId(created.id);
+    lastLoadedConversationIdRef.current = null;
+    setActiveConversationId(null);
     setInputChat("");
     setMensajes([]);
-    queryClient.setQueryData(assistantQueryKeys.messages(created.id), []);
+    setHasMoreMessages(false);
+    setIsLoadingMessages(false);
+    setIsLoadingOlderMessages(false);
   };
 
   const onRequestDeleteConversation = (conversation: ConversationItem) => {
@@ -1752,25 +1631,23 @@ const AssistantIA = () => {
       queryKey: assistantQueryKeys.messages(conversationId)
     });
     await queryClient.invalidateQueries({
-      queryKey: assistantQueryKeys.conversations(currentUserId)
+      queryKey: assistantQueryKeys.conversationList(currentUserId)
     });
 
     const remainingConversations = conversations.filter(
       (conversation) => conversation.id !== conversationId
     );
     setConversations(remainingConversations);
+    setTotalConversationCount((prev) => Math.max(prev - 1, 0));
 
     if (activeConversationId === conversationId) {
       if (remainingConversations.length > 0)
         setActiveConversationId(remainingConversations[0].id);
       else {
+        lastLoadedConversationIdRef.current = null;
         setActiveConversationId(null);
         setMensajes([]);
-        const created = await createConversationRecord(currentUserId);
-        if (created) {
-          setConversations([created]);
-          setActiveConversationId(created.id);
-        }
+        setHasMoreMessages(false);
       }
     }
 
@@ -1847,13 +1724,9 @@ const AssistantIA = () => {
         item.id === conversation.id ? { ...item, title: nextTitle } : item
       )
     );
-    queryClient.setQueryData(
-      assistantQueryKeys.conversations(currentUserId),
-      (prev: AssistantConversationRow[] | undefined) =>
-        (prev ?? []).map((item) =>
-          item.id === conversation.id ? { ...item, title: nextTitle } : item
-        )
-    );
+    void queryClient.invalidateQueries({
+      queryKey: assistantQueryKeys.conversationList(currentUserId)
+    });
     cancelEditingConversation();
   };
 
@@ -1894,15 +1767,9 @@ const AssistantIA = () => {
         )
       )
     );
-    queryClient.setQueryData(
-      assistantQueryKeys.conversations(currentUserId),
-      (prev: AssistantConversationRow[] | undefined) =>
-        sortConversationRows(
-          (prev ?? []).map((item) =>
-            item.id === conversation.id ? { ...item, pinned: nextPinned } : item
-          )
-        )
-    );
+    void queryClient.invalidateQueries({
+      queryKey: assistantQueryKeys.conversationList(currentUserId)
+    });
     setPinningConversationId(null);
   };
 
@@ -2622,23 +2489,13 @@ const AssistantIA = () => {
     let conversationId = activeConversationId;
 
     if (!conversationId) {
-      const existingEmpty = getExistingEmptyConversation(conversations);
-      if (existingEmpty) {
-        moveConversationToSectionTop(existingEmpty.id);
-        setActiveConversationId(existingEmpty.id);
-        conversationId = existingEmpty.id;
-      } else {
-        const created = await createConversationRecord(currentUserId);
-        if (!created) return;
-        setConversations((prev) =>
-          sortConversationItems([
-            created,
-            ...prev.filter((item) => item.id !== created.id)
-          ])
-        );
-        setActiveConversationId(created.id);
-        conversationId = created.id;
-      }
+      const created = await createConversationRecord(currentUserId);
+      if (!created) return;
+      setConversations((prev) => mergeConversationItems([created], prev));
+      setTotalConversationCount((prev) => prev + 1);
+      lastLoadedConversationIdRef.current = created.id;
+      setActiveConversationId(created.id);
+      conversationId = created.id;
     }
 
     const currentConversationTitle =
@@ -2695,7 +2552,7 @@ const AssistantIA = () => {
             )
           );
           await queryClient.invalidateQueries({
-            queryKey: assistantQueryKeys.conversations(currentUserId)
+            queryKey: assistantQueryKeys.conversationList(currentUserId)
           });
         }
       }
@@ -2853,7 +2710,15 @@ const AssistantIA = () => {
   };
 
   const onInputChatKeyDown = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+    if (
+      e.key !== "Enter" ||
+      e.shiftKey ||
+      e.ctrlKey ||
+      e.altKey ||
+      e.metaKey ||
+      e.nativeEvent.isComposing
+    )
+      return;
     e.preventDefault();
     chatFormRef.current?.requestSubmit();
   };
@@ -3051,13 +2916,27 @@ const AssistantIA = () => {
 
   const historySidebarPanel = (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="px-6 pb-3">
+      <div className="flex items-center justify-between gap-3 px-6 pb-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           Tus chats
         </p>
+        <CustomButton
+          type="button"
+          onClick={onCreateConversation}
+          disabled={isLoadingConversations || !currentUserId || isSendingChat}
+          styleType="primary"
+          size="sm"
+          radius="full"
+          className="h-8 px-3 shadow-[0_18px_38px_-22px_hsl(var(--primary)/0.8)]"
+          aria-label={t("assistant:sidebar.newChat")}
+          title={t("assistant:sidebar.newChat")}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t("assistant:sidebar.newChat")}
+        </CustomButton>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-20">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 ">
         {showInitialConversationsLoader ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             {t("assistant:sidebar.loadingChats")}
@@ -3077,10 +2956,36 @@ const AssistantIA = () => {
             </div>
           </div>
         ) : (
-          <div className="space-y-2 px-3">
+          <div className="space-y-3 px-3">
             {conversations.map((conversation) =>
               renderConversationHistoryItem(conversation)
             )}
+            {hasMoreConversations ? (
+              <div className="px-1 pb-2 pt-1">
+                <CustomButton
+                  type="button"
+                  onClick={loadMoreConversations}
+                  disabled={isLoadingMoreConversations}
+                  styleType="ghost"
+                  size="sm"
+                  radius="full"
+                  className="w-full"
+                >
+                  {isLoadingMoreConversations ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t("assistant:sidebar.loadingChats", {
+                        defaultValue: "Cargando chats"
+                      })}
+                    </>
+                  ) : (
+                    t("assistant:sidebar.loadMore", {
+                      defaultValue: "Cargar mas"
+                    })
+                  )}
+                </CustomButton>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -3093,29 +2998,9 @@ const AssistantIA = () => {
         ? createPortal(historySidebarPanel, sidebarHistoryHost)
         : null}
 
-      <div className="relative flex h-[78vh] max-h-[78vh] min-h-0 flex-col overflow-visible pl-14 [@media(max-height:760px)]:h-[86vh] [@media(max-height:760px)]:max-h-[86vh] md:pl-16">
+      <div className="relative flex h-full max-h-full min-h-0 w-full flex-col overflow-hidden">
         <div className="pointer-events-none absolute -top-20 -right-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
-        <div className="pointer-events-none absolute left-1 top-4 z-20">
-          <CustomButton
-            type="button"
-            onClick={onCreateConversation}
-            disabled={
-              isCreatingConversation || isLoadingConversations || !currentUserId
-            }
-            styleType="primary"
-            size="icon"
-            radius="full"
-            className="pointer-events-auto h-11 w-11 shadow-[0_18px_38px_-18px_hsl(var(--primary)/0.8)]"
-            aria-label={t("assistant:sidebar.newChat")}
-            title={t("assistant:sidebar.newChat")}
-          >
-            {isCreatingConversation ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-          </CustomButton>
-        </div>
+        <div className="relative mx-auto flex h-full min-h-0 w-full max-w-[1080px] flex-col px-4 sm:px-6 lg:px-8 xl:px-10">
         <div
           ref={chatContainerRef}
           onScroll={handleChatScroll}
@@ -3159,8 +3044,8 @@ const AssistantIA = () => {
                     key={m.id}
                     className={`max-w-[88%] rounded-2xl p-4 ${
                       m.role === "assistant"
-                        ? "border border-border/70 bg-background text-foreground shadow-sm"
-                        : "ml-auto bg-primary text-primary-foreground shadow-[0_12px_24px_-18px_hsl(var(--primary)/0.65)]"
+                        ? "border border-border/70 bg-card text-foreground shadow-sm"
+                        : "ml-auto border border-border/50 bg-secondary/60 text-foreground shadow-sm"
                     }`}
                   >
                     <div className="mb-1 flex items-center gap-2">
@@ -3252,7 +3137,7 @@ const AssistantIA = () => {
           )}
         </div>
 
-        <div className="relative mt-3 [@media(max-height:760px)]:mt-2">
+        <div className="relative mt-3 mb-2 [@media(max-height:760px)]:mt-2">
           {showScrollToLatestButton ? (
             <CustomButton
               type="button"
@@ -3427,6 +3312,7 @@ const AssistantIA = () => {
               </div>
             </div>
           </form>
+        </div>
         </div>
       </div>
 

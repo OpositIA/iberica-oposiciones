@@ -5,13 +5,17 @@ import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import CustomButton from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getWatermarkedSyllabusPdfBytes } from "@/queries/profileQueries";
+import {
+  getWatermarkedSyllabusPdfBytes,
+  useCurrentSyllabusDownloadOfferQuery
+} from "@/queries/profileQueries";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Download,
   Eye,
   FileText,
   Lock,
@@ -38,6 +42,9 @@ const MAX_ZOOM = 2.4;
 const ZOOM_STEP = 0.2;
 const THUMBNAIL_WIDTH = 120;
 const FREE_PREVIEW_PAGE_LIMIT = 1;
+const PDF_DOCUMENT_OPTIONS = {
+  standardFontDataUrl: `${import.meta.env.BASE_URL}standard_fonts/`
+};
 const VIEWER_WATERMARK_BLOCKS = [
   { left: "8%", top: "10%" },
   { right: "8%", top: "24%" },
@@ -86,6 +93,12 @@ const ProfileSyllabusPdfViewer = () => {
     10
   );
   const topicTitle = searchParams.get("topicTitle")?.trim() || "";
+  const syllabusDownloadHref = useMemo(() => {
+    const nextParams = new URLSearchParams();
+    if (topicTitle) nextParams.set("topicTitle", topicTitle);
+    const query = nextParams.toString();
+    return `/perfil/temario/descarga/${normalizedSubtopicFileId}${query ? `?${query}` : ""}`;
+  }, [normalizedSubtopicFileId, topicTitle]);
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const viewerScrollRef = useRef<HTMLDivElement | null>(null);
   const thumbnailScrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -125,6 +138,9 @@ const ProfileSyllabusPdfViewer = () => {
       Number.isFinite(normalizedSubtopicFileId) && normalizedSubtopicFileId > 0,
     staleTime: 4 * 60 * 1000
   });
+  const { data: syllabusDownloadOffer } = useCurrentSyllabusDownloadOfferQuery(
+    normalizedSubtopicFileId
+  );
 
   const thumbnailPages = useMemo(
     () => Array.from({ length: pageCount }, (_, index) => index + 1),
@@ -157,12 +173,6 @@ const ProfileSyllabusPdfViewer = () => {
     if (!pdfPayload?.pdfBytes) return null;
     return { data: new Uint8Array(pdfPayload.pdfBytes) };
   }, [pdfPayload]);
-  const pdfDocumentOptions = useMemo(
-    () => ({
-      standardFontDataUrl: `${import.meta.env.BASE_URL}standard_fonts/`
-    }),
-    []
-  );
 
   const mainPageWidth = useMemo(() => {
     const baseWidth =
@@ -597,12 +607,12 @@ const ProfileSyllabusPdfViewer = () => {
     ? { filter: "sepia(0.18) saturate(0.86) brightness(0.95) contrast(0.92)" }
     : undefined;
 
-  return (
-    <>
-      <section
-        className={`select-none overflow-hidden rounded-[1.5rem] border shadow-[0_32px_90px_-52px_rgba(15,23,42,0.45)] ${shellToneClass}`}
-      >
-      <header className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}>
+	  return (
+	    <>
+	      <section
+	        className={`flex h-full min-h-0 flex-col select-none overflow-hidden ${shellToneClass}`}
+	      >
+	      <header className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <Link
@@ -625,6 +635,24 @@ const ProfileSyllabusPdfViewer = () => {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <CustomButton
+              asChild
+              size="sm"
+              styleType={syllabusDownloadOffer?.is_purchased ? "primary" : "ghost"}
+              className="rounded-full px-3"
+            >
+              <Link to={syllabusDownloadHref}>
+                <Download className="h-4 w-4" />
+                {syllabusDownloadOffer?.is_purchased
+                  ? t("syllabus.viewerDownloadOwned", {
+                      defaultValue: "Descarga activa"
+                    })
+                  : t("syllabus.viewerDownload", {
+                      defaultValue: "Descarga"
+                    })}
+              </Link>
+            </CustomButton>
+
             <CustomButton
               type="button"
               size="sm"
@@ -798,17 +826,17 @@ const ProfileSyllabusPdfViewer = () => {
         </div>
       </header>
 
-      <div
-        className={`grid min-h-[78vh] grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
-      >
-        <aside
-          className={`border-b md:border-b-0 md:border-r ${sidebarToneClass}`}
-        >
-	          <ScrollArea ref={thumbnailScrollAreaRef} className="h-[12rem] md:h-[78vh]">
+	      <div
+	        className={`grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
+	      >
+	        <aside
+	          className={`min-h-0 border-b md:border-b-0 md:border-r ${sidebarToneClass}`}
+	        >
+		          <ScrollArea ref={thumbnailScrollAreaRef} className="h-[12rem] md:h-full">
             <div className="flex items-center gap-3 p-3 md:flex md:flex-col md:items-center md:gap-2 md:p-4">
 	              <Document
 	                file={thumbnailPdfFile}
-	                options={pdfDocumentOptions}
+	                options={PDF_DOCUMENT_OPTIONS}
 	                loading={null}
 	                onLoadSuccess={handleDocumentLoad}
 	                onLoadError={handleDocumentLoadError}
@@ -890,18 +918,18 @@ const ProfileSyllabusPdfViewer = () => {
           </ScrollArea>
         </aside>
 
-        <div ref={viewerContainerRef} className="min-w-0">
-          <div
-            ref={viewerScrollRef}
-            className="relative h-[calc(78vh-1px)] overflow-y-auto"
-          >
+	        <div ref={viewerContainerRef} className="min-h-0 min-w-0">
+	          <div
+	            ref={viewerScrollRef}
+	            className="relative h-full overflow-y-auto"
+	          >
             <div className="flex min-h-full items-start justify-center p-4 md:p-8">
 	              <Document
 	                file={mainPdfFile}
-	                options={pdfDocumentOptions}
+	                options={PDF_DOCUMENT_OPTIONS}
 	                loading={
 	                  <AppLoading
-                    label={t("syllabus.viewerDocumentLoading", {
+	                    label={t("syllabus.viewerDocumentLoading", {
                       defaultValue: "Preparando paginas del PDF..."
                     })}
                   />

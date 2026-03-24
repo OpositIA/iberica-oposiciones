@@ -229,7 +229,7 @@ serve(async (req) => {
     );
   }
 
-  const hasPaidAccess = Boolean(planRows?.[0]?.is_paid);
+  const hasPaidPlanAccess = Boolean(planRows?.[0]?.is_paid);
 
   const { data: fileRow, error: fileError } = await serviceClient
     .from("opposition_subtopic_files")
@@ -269,6 +269,24 @@ serve(async (req) => {
   if (!syllabusRow?.is_current) {
     return json({ error: "syllabus_pdf_not_available" }, 404);
   }
+
+  const { data: purchaseRow, error: purchaseError } = await serviceClient
+    .from("syllabus_download_purchases")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("syllabus_id", file.syllabus_id)
+    .maybeSingle();
+
+  if (purchaseError) {
+    return json(
+      {
+        error: `Could not validate syllabus purchase: ${purchaseError.message}`
+      },
+      400
+    );
+  }
+
+  const hasPaidAccess = hasPaidPlanAccess || Boolean(purchaseRow);
 
   const { data: downloadData, error: downloadError } =
     await serviceClient.storage

@@ -99,6 +99,7 @@ export const applyTheme = (theme: AppTheme) => {
 export const initializeTheme = (): AppTheme => {
   const theme = getStoredTheme();
   applyTheme(theme);
-  applyAccentColor(getStoredAccentColor());
+  if (typeof window !== "undefined")
+    window.localStorage.removeItem(ACCENT_COLOR_STORAGE_KEY);
   return theme;
 };

@@ -24,7 +24,7 @@ import {
   Sun,
   TimerReset
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
@@ -42,11 +42,19 @@ const UserActionsDropdown = ({
   const { data: planState } = useUserPlanStateQuery(user?.id);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const avatarUrl =
     profile?.avatarUrl ||
     (typeof user?.user_metadata?.avatar_url === "string"
       ? user.user_metadata.avatar_url
       : "");
+  const handleAvatarError = useCallback(() => setAvatarLoadError(true), []);
+  const previousAvatarUrlRef = useRef(avatarUrl);
+  if (previousAvatarUrlRef.current !== avatarUrl) {
+    previousAvatarUrlRef.current = avatarUrl;
+    if (avatarLoadError) setAvatarLoadError(false);
+  }
+
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${
       profile?.lastName ?? ""
@@ -83,11 +91,13 @@ const UserActionsDropdown = ({
           className={cn("h-10 w-10 overflow-hidden", buttonClassName)}
           aria-label={t("profile:layout.profileMenuLabel")}
         >
-          {avatarUrl ? (
+          {avatarUrl && !avatarLoadError ? (
             <img
               src={avatarUrl}
               alt={t("profile:myProfile.avatarAlt")}
               className="h-full w-full rounded-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={handleAvatarError}
             />
           ) : (
             <CircleUserRound

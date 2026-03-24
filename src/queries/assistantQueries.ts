@@ -11,8 +11,10 @@ export const assistantQueryConfig = {
 };
 
 export const assistantQueryKeys = {
-  conversations: (userId: string) =>
+  conversationList: (userId: string) =>
     ["assistant", "conversations", userId] as const,
+  conversations: (userId: string, limit: number, offset: number) =>
+    ["assistant", "conversations", userId, limit, offset] as const,
   dailyQuota: (userId: string) => ["assistant", "daily-quota", userId] as const,
   messages: (conversationId: string) =>
     ["assistant", "messages", conversationId] as const
@@ -36,19 +38,38 @@ export type AssistantDailyQuotaRow = {
   used: number;
 };
 
+export type AssistantConversationsPage = {
+  rows: AssistantConversationRow[];
+  totalCount: number;
+};
+
 export const fetchAssistantConversations = async (
-  userId: string
-): Promise<AssistantConversationRow[]> => {
-  const { data, error } = await supabase
+  params: {
+    userId: string;
+    limit: number;
+    offset?: number;
+  }
+): Promise<AssistantConversationsPage> => {
+  const offset = Math.max(0, params.offset ?? 0);
+  const limit = Math.max(1, params.limit);
+  const { data, error, count } = await supabase
     .from("ai_conversations")
-    .select("id, title, created_at, last_message_at, pinned")
-    .eq("user_id", userId)
+    .select("id, title, created_at, last_message_at, pinned", {
+      count: "exact"
+    })
+    .eq("user_id", params.userId)
     .eq("archived", false)
     .order("pinned", { ascending: false })
-    .order("last_message_at", { ascending: false });
+    .order("last_message_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) throw error;
-  return (data ?? []) as AssistantConversationRow[];
+  const rows = (data ?? []) as AssistantConversationRow[];
+
+  return {
+    rows,
+    totalCount: typeof count === "number" ? count : offset + rows.length
+  };
 };
 
 export const fetchAssistantDailyQuota = async (

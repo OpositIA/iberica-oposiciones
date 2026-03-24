@@ -383,10 +383,39 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
     window.addEventListener("storage", onStorage);
 
+    let lastVisibleAt = Date.now();
+    const STALE_TAB_THRESHOLD_MS = 60_000;
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        lastVisibleAt = Date.now();
+        return;
+      }
+
+      const elapsed = Date.now() - lastVisibleAt;
+      if (elapsed < STALE_TAB_THRESHOLD_MS) return;
+
+      authLog("Tab visible tras inactividad, refrescando sesion", {
+        elapsedMs: elapsed
+      });
+
+      void supabase.auth.getSession().then(({ data, error }) => {
+        if (!isMounted) return;
+        if (error || !data.session || isSessionExpired(data.session)) {
+          onInvalidSession("visibility_stale_session");
+          return;
+        }
+        void onValidSession(data.session, "init");
+      });
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     return () => {
       isMounted = false;
       authSubscription.subscription.unsubscribe();
       window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [
     applyLocale,

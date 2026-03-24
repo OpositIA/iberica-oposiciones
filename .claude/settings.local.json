@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -H 'Accept: application/json' https://www.boe.es/datosabiertos/api/boe/sumario/20251231)",
+      "Bash(node -e \":*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
