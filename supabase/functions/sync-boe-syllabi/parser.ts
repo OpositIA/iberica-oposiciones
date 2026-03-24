@@ -353,11 +353,8 @@ function findAnnexBounds(lines: ParsedLine[]): {
   }
 
   // Prefer candidates bounded by ANEXO II over unbounded ones
-  const bounded = candidateData.filter(
-    (row) => row.endIdx < lines.length
-  );
-  if (bounded.length > 0)
-    return bounded[bounded.length - 1];
+  const bounded = candidateData.filter((row) => row.endIdx < lines.length);
+  if (bounded.length > 0) return bounded[bounded.length - 1];
 
   // Last resort: use the last candidate (extends to end of document)
   return candidateData[candidateData.length - 1];
@@ -414,9 +411,8 @@ function parseTopicsAndSubtopics(lines: ParsedLine[]): {
 
   const createTopic = (rawTitle: string): string => {
     const blockNumber = topics.length + 1;
-    const displayTitle = rawTitle && rawTitle !== "General"
-      ? rawTitle
-      : `Bloque ${blockNumber}`;
+    const displayTitle =
+      rawTitle && rawTitle !== "General" ? rawTitle : `Bloque ${blockNumber}`;
     const code = uniqueSlug(
       slugify(displayTitle, 80) || `bloque-${blockNumber}`,
       usedTopicCodes
@@ -537,8 +533,11 @@ async function sha256Hex(value: string): Promise<string> {
 }
 
 function extractPublishedAtFromRawXml(xmlText: string): string | null {
-  const match = xmlText.match(/<fecha_publicacion>(\d{8})<\/fecha_publicacion>/);
-  if (match) return `${match[1].slice(0, 4)}-${match[1].slice(4, 6)}-${match[1].slice(6, 8)}`;
+  const match = xmlText.match(
+    /<fecha_publicacion>(\d{8})<\/fecha_publicacion>/
+  );
+  if (match)
+    return `${match[1].slice(0, 4)}-${match[1].slice(4, 6)}-${match[1].slice(6, 8)}`;
   return null;
 }
 
@@ -548,7 +547,8 @@ export function parseBoeDocument(xmlText: string): ParsedBoeDocument {
 
   return {
     documentTitle: extractDocumentTitle(doc),
-    publishedAt: extractPublishedAt(doc) ?? extractPublishedAtFromRawXml(xmlText),
+    publishedAt:
+      extractPublishedAt(doc) ?? extractPublishedAtFromRawXml(xmlText),
     department: extractDepartment(doc),
     sectionCode: extractSectionCode(doc),
     subsectionCode: extractSubsectionCode(doc),

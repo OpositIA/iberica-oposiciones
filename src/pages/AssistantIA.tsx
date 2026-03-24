@@ -78,8 +78,8 @@ import {
   useState
 } from "react";
 import { createPortal } from "react-dom";
-import ReactMarkdown from "react-markdown";
 import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
 
 type ChatMessage = {
   id: string;
@@ -703,7 +703,9 @@ const AssistantIA = () => {
         ]);
         if (timeoutId) window.clearTimeout(timeoutId);
         return {
-          items: sortConversationRows(data.rows).map((row) => mapConversation(row)),
+          items: sortConversationRows(data.rows).map((row) =>
+            mapConversation(row)
+          ),
           totalCount: data.totalCount
         };
       } catch (error) {
@@ -3001,195 +3003,198 @@ const AssistantIA = () => {
       <div className="relative flex h-full max-h-full min-h-0 w-full flex-col overflow-hidden">
         <div className="pointer-events-none absolute -top-20 -right-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
         <div className="relative mx-auto flex h-full min-h-0 w-full max-w-[1080px] flex-col px-4 sm:px-6 lg:px-8 xl:px-10">
-        <div
-          ref={chatContainerRef}
-          onScroll={handleChatScroll}
-          className="flex-1 min-h-0 space-y-3 overflow-y-auto px-1 py-12 md:px-2 md:py-12"
-        >
-          {showInitialMessagesLoader ? (
-            <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground [@media(max-height:760px)]:min-h-44">
-              {t("assistant:chat.loadingConversation")}
-            </div>
-          ) : (
-            <>
-              {isLoadingOlderMessages && mensajes.length > 0 && (
-                <div className="flex items-center justify-center py-1 text-xs text-muted-foreground">
-                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  {t("assistant:chat.loadingOlderMessages", {
-                    defaultValue: "Cargando mensajes anteriores..."
-                  })}
-                </div>
-              )}
-              {mensajes.length === 0 && (
-                <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 text-center [@media(max-height:760px)]:min-h-44">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
-                    <BookOpen className="h-5 w-5 text-primary" />
+          <div
+            ref={chatContainerRef}
+            onScroll={handleChatScroll}
+            className="flex-1 min-h-0 space-y-3 overflow-y-auto px-1 py-12 md:px-2 md:py-12"
+          >
+            {showInitialMessagesLoader ? (
+              <div className="flex h-full min-h-72 items-center justify-center text-sm text-muted-foreground [@media(max-height:760px)]:min-h-44">
+                {t("assistant:chat.loadingConversation")}
+              </div>
+            ) : (
+              <>
+                {isLoadingOlderMessages && mensajes.length > 0 && (
+                  <div className="flex items-center justify-center py-1 text-xs text-muted-foreground">
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    {t("assistant:chat.loadingOlderMessages", {
+                      defaultValue: "Cargando mensajes anteriores..."
+                    })}
                   </div>
-                  <p className="text-sm font-medium text-foreground">
-                    {t("assistant:chat.emptyTitle")}
-                  </p>
-                  <p className="max-w-xs text-xs text-muted-foreground">
-                    {t("assistant:chat.emptyDescription")}
-                  </p>
-                </div>
-              )}
-              {mensajes.map((m) => {
-                const assistantTables =
-                  m.role === "assistant" && !m.conceptMap
-                    ? extractAssistantTables(m.content)
-                    : [];
-
-                return (
-                  <div
-                    key={m.id}
-                    className={`max-w-[88%] rounded-2xl p-4 ${
-                      m.role === "assistant"
-                        ? "border border-border/70 bg-card text-foreground shadow-sm"
-                        : "ml-auto border border-border/50 bg-secondary/60 text-foreground shadow-sm"
-                    }`}
-                  >
-                    <div className="mb-1 flex items-center gap-2">
-                      {m.role === "assistant" ? (
-                        <MessageCircle className="h-3.5 w-3.5" />
-                      ) : (
-                        <User className="h-3.5 w-3.5" />
-                      )}
-                      <span className="text-xs font-medium uppercase tracking-widest opacity-85">
-                        {m.role === "assistant"
-                          ? t("assistant:chat.assistantLabel")
-                          : t("assistant:chat.userLabel")}
-                      </span>
-                      {m.role === "assistant" && assistantTables.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setTableDialogData(assistantTables[0])}
-                          className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
-                          aria-label={t("assistant:chat.openTableDialog", {
-                            defaultValue: "Abrir tabla"
-                          })}
-                        >
-                          <Expand className="h-3.5 w-3.5" />
-                        </button>
-                      ) : null}
+                )}
+                {mensajes.length === 0 && (
+                  <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 text-center [@media(max-height:760px)]:min-h-44">
+                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
+                      <BookOpen className="h-5 w-5 text-primary" />
                     </div>
-                    {m.role === "assistant" ? (
-                      m.conceptMap ? (
-                        renderConceptMapMessage(m)
-                      ) : (
-                        renderAssistantContent(
-                          m.content,
-                          `assistant-msg-${m.id}`
-                        )
-                      )
-                    ) : (
-                      <p className="whitespace-pre-wrap text-[15px] leading-7">
-                        {m.content}
-                      </p>
-                    )}
+                    <p className="text-sm font-medium text-foreground">
+                      {t("assistant:chat.emptyTitle")}
+                    </p>
+                    <p className="max-w-xs text-xs text-muted-foreground">
+                      {t("assistant:chat.emptyDescription")}
+                    </p>
                   </div>
-                );
-              })}
-              {isSendingChat && (
-                <div className="max-w-[88%] rounded-2xl border border-border/70 bg-background p-4 text-foreground shadow-sm">
-                  {pendingAssistantMode === "concept-map" ? (
-                    <div className="rounded-2xl border border-border/70 bg-secondary/30 p-3">
-                      <div className="flex items-start gap-3">
-                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/35 bg-primary/10 text-primary">
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                {mensajes.map((m) => {
+                  const assistantTables =
+                    m.role === "assistant" && !m.conceptMap
+                      ? extractAssistantTables(m.content)
+                      : [];
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={`max-w-[88%] rounded-2xl p-4 ${
+                        m.role === "assistant"
+                          ? "border border-border/70 bg-card text-foreground shadow-sm"
+                          : "ml-auto border border-border/50 bg-secondary/60 text-foreground shadow-sm"
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center gap-2">
+                        {m.role === "assistant" ? (
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        ) : (
+                          <User className="h-3.5 w-3.5" />
+                        )}
+                        <span className="text-xs font-medium uppercase tracking-widest opacity-85">
+                          {m.role === "assistant"
+                            ? t("assistant:chat.assistantLabel")
+                            : t("assistant:chat.userLabel")}
                         </span>
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground">
-                            {t("assistant:chat.conceptMapGeneratingTitle", {
-                              defaultValue: "Generando mapa mental"
+                        {m.role === "assistant" &&
+                        assistantTables.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTableDialogData(assistantTables[0])
+                            }
+                            className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+                            aria-label={t("assistant:chat.openTableDialog", {
+                              defaultValue: "Abrir tabla"
                             })}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {t(
-                              "assistant:chat.conceptMapGeneratingDescription",
-                              {
-                                defaultValue:
-                                  "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo."
-                              }
-                            )}
-                          </p>
+                          >
+                            <Expand className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                      {m.role === "assistant" ? (
+                        m.conceptMap ? (
+                          renderConceptMapMessage(m)
+                        ) : (
+                          renderAssistantContent(
+                            m.content,
+                            `assistant-msg-${m.id}`
+                          )
+                        )
+                      ) : (
+                        <p className="whitespace-pre-wrap text-[15px] leading-7">
+                          {m.content}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+                {isSendingChat && (
+                  <div className="max-w-[88%] rounded-2xl border border-border/70 bg-background p-4 text-foreground shadow-sm">
+                    {pendingAssistantMode === "concept-map" ? (
+                      <div className="rounded-2xl border border-border/70 bg-secondary/30 p-3">
+                        <div className="flex items-start gap-3">
+                          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/35 bg-primary/10 text-primary">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          </span>
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-foreground">
+                              {t("assistant:chat.conceptMapGeneratingTitle", {
+                                defaultValue: "Generando mapa mental"
+                              })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t(
+                                "assistant:chat.conceptMapGeneratingDescription",
+                                {
+                                  defaultValue:
+                                    "Estoy organizando nodos y conexiones clave para mostrartelo en un diagrama interactivo."
+                                }
+                              )}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-1 flex items-center gap-2">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        <span className="text-xs font-medium uppercase tracking-widest opacity-85">
-                          {t("assistant:chat.assistantLabel")}
-                        </span>
-                        <span className="ml-auto text-xs opacity-80">
-                          {t("assistant:chat.writing")}
-                        </span>
-                      </div>
-                      <p className="animate-pulse text-[15px] leading-7 text-muted-foreground">
-                        {estadosEscrituraIA[estadoEscrituraIdx]}
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                    ) : (
+                      <>
+                        <div className="mb-1 flex items-center gap-2">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          <span className="text-xs font-medium uppercase tracking-widest opacity-85">
+                            {t("assistant:chat.assistantLabel")}
+                          </span>
+                          <span className="ml-auto text-xs opacity-80">
+                            {t("assistant:chat.writing")}
+                          </span>
+                        </div>
+                        <p className="animate-pulse text-[15px] leading-7 text-muted-foreground">
+                          {estadosEscrituraIA[estadoEscrituraIdx]}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
-        <div className="relative mt-3 mb-2 [@media(max-height:760px)]:mt-2">
-          {showScrollToLatestButton ? (
-            <CustomButton
-              type="button"
-              onClick={handleScrollToLatestMessage}
-              styleType="subtle"
-              size="sm"
-              radius="full"
-              className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 border-border/80 bg-background/95 px-4 shadow-[0_18px_34px_-20px_hsl(var(--foreground)/0.45)] backdrop-blur supports-[backdrop-filter]:bg-background/80"
-              aria-label={t("assistant:chat.scrollToLatest")}
-              title={t("assistant:chat.scrollToLatest")}
-            >
-              <ArrowDown className="h-3.5 w-3.5" />
-              {t("assistant:chat.scrollToLatest")}
-            </CustomButton>
-          ) : null}
-          <form ref={chatFormRef} onSubmit={onSubmitChat}>
-            <div
-              className={`rounded-[1.55rem] border px-4 pt-3 pb-2 shadow-sm ${
-                isDailyLimitReached
-                  ? "border-destructive/40 bg-destructive/5"
-                  : "border-border/80 bg-background"
-              }`}
-            >
-              <Textarea
-                ref={inputTextareaRef}
-                value={inputChat}
-                onChange={(e) =>
-                  setInputChat(
-                    sanitizeText(e.target.value, {
-                      maxLength: 4000,
-                      trim: false,
-                      collapseWhitespace: false,
-                      preserveNewlines: true
-                    })
-                  )
-                }
-                onPointerDown={handleLockedTextareaInteraction}
-                onFocus={handleLockedTextareaInteraction}
-                onKeyDown={onInputChatKeyDown}
-                placeholder={
+          <div className="relative mt-3 mb-2 [@media(max-height:760px)]:mt-2">
+            {showScrollToLatestButton ? (
+              <CustomButton
+                type="button"
+                onClick={handleScrollToLatestMessage}
+                styleType="subtle"
+                size="sm"
+                radius="full"
+                className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 border-border/80 bg-background/95 px-4 shadow-[0_18px_34px_-20px_hsl(var(--foreground)/0.45)] backdrop-blur supports-[backdrop-filter]:bg-background/80"
+                aria-label={t("assistant:chat.scrollToLatest")}
+                title={t("assistant:chat.scrollToLatest")}
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+                {t("assistant:chat.scrollToLatest")}
+              </CustomButton>
+            ) : null}
+            <form ref={chatFormRef} onSubmit={onSubmitChat}>
+              <div
+                className={`rounded-[1.55rem] border px-4 pt-3 pb-2 shadow-sm ${
                   isDailyLimitReached
-                    ? t("assistant:input.placeholderLimitReached")
-                    : t("assistant:input.placeholder")
-                }
-                readOnly={isDailyLimitReached && !isCurrentPlanPaid}
-                rows={1}
-                className="min-h-0 w-full resize-none overflow-x-hidden overflow-y-hidden border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
+                    ? "border-destructive/40 bg-destructive/5"
+                    : "border-border/80 bg-background"
+                }`}
+              >
+                <Textarea
+                  ref={inputTextareaRef}
+                  value={inputChat}
+                  onChange={(e) =>
+                    setInputChat(
+                      sanitizeText(e.target.value, {
+                        maxLength: 4000,
+                        trim: false,
+                        collapseWhitespace: false,
+                        preserveNewlines: true
+                      })
+                    )
+                  }
+                  onPointerDown={handleLockedTextareaInteraction}
+                  onFocus={handleLockedTextareaInteraction}
+                  onKeyDown={onInputChatKeyDown}
+                  placeholder={
+                    isDailyLimitReached
+                      ? t("assistant:input.placeholderLimitReached")
+                      : t("assistant:input.placeholder")
+                  }
+                  readOnly={isDailyLimitReached && !isCurrentPlanPaid}
+                  rows={1}
+                  className="min-h-0 w-full resize-none overflow-x-hidden overflow-y-hidden border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
 
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  {/* TODO: recuperar el boton "+" de acciones rapidas de IA cuando se retome este desarrollo.
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {/* TODO: recuperar el boton "+" de acciones rapidas de IA cuando se retome este desarrollo.
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <CustomButton
@@ -3228,91 +3233,91 @@ const AssistantIA = () => {
                   </DropdownMenu>
                   */}
 
-                  {isMindMapEnabled && (
-                    <button
-                      type="button"
-                      onClick={() => setIsMindMapEnabled(false)}
-                      className="group inline-flex items-center gap-1.5 rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary transition-colors hover:bg-primary/20"
-                      aria-label={t("assistant:input.disableMindMap", {
-                        defaultValue: "Desactivar mapa mental"
-                      })}
-                    >
-                      <span>{t("assistant:input.mindMap")}</span>
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-primary/35 transition-colors group-hover:bg-primary/15">
-                        <X className="h-2.5 w-2.5" />
-                      </span>
-                    </button>
-                  )}
-                </div>
+                    {isMindMapEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setIsMindMapEnabled(false)}
+                        className="group inline-flex items-center gap-1.5 rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary transition-colors hover:bg-primary/20"
+                        aria-label={t("assistant:input.disableMindMap", {
+                          defaultValue: "Desactivar mapa mental"
+                        })}
+                      >
+                        <span>{t("assistant:input.mindMap")}</span>
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-primary/35 transition-colors group-hover:bg-primary/15">
+                          <X className="h-2.5 w-2.5" />
+                        </span>
+                      </button>
+                    )}
+                  </div>
 
-                <div className="ml-auto flex items-center gap-5">
-                  {isDailyLimitReached && (
-                    <>
-                      <AlertTriangle className="h-4 w-4 text-destructive" />
-                      {!isCurrentPlanPaid && (
-                        <CustomButton
-                          type="button"
-                          styleType="ghost"
-                          size="sm"
-                          onClick={() => setIsUpgradeDialogOpen(true)}
+                  <div className="ml-auto flex items-center gap-5">
+                    {isDailyLimitReached && (
+                      <>
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                        {!isCurrentPlanPaid && (
+                          <CustomButton
+                            type="button"
+                            styleType="ghost"
+                            size="sm"
+                            onClick={() => setIsUpgradeDialogOpen(true)}
+                          >
+                            {t("assistant:input.upgrade")}
+                          </CustomButton>
+                        )}
+                      </>
+                    )}
+                    <div className="flex shrink-0 items-center gap-4">
+                      <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        {t("assistant:header.dailyLimit")}
+                      </p>
+                      <div
+                        className="relative grid h-10 w-10 place-items-center rounded-full border  shadow-sm transition-[background] duration-300"
+                        style={{
+                          background: `conic-gradient(${dailyUsageProgressColor} ${dailyUsageFillPercent}%, hsl(var(--border)) 0%)`
+                        }}
+                        role="img"
+                        aria-label={t("assistant:header.dailyLimit")}
+                        title={
+                          isLoadingDailyUsage
+                            ? t("assistant:header.checkingUsage")
+                            : `${dailyUsedRequests}/${dailyRequestLimit}`
+                        }
+                      >
+                        <div className="absolute inset-[4px] rounded-full bg-background/95" />
+                        <span
+                          className={`relative z-10 text-[9px] font-semibold leading-none ${
+                            isDailyLimitReached
+                              ? "text-destructive"
+                              : "text-foreground"
+                          }`}
                         >
-                          {t("assistant:input.upgrade")}
-                        </CustomButton>
-                      )}
-                    </>
-                  )}
-                  <div className="flex shrink-0 items-center gap-4">
-                    <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      {t("assistant:header.dailyLimit")}
-                    </p>
-                    <div
-                      className="relative grid h-10 w-10 place-items-center rounded-full border  shadow-sm transition-[background] duration-300"
-                      style={{
-                        background: `conic-gradient(${dailyUsageProgressColor} ${dailyUsageFillPercent}%, hsl(var(--border)) 0%)`
-                      }}
-                      role="img"
-                      aria-label={t("assistant:header.dailyLimit")}
-                      title={
-                        isLoadingDailyUsage
-                          ? t("assistant:header.checkingUsage")
-                          : `${dailyUsedRequests}/${dailyRequestLimit}`
+                          {isLoadingDailyUsage
+                            ? "..."
+                            : `${dailyUsedRequests}/${dailyRequestLimit}`}
+                        </span>
+                      </div>
+                    </div>
+                    <CustomButton
+                      type="submit"
+                      disabled={
+                        isSendingChat || !currentUserId || isDailyLimitReached
+                      }
+                      styleType="primary"
+                      size="icon"
+                      radius="full"
+                      aria-label={
+                        isSendingChat
+                          ? t("assistant:input.waiting")
+                          : t("assistant:input.send")
                       }
                     >
-                      <div className="absolute inset-[4px] rounded-full bg-background/95" />
-                      <span
-                        className={`relative z-10 text-[9px] font-semibold leading-none ${
-                          isDailyLimitReached
-                            ? "text-destructive"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {isLoadingDailyUsage
-                          ? "..."
-                          : `${dailyUsedRequests}/${dailyRequestLimit}`}
-                      </span>
-                    </div>
+                      <Send className="h-4 w-4" />
+                    </CustomButton>
                   </div>
-                  <CustomButton
-                    type="submit"
-                    disabled={
-                      isSendingChat || !currentUserId || isDailyLimitReached
-                    }
-                    styleType="primary"
-                    size="icon"
-                    radius="full"
-                    aria-label={
-                      isSendingChat
-                        ? t("assistant:input.waiting")
-                        : t("assistant:input.send")
-                    }
-                  >
-                    <Send className="h-4 w-4" />
-                  </CustomButton>
                 </div>
               </div>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
         </div>
       </div>
 

@@ -57,7 +57,10 @@ const json = (body: unknown, status = 200) =>
     }
   });
 
-const buildUserMetadataLabel = (user: { id: string; email?: string | null }) => {
+const buildUserMetadataLabel = (user: {
+  id: string;
+  email?: string | null;
+}) => {
   const normalizedEmail = sanitizeSingleLineText(user.email, 180);
   const shortUserId = sanitizeSingleLineText(user.id, 80).slice(0, 8);
   if (normalizedEmail) return `${normalizedEmail} (${shortUserId})`;
@@ -105,7 +108,8 @@ const buildBlockFolderName = (row: ArchiveRow) => {
   return `${String(row.topic_order).padStart(2, "0")} - ${safeFileSegment(blockLabel, `bloque-${row.topic_order}`)}`;
 };
 
-const toUint8Array = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer());
+const toUint8Array = async (blob: Blob) =>
+  new Uint8Array(await blob.arrayBuffer());
 
 const personalizePdfBytes = async (
   sourceBytes: Uint8Array,
@@ -132,13 +136,15 @@ const personalizePdfBytes = async (
   pdf.setTitle(documentTitle);
   pdf.setAuthor(metadataUser);
   pdf.setSubject(`Temario ${syllabus.opposition_id} - ${topicTitle}`);
-  pdf.setKeywords([
-    "OpositAI",
-    syllabus.opposition_id,
-    topicTitle,
-    metadataUser,
-    sanitizeSingleLineText(syllabus.boe_id, 60)
-  ].filter(Boolean));
+  pdf.setKeywords(
+    [
+      "OpositAI",
+      syllabus.opposition_id,
+      topicTitle,
+      metadataUser,
+      sanitizeSingleLineText(syllabus.boe_id, 60)
+    ].filter(Boolean)
+  );
   pdf.setProducer("OpositAI");
   pdf.setCreator("OpositAI");
   pdf.setLanguage("es-ES");
@@ -204,7 +210,10 @@ serve(async (req) => {
 
   const file = (fileRow ?? null) as TargetFileRow | null;
   if (fileError)
-    return json({ error: `target_file_lookup_failed:${fileError.message}` }, 400);
+    return json(
+      { error: `target_file_lookup_failed:${fileError.message}` },
+      400
+    );
   if (!file || !file.is_active)
     return json({ error: "syllabus_pdf_not_found" }, 404);
 
@@ -235,7 +244,8 @@ serve(async (req) => {
       { error: `purchase_lookup_failed:${purchaseError.message}` },
       400
     );
-  if (!purchaseRow) return json({ error: "syllabus_download_not_purchased" }, 403);
+  if (!purchaseRow)
+    return json({ error: "syllabus_download_not_purchased" }, 403);
 
   const { data: archiveRows, error: archiveError } = await serviceClient
     .from("opposition_subtopic_files")

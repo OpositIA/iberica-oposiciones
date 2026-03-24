@@ -418,9 +418,11 @@ const loadCurrentOppositionTestExamConfigMap = async (
 export const fetchCurrentOppositionPrimaryTestExamConfig = async (
   oppositionId: string | null | undefined
 ): Promise<OppositionTestExamConfig | null> => {
-  const configMap = await loadCurrentOppositionTestExamConfigMap([oppositionId]);
+  const configMap = await loadCurrentOppositionTestExamConfigMap([
+    oppositionId
+  ]);
   const normalizedId = sanitizeCode(oppositionId, 160);
-  return normalizedId ? configMap.get(normalizedId) ?? null : null;
+  return normalizedId ? (configMap.get(normalizedId) ?? null) : null;
 };
 
 export const evaluateQuickTestAttempt = (
@@ -489,8 +491,7 @@ export const evaluateQuickTestAttempt = (
     blankCount * blankAnswerPenalty;
   const normalizedScore =
     maxRawScore > 0 ? Math.max(0, Math.min(1, rawScore / maxRawScore)) : 0;
-  const score =
-    scoreMin + normalizedScore * Math.max(0, scoreMax - scoreMin);
+  const score = scoreMin + normalizedScore * Math.max(0, scoreMax - scoreMin);
 
   return {
     answeredCount,
@@ -918,7 +919,7 @@ const mapCompletedAttemptToHistoryRecord = (
   const evaluated = evaluateQuickTestAttempt(
     linkedQuickTest.questions,
     row.selected_answers,
-    oppositionId ? configByOppositionId.get(oppositionId) ?? null : null
+    oppositionId ? (configByOppositionId.get(oppositionId) ?? null) : null
   );
 
   return {
@@ -1066,7 +1067,7 @@ export const fetchQuickTestHistoryPage = async ({
       const evaluated = evaluateQuickTestAttempt(
         linkedQuickTest.questions,
         row.selected_answers,
-        oppositionId ? configByOppositionId.get(oppositionId) ?? null : null
+        oppositionId ? (configByOppositionId.get(oppositionId) ?? null) : null
       );
 
       return {
@@ -1136,7 +1137,9 @@ export const fetchQuickTestDashboardStats = async (
 
     const configByOppositionId = await loadCurrentOppositionTestExamConfigMap(
       data.map((row) => {
-        const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests as never);
+        const linkedQuickTest = resolveLinkedQuickTest(
+          row.quick_tests as never
+        );
         return linkedQuickTest?.opposition_id ?? null;
       })
     );
@@ -1148,7 +1151,7 @@ export const fetchQuickTestDashboardStats = async (
       const evaluated = evaluateQuickTestAttempt(
         linkedQuickTest.questions,
         row.selected_answers,
-        oppositionId ? configByOppositionId.get(oppositionId) ?? null : null
+        oppositionId ? (configByOppositionId.get(oppositionId) ?? null) : null
       );
       scoreSum += evaluated.score;
       accuracySum += evaluated.accuracy;

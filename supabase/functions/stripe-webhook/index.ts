@@ -273,14 +273,13 @@ const syncSyllabusDownloadPurchase = async (
 
   const stripeCheckoutSessionId = asString(session.id, 120);
   const stripePaymentIntentId = asString(
-    resolveObjectId(
-      session.payment_intent as string | { id: string } | null
-    ),
+    resolveObjectId(session.payment_intent as string | { id: string } | null),
     120
   );
   const stripeCustomerId = asString(resolveCustomerId(session.customer), 120);
   const amountTotal =
-    typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+    typeof session.amount_total === "number" &&
+    Number.isFinite(session.amount_total)
       ? Math.max(0, Math.floor(session.amount_total))
       : 2999;
   const currency = (asString(session.currency, 10) ?? "EUR").toUpperCase();
@@ -314,7 +313,9 @@ const syncSyllabusDownloadPurchase = async (
     );
 
   if (error)
-    throw new Error(`upsert_syllabus_download_purchase_failed:${error.message}`);
+    throw new Error(
+      `upsert_syllabus_download_purchase_failed:${error.message}`
+    );
 };
 
 serve(async (req) => {
@@ -400,7 +401,11 @@ serve(async (req) => {
           asString(session.mode, 40) === "payment" &&
           asString(session.metadata?.purchase_type, 80) === "syllabus_download"
         ) {
-          await syncSyllabusDownloadPurchase(serviceClient, session, event.type);
+          await syncSyllabusDownloadPurchase(
+            serviceClient,
+            session,
+            event.type
+          );
           break;
         }
 

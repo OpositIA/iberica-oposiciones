@@ -23,8 +23,8 @@ import { cn } from "@/lib/utils";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   cloneQuickTestSession,
-  evaluateQuickTestAttempt,
   ensureQuickTestAttempt,
+  evaluateQuickTestAttempt,
   fetchCurrentOppositionPrimaryTestExamConfig,
   fetchQuickTestSessionById,
   isUuid,
@@ -1197,7 +1197,8 @@ const ProfileQuickTestSession = () => {
                 <p className="text-xs uppercase tracking-widest text-muted-foreground">
                   {t("testSession.officialExtrapolationLabel", {
                     count: officialQuestionCount,
-                    defaultValue: "Proyección examen oficial ({{count}} preguntas)"
+                    defaultValue:
+                      "Proyección examen oficial ({{count}} preguntas)"
                   })}
                 </p>
                 <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground/80">
@@ -1230,7 +1231,9 @@ const ProfileQuickTestSession = () => {
             </div>
             <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-center">
               <p className="text-xs text-muted-foreground">
-                {t("testSession.blankCountLabel", { defaultValue: "En blanco" })}
+                {t("testSession.blankCountLabel", {
+                  defaultValue: "En blanco"
+                })}
               </p>
               <p className="mt-1 text-2xl font-semibold text-muted-foreground">
                 {blankAnswers}

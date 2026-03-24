@@ -211,8 +211,7 @@ function collectItems(
     c.epigraphName = nombre;
   }
 
-  const boeId =
-    typeof r.identificador === "string" ? r.identificador : null;
+  const boeId = typeof r.identificador === "string" ? r.identificador : null;
   const titulo = typeof r.titulo === "string" ? r.titulo : null;
 
   if (boeId && titulo) {
@@ -240,8 +239,7 @@ async function fetchSummary(dateKey: string): Promise<SummaryItem[]> {
     { headers: { Accept: "application/json" } }
   );
   if (res.status === 404) return [];
-  if (!res.ok)
-    throw new Error(`BOE summary ${res.status} for ${dateKey}`);
+  if (!res.ok) throw new Error(`BOE summary ${res.status} for ${dateKey}`);
 
   const payload = await res.json();
   const items: SummaryItem[] = [];
@@ -311,9 +309,35 @@ function isRelevantOposicionesSection(item: SummaryItem): boolean {
 }
 
 const STOPWORDS = new Set([
-  "de", "del", "la", "las", "los", "el", "en", "por", "para", "con", "que",
-  "una", "uno", "unos", "unas", "al", "se", "su", "sus", "como", "mas",
-  "este", "esta", "estos", "estas", "ese", "esa", "esos", "esas"
+  "de",
+  "del",
+  "la",
+  "las",
+  "los",
+  "el",
+  "en",
+  "por",
+  "para",
+  "con",
+  "que",
+  "una",
+  "uno",
+  "unos",
+  "unas",
+  "al",
+  "se",
+  "su",
+  "sus",
+  "como",
+  "mas",
+  "este",
+  "esta",
+  "estos",
+  "estas",
+  "ese",
+  "esa",
+  "esos",
+  "esas"
 ]);
 
 function labelRelevanceScore(title: string, label: string): number {
@@ -741,14 +765,23 @@ async function processMatch(
     );
     base.syllabus_id = syllabusId;
 
-    await recordPublication(sb, match, pubType, true, true, syllabusId, publishedAt, {
-      syllabus_hash: parsed.sourceHash,
-      is_current: shouldBeCurrent,
-      previous_syllabus_id: current?.id ?? null,
-      test_exam_count: parsed.testExamConfigs.length,
-      extraction_provider: parsed.extractionProvider,
-      extraction_model: parsed.extractionModel
-    });
+    await recordPublication(
+      sb,
+      match,
+      pubType,
+      true,
+      true,
+      syllabusId,
+      publishedAt,
+      {
+        syllabus_hash: parsed.sourceHash,
+        is_current: shouldBeCurrent,
+        previous_syllabus_id: current?.id ?? null,
+        test_exam_count: parsed.testExamConfigs.length,
+        extraction_provider: parsed.extractionProvider,
+        extraction_model: parsed.extractionModel
+      }
+    );
 
     return { ...base, action: "syllabus_updated" };
   }

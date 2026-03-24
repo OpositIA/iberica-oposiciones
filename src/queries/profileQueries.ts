@@ -215,7 +215,7 @@ export const useResolvedOppositionQuery = ({
         preferredOppositionId,
         preferredOppositionName,
         locale
-    }),
+      }),
     enabled,
     ...PROFILE_QUERY_CONFIG
   });
@@ -277,9 +277,12 @@ const fetchSyllabusSubtopicFiles = async (
       error: unknown;
     }>;
   };
-  const { data, error } = await rpcClient.rpc("get_current_syllabus_subtopic_files", {
-    p_opposition_id: normalizedOppositionId
-  });
+  const { data, error } = await rpcClient.rpc(
+    "get_current_syllabus_subtopic_files",
+    {
+      p_opposition_id: normalizedOppositionId
+    }
+  );
 
   if (error) throw error;
   if (!Array.isArray(data)) return [];
@@ -445,7 +448,8 @@ const normalizeSyllabusDownloadOfferRow = (
     syllabus_extracted_at:
       sanitizeSingleLineText(row.syllabus_extracted_at, 80) || null,
     total_pdf_count:
-      typeof row.total_pdf_count === "number" && Number.isFinite(row.total_pdf_count)
+      typeof row.total_pdf_count === "number" &&
+      Number.isFinite(row.total_pdf_count)
         ? Math.max(0, Math.floor(row.total_pdf_count))
         : 0,
     block_count:
@@ -647,7 +651,9 @@ export const useCurrentSyllabusDownloadOfferQuery = (
   useQuery<SyllabusDownloadOfferRow | null>({
     queryKey:
       typeof subtopicFileId === "number" && Number.isFinite(subtopicFileId)
-        ? profileQueryKeys.syllabusDownloadOffer(Math.max(1, Math.floor(subtopicFileId)))
+        ? profileQueryKeys.syllabusDownloadOffer(
+            Math.max(1, Math.floor(subtopicFileId))
+          )
         : ["syllabus", "download-offer", "guest"],
     queryFn: () => fetchCurrentSyllabusDownloadOffer(subtopicFileId as number),
     enabled:

@@ -230,92 +230,92 @@ const AuthenticatedSidebarLayout = () => {
         <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-charcoal/10 blur-3xl" />
 
-	        {showTopHeader ? (
-	          <header
-	            className={cn(
-	              "sticky top-0 relative z-30 transition-all duration-300",
-	              isHeaderScrolled
-	                ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
-	                : "border-b border-transparent bg-transparent",
-	              isAssistantRoute && "lg:hidden"
-	            )}
-	          >
-	            <div
-	              className={cn(
-	                "w-full max-w-[110rem] mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300",
-	                desktopSidebarOffsetClass
-	              )}
-	            >
-	              <div className="flex items-center gap-3">
-	                <CustomButton
-	                  type="button"
-	                  onClick={() => setIsMobileOpen(true)}
-	                  styleType="ghost"
-	                  size="icon"
-	                  radius="full"
-	                  className="h-10 w-10 lg:hidden"
-	                  aria-label={t("profile:layout.mobileMenuOpen")}
-	                >
-	                  <Menu className="h-4 w-4" />
-	                </CustomButton>
+        {showTopHeader ? (
+          <header
+            className={cn(
+              "sticky top-0 relative z-30 transition-all duration-300",
+              isHeaderScrolled
+                ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
+                : "border-b border-transparent bg-transparent",
+              isAssistantRoute && "lg:hidden"
+            )}
+          >
+            <div
+              className={cn(
+                "w-full max-w-[110rem] mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4 transition-all duration-300",
+                desktopSidebarOffsetClass
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <CustomButton
+                  type="button"
+                  onClick={() => setIsMobileOpen(true)}
+                  styleType="ghost"
+                  size="icon"
+                  radius="full"
+                  className="h-10 w-10 lg:hidden"
+                  aria-label={t("profile:layout.mobileMenuOpen")}
+                >
+                  <Menu className="h-4 w-4" />
+                </CustomButton>
 
-	                <Link
-	                  to="/"
-	                  className="inline-flex items-center gap-2"
-	                  onClick={closeMobileSidebar}
-	                >
-	                  <img
-	                    src={opositaiHorizontalLogo}
-	                    alt="OpositAI"
-	                    className="h-20 w-auto"
-	                  />
-	                </Link>
-	              </div>
+                <Link
+                  to="/"
+                  className="inline-flex items-center gap-2"
+                  onClick={closeMobileSidebar}
+                >
+                  <img
+                    src={opositaiHorizontalLogo}
+                    alt="OpositAI"
+                    className="h-20 w-auto"
+                  />
+                </Link>
+              </div>
 
-	              <div className="flex items-center gap-2">
-	                {showHeaderTimer && (
-	                  <div className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 p-1 text-primary">
-	                    <span className="px-2 text-[11px] font-semibold tracking-widest uppercase">
-	                      {formattedRemaining}
-	                    </span>
-	                    {status === "running" && (
-	                      <button
-	                        type="button"
-	                        onClick={pause}
-	                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-	                        aria-label={t("profile:study.pause")}
-	                        title={t("profile:study.pause")}
-	                      >
-	                        <Pause className="h-3.5 w-3.5" />
-	                      </button>
-	                    )}
-	                    {status === "paused" && (
-	                      <button
-	                        type="button"
-	                        onClick={resume}
-	                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-	                        aria-label={t("profile:study.resume")}
-	                        title={t("profile:study.resume")}
-	                      >
-	                        <Play className="h-3.5 w-3.5" />
-	                      </button>
-	                    )}
-	                    <button
-	                      type="button"
-	                      onClick={stop}
-	                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-	                      aria-label={t("profile:study.stop")}
-	                      title={t("profile:study.stop")}
-	                    >
-	                      <Square className="h-3.5 w-3.5" />
-	                    </button>
-	                  </div>
-	                )}
-	                <UserActionsDropdown />
-	              </div>
-	            </div>
-	          </header>
-	        ) : null}
+              <div className="flex items-center gap-2">
+                {showHeaderTimer && (
+                  <div className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 p-1 text-primary">
+                    <span className="px-2 text-[11px] font-semibold tracking-widest uppercase">
+                      {formattedRemaining}
+                    </span>
+                    {status === "running" && (
+                      <button
+                        type="button"
+                        onClick={pause}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+                        aria-label={t("profile:study.pause")}
+                        title={t("profile:study.pause")}
+                      >
+                        <Pause className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {status === "paused" && (
+                      <button
+                        type="button"
+                        onClick={resume}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+                        aria-label={t("profile:study.resume")}
+                        title={t("profile:study.resume")}
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={stop}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+                      aria-label={t("profile:study.stop")}
+                      title={t("profile:study.stop")}
+                    >
+                      <Square className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+                <UserActionsDropdown />
+              </div>
+            </div>
+          </header>
+        ) : null}
 
         {!isPdfViewerRoute && isMobileOpen && (
           <CustomButton
@@ -544,16 +544,16 @@ const AuthenticatedSidebarLayout = () => {
           </aside>
         ) : null}
 
-	        <main
-	          className={cn(
-	            isPdfViewerRoute
-	              ? "h-screen w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300"
-	              : isAssistantRoute
-	                ? "flex-1 min-h-0 w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300 flex flex-col"
-	                : "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
-	            desktopSidebarOffsetClass
-	          )}
-	        >
+        <main
+          className={cn(
+            isPdfViewerRoute
+              ? "h-screen w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300"
+              : isAssistantRoute
+                ? "flex-1 min-h-0 w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300 flex flex-col"
+                : "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
+            desktopSidebarOffsetClass
+          )}
+        >
           {showBillingIssueBanner && billingIssue && (
             <section className="mb-4 rounded-2xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 to-background px-4 py-3 shadow-[0_20px_45px_-40px_rgba(217,119,6,0.7)]">
               <div className="flex items-start gap-3">

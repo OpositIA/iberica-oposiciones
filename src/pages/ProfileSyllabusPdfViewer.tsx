@@ -132,7 +132,12 @@ const ProfileSyllabusPdfViewer = () => {
     refetch,
     error: pdfBytesError
   } = useQuery({
-    queryKey: ["syllabus", "pdf-viewer", normalizedSubtopicFileId, user?.id ?? "guest"],
+    queryKey: [
+      "syllabus",
+      "pdf-viewer",
+      normalizedSubtopicFileId,
+      user?.id ?? "guest"
+    ],
     queryFn: () => getWatermarkedSyllabusPdfBytes(normalizedSubtopicFileId),
     enabled:
       Number.isFinite(normalizedSubtopicFileId) && normalizedSubtopicFileId > 0,
@@ -186,7 +191,9 @@ const ProfileSyllabusPdfViewer = () => {
     const shortUserId = user?.id?.trim().slice(0, 8);
     return shortUserId ? `ID ${shortUserId}` : "Uso personal";
   }, [user?.email, user?.id]);
-  const maxPreviewPage = isPreviewOnly ? FREE_PREVIEW_PAGE_LIMIT : pageCount || 1;
+  const maxPreviewPage = isPreviewOnly
+    ? FREE_PREVIEW_PAGE_LIMIT
+    : pageCount || 1;
   const isPageLocked = useCallback(
     (pageNumber: number) => pageNumber > maxPreviewPage,
     [maxPreviewPage]
@@ -197,7 +204,11 @@ const ProfileSyllabusPdfViewer = () => {
   ) => {
     const value = typeof textItem?.str === "string" ? textItem.str : "";
     const safeValue = escapeHtml(value);
-    if (!safeValue || !searchHighlightRegex || !searchMatchesSet.has(pageNumber))
+    if (
+      !safeValue ||
+      !searchHighlightRegex ||
+      !searchMatchesSet.has(pageNumber)
+    )
       return safeValue;
 
     const activeClass = activeSearchPage === pageNumber ? " is-active" : "";
@@ -283,7 +294,8 @@ const ProfileSyllabusPdfViewer = () => {
     const viewportTop = viewport.scrollTop;
     const viewportBottom = viewportTop + viewport.clientHeight;
 
-    if (thumbnailTop >= viewportTop && thumbnailBottom <= viewportBottom) return;
+    if (thumbnailTop >= viewportTop && thumbnailBottom <= viewportBottom)
+      return;
 
     activeThumbnail.scrollIntoView({
       block: "nearest",
@@ -320,57 +332,63 @@ const ProfileSyllabusPdfViewer = () => {
     );
   }, [searchMatches]);
 
-  const scrollToResolvedPage = useCallback((
-    pageNumber: number,
-    behavior: ScrollBehavior = "smooth"
-  ) => {
-    const node = pageRefs.current.get(pageNumber);
-    const container = viewerScrollRef.current;
-    if (!node || !container) return;
+  const scrollToResolvedPage = useCallback(
+    (pageNumber: number, behavior: ScrollBehavior = "smooth") => {
+      const node = pageRefs.current.get(pageNumber);
+      const container = viewerScrollRef.current;
+      if (!node || !container) return;
 
-    const nextTop = Math.max(0, node.offsetTop - 24);
-    isProgrammaticScrollRef.current = behavior === "smooth";
-    targetPageRef.current = pageNumber;
-    targetScrollTopRef.current = nextTop;
+      const nextTop = Math.max(0, node.offsetTop - 24);
+      isProgrammaticScrollRef.current = behavior === "smooth";
+      targetPageRef.current = pageNumber;
+      targetScrollTopRef.current = nextTop;
 
-    if (scrollReleaseTimeoutRef.current) {
-      window.clearTimeout(scrollReleaseTimeoutRef.current);
-      scrollReleaseTimeoutRef.current = null;
-    }
-
-    if (behavior === "smooth") {
-      scrollReleaseTimeoutRef.current = window.setTimeout(() => {
-        isProgrammaticScrollRef.current = false;
-        targetPageRef.current = null;
-        targetScrollTopRef.current = null;
+      if (scrollReleaseTimeoutRef.current) {
+        window.clearTimeout(scrollReleaseTimeoutRef.current);
         scrollReleaseTimeoutRef.current = null;
-      }, 500);
-    }
+      }
 
-    container.scrollTo({
-      top: nextTop,
-      behavior
-    });
-  }, []);
+      if (behavior === "smooth") {
+        scrollReleaseTimeoutRef.current = window.setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+          targetPageRef.current = null;
+          targetScrollTopRef.current = null;
+          scrollReleaseTimeoutRef.current = null;
+        }, 500);
+      }
 
-  const scrollToFirstPage = useCallback((behavior: ScrollBehavior = "smooth") => {
-    setCurrentPage(1);
-    setPageInput("1");
-    scrollToResolvedPage(1, behavior);
-  }, [scrollToResolvedPage]);
+      container.scrollTo({
+        top: nextTop,
+        behavior
+      });
+    },
+    []
+  );
 
-  const scrollToPage = useCallback((pageNumber: number) => {
-    const resolvedPage = clamp(pageNumber, 1, pageCount || 1);
-    if (isPageLocked(resolvedPage)) {
-      setIsUpgradeDialogOpen(true);
-      scrollToFirstPage();
-      return;
-    }
+  const scrollToFirstPage = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      setCurrentPage(1);
+      setPageInput("1");
+      scrollToResolvedPage(1, behavior);
+    },
+    [scrollToResolvedPage]
+  );
 
-    setCurrentPage(resolvedPage);
-    setPageInput(String(resolvedPage));
-    scrollToResolvedPage(resolvedPage, "smooth");
-  }, [isPageLocked, pageCount, scrollToFirstPage, scrollToResolvedPage]);
+  const scrollToPage = useCallback(
+    (pageNumber: number) => {
+      const resolvedPage = clamp(pageNumber, 1, pageCount || 1);
+      if (isPageLocked(resolvedPage)) {
+        setIsUpgradeDialogOpen(true);
+        scrollToFirstPage();
+        return;
+      }
+
+      setCurrentPage(resolvedPage);
+      setPageInput(String(resolvedPage));
+      scrollToResolvedPage(resolvedPage, "smooth");
+    },
+    [isPageLocked, pageCount, scrollToFirstPage, scrollToResolvedPage]
+  );
 
   useEffect(() => {
     if (!searchTerm || searchMatches.length === 0) return;
@@ -607,450 +625,467 @@ const ProfileSyllabusPdfViewer = () => {
     ? { filter: "sepia(0.18) saturate(0.86) brightness(0.95) contrast(0.92)" }
     : undefined;
 
-	  return (
-	    <>
-	      <section
-	        className={`flex h-full min-h-0 flex-col select-none overflow-hidden ${shellToneClass}`}
-	      >
-	      <header className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <Link
-              to="/perfil/temario"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-white/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-0"
-              aria-label={t("syllabus.viewerBack", {
-                defaultValue: "Volver al temario"
-              })}
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Link>
-            <div className="hidden h-5 w-px bg-slate-200 md:block" />
-            <div className="hidden min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 md:flex">
-              <FileText className="h-4 w-4" />
-              <span className="max-w-[20rem] truncate lg:max-w-[28rem] xl:max-w-[36rem]">
-                {topicTitle ||
-                  t("syllabus.viewerBadge", { defaultValue: "Visor PDF" })}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            <CustomButton
-              asChild
-              size="sm"
-              styleType={syllabusDownloadOffer?.is_purchased ? "primary" : "ghost"}
-              className="rounded-full px-3"
-            >
-              <Link to={syllabusDownloadHref}>
-                <Download className="h-4 w-4" />
-                {syllabusDownloadOffer?.is_purchased
-                  ? t("syllabus.viewerDownloadOwned", {
-                      defaultValue: "Descarga activa"
-                    })
-                  : t("syllabus.viewerDownload", {
-                      defaultValue: "Descarga"
-                    })}
+  return (
+    <>
+      <section
+        className={`flex h-full min-h-0 flex-col select-none overflow-hidden ${shellToneClass}`}
+      >
+        <header
+          className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Link
+                to="/perfil/temario"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-white/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-0"
+                aria-label={t("syllabus.viewerBack", {
+                  defaultValue: "Volver al temario"
+                })}
+              >
+                <ArrowLeft className="h-6 w-6" />
               </Link>
-            </CustomButton>
+              <div className="hidden h-5 w-px bg-slate-200 md:block" />
+              <div className="hidden min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 md:flex">
+                <FileText className="h-4 w-4" />
+                <span className="max-w-[20rem] truncate lg:max-w-[28rem] xl:max-w-[36rem]">
+                  {topicTitle ||
+                    t("syllabus.viewerBadge", { defaultValue: "Visor PDF" })}
+                </span>
+              </div>
+            </div>
 
-            <CustomButton
-              type="button"
-              size="sm"
-              styleType={isVisualComfortEnabled ? "primary" : "ghost"}
-              className="rounded-full px-3"
-              onClick={() => setIsVisualComfortEnabled((value) => !value)}
-            >
-              <Eye className="h-4 w-4" />
-              {t("syllabus.viewerVisualComfort", {
-                defaultValue: "Fatiga visual"
-              })}
-            </CustomButton>
-
-            <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
-              <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1 shadow-sm">
-                <Search className="h-4 w-4 text-slate-400" />
-                <Input
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "F3") return;
-                    event.preventDefault();
-                    goToSearchMatch(activeSearchMatchIndex + 1);
-                  }}
-                  placeholder={t("syllabus.viewerSearchPlaceholder", {
-                    defaultValue: "Buscar en el PDF"
-                  })}
-                  className="h-7 w-32 border-0 bg-transparent px-0 py-0 text-sm font-medium text-slate-900 placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0 md:w-40"
-                  aria-label={t("syllabus.viewerSearchLabel", {
-                    defaultValue: "Buscar en el PDF"
-                  })}
-                />
-                <span className="min-w-16 text-right text-xs font-medium tabular-nums text-slate-500">
-                  {isIndexingText
-                    ? t("syllabus.viewerSearchIndexing", {
-                        defaultValue: "Indexando"
+            <div className="flex shrink-0 items-center gap-2">
+              <CustomButton
+                asChild
+                size="sm"
+                styleType={
+                  syllabusDownloadOffer?.is_purchased ? "primary" : "ghost"
+                }
+                className="rounded-full px-3"
+              >
+                <Link to={syllabusDownloadHref}>
+                  <Download className="h-4 w-4" />
+                  {syllabusDownloadOffer?.is_purchased
+                    ? t("syllabus.viewerDownloadOwned", {
+                        defaultValue: "Descarga activa"
                       })
-                    : searchTerm
-                      ? `${searchMatches.length === 0 ? 0 : activeSearchMatchIndex + 1}/${searchMatches.length}`
-                      : ""}
-                </span>
-              </div>
-              <CustomButton
-                size="iconSm"
-                styleType="unstyled"
-                className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() => goToSearchMatch(activeSearchMatchIndex - 1)}
-                disabled={searchMatches.length === 0}
-                aria-label={t("syllabus.viewerSearchPrevious", {
-                  defaultValue: "Resultado anterior"
-                })}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </CustomButton>
-              <CustomButton
-                size="iconSm"
-                styleType="unstyled"
-                className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() => goToSearchMatch(activeSearchMatchIndex + 1)}
-                disabled={searchMatches.length === 0}
-                aria-label={t("syllabus.viewerSearchNext", {
-                  defaultValue: "Resultado siguiente"
-                })}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </CustomButton>
-            </div>
-
-            <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
-              <CustomButton
-                size="iconSm"
-                styleType="unstyled"
-                className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() => scrollToPage(currentPage - 1)}
-                disabled={currentPage <= 1}
-                aria-label={t("syllabus.viewerPreviousPage", {
-                  defaultValue: "Pagina anterior"
-                })}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </CustomButton>
-
-              <div className="flex items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm">
-                <Input
-                  value={pageInput}
-                  onChange={(event) =>
-                    setPageInput(event.target.value.replace(/[^0-9]/g, ""))
-                  }
-                  onBlur={commitPageInput}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    commitPageInput();
-                  }}
-                  inputMode="numeric"
-                  className="h-7 w-16 rounded-md border border-slate-200 bg-slate-50 px-1 py-0 text-center text-sm font-semibold text-slate-900 shadow-sm focus-visible:ring-1 focus-visible:ring-slate-300 focus-visible:ring-offset-0"
-                  aria-label={t("syllabus.viewerPageInput", {
-                    defaultValue: "Numero de pagina"
-                  })}
-                />
-                <span className="text-sm font-medium text-slate-500">
-                  / {pageCount || "--"}
-                </span>
-              </div>
-
-              <CustomButton
-                size="iconSm"
-                styleType="unstyled"
-                className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() => scrollToPage(currentPage + 1)}
-                disabled={
-                  !pageCount ||
-	                  (isPreviewOnly
-	                    ? currentPage >= maxPreviewPage
-	                    : currentPage >= pageCount)
-                }
-                aria-label={t("syllabus.viewerNextPage", {
-                  defaultValue: "Pagina siguiente"
-                })}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </CustomButton>
-            </div>
-
-            <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
-              <CustomButton
-                size="iconSm"
-                styleType="unstyled"
-                className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() =>
-                  setZoom((value) =>
-                    clamp(
-                      Number((value - ZOOM_STEP).toFixed(2)),
-                      MIN_ZOOM,
-                      MAX_ZOOM
-                    )
-                  )
-                }
-                disabled={zoom <= MIN_ZOOM}
-                aria-label={t("syllabus.viewerZoomOut", {
-                  defaultValue: "Alejar"
-                })}
-              >
-                <Minus className="h-4 w-4" />
-              </CustomButton>
-              <span className="min-w-16 text-center text-sm font-semibold tabular-nums text-slate-700">
-                {Math.round(zoom * 100)}%
-              </span>
-              <CustomButton
-                size="iconSm"
-                styleType="unstyled"
-                className="rounded-full text-slate-600 hover:bg-white"
-                onClick={() =>
-                  setZoom((value) =>
-                    clamp(
-                      Number((value + ZOOM_STEP).toFixed(2)),
-                      MIN_ZOOM,
-                      MAX_ZOOM
-                    )
-                  )
-                }
-                disabled={zoom >= MAX_ZOOM}
-                aria-label={t("syllabus.viewerZoomIn", {
-                  defaultValue: "Acercar"
-                })}
-              >
-                <Plus className="h-4 w-4" />
-              </CustomButton>
-            </div>
-          </div>
-        </div>
-      </header>
-
-	      <div
-	        className={`grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
-	      >
-	        <aside
-	          className={`min-h-0 border-b md:border-b-0 md:border-r ${sidebarToneClass}`}
-	        >
-		          <ScrollArea ref={thumbnailScrollAreaRef} className="h-[12rem] md:h-full">
-            <div className="flex items-center gap-3 p-3 md:flex md:flex-col md:items-center md:gap-2 md:p-4">
-	              <Document
-	                file={thumbnailPdfFile}
-	                options={PDF_DOCUMENT_OPTIONS}
-	                loading={null}
-	                onLoadSuccess={handleDocumentLoad}
-	                onLoadError={handleDocumentLoadError}
-	                error={null}
-                className="contents"
-              >
-                {thumbnailPages.map((pageNumber) => {
-                  const isActive = currentPage === pageNumber;
-                  const isLocked = isPageLocked(pageNumber);
-
-                  return (
-	                    <button
-	                      key={`thumb-${pageNumber}`}
-	                      ref={(node) => {
-	                        if (node) {
-	                          thumbnailRefs.current.set(pageNumber, node);
-	                          return;
-	                        }
-
-	                        thumbnailRefs.current.delete(pageNumber);
-	                      }}
-	                      type="button"
-	                      onClick={() => scrollToPage(pageNumber)}
-                      className={[
-                        "group inline-flex w-fit flex-col items-center overflow-hidden rounded-[1.15rem] border p-2 text-left transition-all",
-                        isLocked
-                          ? "border-slate-300/90 bg-slate-100/90 hover:border-amber-300 hover:bg-slate-50"
-                        : "",
-                        isActive
-                          ? "border-slate-900 bg-white shadow-[0_24px_40px_-28px_rgba(15,23,42,0.75)]"
-                          : searchMatchesSet.has(pageNumber)
-                            ? "border-amber-400 bg-amber-50/80 shadow-[0_18px_36px_-30px_rgba(217,119,6,0.55)]"
-                            : "border-slate-300/90 bg-white/70 hover:border-slate-400 hover:bg-white"
-                      ].join(" ")}
-                      aria-label={t("syllabus.viewerGoToPage", {
-                        defaultValue: "Ir a la pagina {{page}}",
-                        page: pageNumber
+                    : t("syllabus.viewerDownload", {
+                        defaultValue: "Descarga"
                       })}
-                    >
-                      {isLocked ? (
-                        <div className="flex h-[10.5rem] w-[7.55rem] flex-col items-center justify-center rounded-[0.5rem] border border-dashed border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(226,232,240,0.94))] px-3 text-slate-500 shadow-inner">
-                          <Lock className="h-5 w-5" />
-                          <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em]">
-                            Premium
-                          </span>
-                        </div>
-                      ) : (
-                        <div
-                          className="inline-block overflow-hidden rounded-[0.5rem] border border-slate-200 bg-transparent leading-none shadow-inner"
-                          style={pdfPageFilterStyle}
-                        >
-                          <Page
-                            pageNumber={pageNumber}
-                            width={THUMBNAIL_WIDTH}
-                            renderAnnotationLayer={false}
-                            renderTextLayer={false}
-                            className="leading-none"
-                            loading={<div className="h-[10.5rem] bg-slate-100" />}
-                          />
-                        </div>
-                      )}
+                </Link>
+              </CustomButton>
 
-                      <div className="mt-3 flex justify-center">
-                        {isActive ? (
-                          <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-black px-2 text-xs font-semibold text-white">
-                            {pageNumber}
-                          </span>
-                        ) : (
-                          <span className="text-xs font-semibold text-slate-500">
-                            {pageNumber}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
+              <CustomButton
+                type="button"
+                size="sm"
+                styleType={isVisualComfortEnabled ? "primary" : "ghost"}
+                className="rounded-full px-3"
+                onClick={() => setIsVisualComfortEnabled((value) => !value)}
+              >
+                <Eye className="h-4 w-4" />
+                {t("syllabus.viewerVisualComfort", {
+                  defaultValue: "Fatiga visual"
                 })}
-              </Document>
-            </div>
-          </ScrollArea>
-        </aside>
+              </CustomButton>
 
-	        <div ref={viewerContainerRef} className="min-h-0 min-w-0">
-	          <div
-	            ref={viewerScrollRef}
-	            className="relative h-full overflow-y-auto"
-	          >
-            <div className="flex min-h-full items-start justify-center p-4 md:p-8">
-	              <Document
-	                file={mainPdfFile}
-	                options={PDF_DOCUMENT_OPTIONS}
-	                loading={
-	                  <AppLoading
-	                    label={t("syllabus.viewerDocumentLoading", {
-                      defaultValue: "Preparando paginas del PDF..."
+              <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
+                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1 shadow-sm">
+                  <Search className="h-4 w-4 text-slate-400" />
+                  <Input
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "F3") return;
+                      event.preventDefault();
+                      goToSearchMatch(activeSearchMatchIndex + 1);
+                    }}
+                    placeholder={t("syllabus.viewerSearchPlaceholder", {
+                      defaultValue: "Buscar en el PDF"
+                    })}
+                    className="h-7 w-32 border-0 bg-transparent px-0 py-0 text-sm font-medium text-slate-900 placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0 md:w-40"
+                    aria-label={t("syllabus.viewerSearchLabel", {
+                      defaultValue: "Buscar en el PDF"
                     })}
                   />
-                }
-                onLoadSuccess={handleDocumentLoad}
-                onLoadError={handleDocumentLoadError}
-                error={null}
-              >
-                {documentError ? (
-                  <div className="max-w-xl rounded-[1.25rem] border border-destructive/20 bg-background p-6 shadow-sm">
-                    <p className="text-sm font-semibold text-foreground">
-                      {t("syllabus.viewerLoadFailedTitle", {
-                        defaultValue: "No se pudo cargar el visor"
+                  <span className="min-w-16 text-right text-xs font-medium tabular-nums text-slate-500">
+                    {isIndexingText
+                      ? t("syllabus.viewerSearchIndexing", {
+                          defaultValue: "Indexando"
+                        })
+                      : searchTerm
+                        ? `${searchMatches.length === 0 ? 0 : activeSearchMatchIndex + 1}/${searchMatches.length}`
+                        : ""}
+                  </span>
+                </div>
+                <CustomButton
+                  size="iconSm"
+                  styleType="unstyled"
+                  className="rounded-full text-slate-600 hover:bg-white"
+                  onClick={() => goToSearchMatch(activeSearchMatchIndex - 1)}
+                  disabled={searchMatches.length === 0}
+                  aria-label={t("syllabus.viewerSearchPrevious", {
+                    defaultValue: "Resultado anterior"
+                  })}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </CustomButton>
+                <CustomButton
+                  size="iconSm"
+                  styleType="unstyled"
+                  className="rounded-full text-slate-600 hover:bg-white"
+                  onClick={() => goToSearchMatch(activeSearchMatchIndex + 1)}
+                  disabled={searchMatches.length === 0}
+                  aria-label={t("syllabus.viewerSearchNext", {
+                    defaultValue: "Resultado siguiente"
+                  })}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </CustomButton>
+              </div>
+
+              <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
+                <CustomButton
+                  size="iconSm"
+                  styleType="unstyled"
+                  className="rounded-full text-slate-600 hover:bg-white"
+                  onClick={() => scrollToPage(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  aria-label={t("syllabus.viewerPreviousPage", {
+                    defaultValue: "Pagina anterior"
+                  })}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </CustomButton>
+
+                <div className="flex items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm">
+                  <Input
+                    value={pageInput}
+                    onChange={(event) =>
+                      setPageInput(event.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    onBlur={commitPageInput}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      commitPageInput();
+                    }}
+                    inputMode="numeric"
+                    className="h-7 w-16 rounded-md border border-slate-200 bg-slate-50 px-1 py-0 text-center text-sm font-semibold text-slate-900 shadow-sm focus-visible:ring-1 focus-visible:ring-slate-300 focus-visible:ring-offset-0"
+                    aria-label={t("syllabus.viewerPageInput", {
+                      defaultValue: "Numero de pagina"
+                    })}
+                  />
+                  <span className="text-sm font-medium text-slate-500">
+                    / {pageCount || "--"}
+                  </span>
+                </div>
+
+                <CustomButton
+                  size="iconSm"
+                  styleType="unstyled"
+                  className="rounded-full text-slate-600 hover:bg-white"
+                  onClick={() => scrollToPage(currentPage + 1)}
+                  disabled={
+                    !pageCount ||
+                    (isPreviewOnly
+                      ? currentPage >= maxPreviewPage
+                      : currentPage >= pageCount)
+                  }
+                  aria-label={t("syllabus.viewerNextPage", {
+                    defaultValue: "Pagina siguiente"
+                  })}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </CustomButton>
+              </div>
+
+              <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
+                <CustomButton
+                  size="iconSm"
+                  styleType="unstyled"
+                  className="rounded-full text-slate-600 hover:bg-white"
+                  onClick={() =>
+                    setZoom((value) =>
+                      clamp(
+                        Number((value - ZOOM_STEP).toFixed(2)),
+                        MIN_ZOOM,
+                        MAX_ZOOM
+                      )
+                    )
+                  }
+                  disabled={zoom <= MIN_ZOOM}
+                  aria-label={t("syllabus.viewerZoomOut", {
+                    defaultValue: "Alejar"
+                  })}
+                >
+                  <Minus className="h-4 w-4" />
+                </CustomButton>
+                <span className="min-w-16 text-center text-sm font-semibold tabular-nums text-slate-700">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <CustomButton
+                  size="iconSm"
+                  styleType="unstyled"
+                  className="rounded-full text-slate-600 hover:bg-white"
+                  onClick={() =>
+                    setZoom((value) =>
+                      clamp(
+                        Number((value + ZOOM_STEP).toFixed(2)),
+                        MIN_ZOOM,
+                        MAX_ZOOM
+                      )
+                    )
+                  }
+                  disabled={zoom >= MAX_ZOOM}
+                  aria-label={t("syllabus.viewerZoomIn", {
+                    defaultValue: "Acercar"
+                  })}
+                >
+                  <Plus className="h-4 w-4" />
+                </CustomButton>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div
+          className={`grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
+        >
+          <aside
+            className={`min-h-0 border-b md:border-b-0 md:border-r ${sidebarToneClass}`}
+          >
+            <ScrollArea
+              ref={thumbnailScrollAreaRef}
+              className="h-[12rem] md:h-full"
+            >
+              <div className="flex items-center gap-3 p-3 md:flex md:flex-col md:items-center md:gap-2 md:p-4">
+                <Document
+                  file={thumbnailPdfFile}
+                  options={PDF_DOCUMENT_OPTIONS}
+                  loading={null}
+                  onLoadSuccess={handleDocumentLoad}
+                  onLoadError={handleDocumentLoadError}
+                  error={null}
+                  className="contents"
+                >
+                  {thumbnailPages.map((pageNumber) => {
+                    const isActive = currentPage === pageNumber;
+                    const isLocked = isPageLocked(pageNumber);
+
+                    return (
+                      <button
+                        key={`thumb-${pageNumber}`}
+                        ref={(node) => {
+                          if (node) {
+                            thumbnailRefs.current.set(pageNumber, node);
+                            return;
+                          }
+
+                          thumbnailRefs.current.delete(pageNumber);
+                        }}
+                        type="button"
+                        onClick={() => scrollToPage(pageNumber)}
+                        className={[
+                          "group inline-flex w-fit flex-col items-center overflow-hidden rounded-[1.15rem] border p-2 text-left transition-all",
+                          isLocked
+                            ? "border-slate-300/90 bg-slate-100/90 hover:border-amber-300 hover:bg-slate-50"
+                            : "",
+                          isActive
+                            ? "border-slate-900 bg-white shadow-[0_24px_40px_-28px_rgba(15,23,42,0.75)]"
+                            : searchMatchesSet.has(pageNumber)
+                              ? "border-amber-400 bg-amber-50/80 shadow-[0_18px_36px_-30px_rgba(217,119,6,0.55)]"
+                              : "border-slate-300/90 bg-white/70 hover:border-slate-400 hover:bg-white"
+                        ].join(" ")}
+                        aria-label={t("syllabus.viewerGoToPage", {
+                          defaultValue: "Ir a la pagina {{page}}",
+                          page: pageNumber
+                        })}
+                      >
+                        {isLocked ? (
+                          <div className="flex h-[10.5rem] w-[7.55rem] flex-col items-center justify-center rounded-[0.5rem] border border-dashed border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(226,232,240,0.94))] px-3 text-slate-500 shadow-inner">
+                            <Lock className="h-5 w-5" />
+                            <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em]">
+                              Premium
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            className="inline-block overflow-hidden rounded-[0.5rem] border border-slate-200 bg-transparent leading-none shadow-inner"
+                            style={pdfPageFilterStyle}
+                          >
+                            <Page
+                              pageNumber={pageNumber}
+                              width={THUMBNAIL_WIDTH}
+                              renderAnnotationLayer={false}
+                              renderTextLayer={false}
+                              className="leading-none"
+                              loading={
+                                <div className="h-[10.5rem] bg-slate-100" />
+                              }
+                            />
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex justify-center">
+                          {isActive ? (
+                            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-black px-2 text-xs font-semibold text-white">
+                              {pageNumber}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-slate-500">
+                              {pageNumber}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </Document>
+              </div>
+            </ScrollArea>
+          </aside>
+
+          <div ref={viewerContainerRef} className="min-h-0 min-w-0">
+            <div
+              ref={viewerScrollRef}
+              className="relative h-full overflow-y-auto"
+            >
+              <div className="flex min-h-full items-start justify-center p-4 md:p-8">
+                <Document
+                  file={mainPdfFile}
+                  options={PDF_DOCUMENT_OPTIONS}
+                  loading={
+                    <AppLoading
+                      label={t("syllabus.viewerDocumentLoading", {
+                        defaultValue: "Preparando paginas del PDF..."
                       })}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {documentError}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex w-full max-w-full flex-col items-center gap-6">
-	                    {thumbnailPages.map((pageNumber) => {
-	                      const isLockedPage = isPageLocked(pageNumber);
-	                      const isRenderedPage = pageNumber <= renderedPageCount;
-	                      const canRenderPage = !isLockedPage && isRenderedPage;
+                    />
+                  }
+                  onLoadSuccess={handleDocumentLoad}
+                  onLoadError={handleDocumentLoadError}
+                  error={null}
+                >
+                  {documentError ? (
+                    <div className="max-w-xl rounded-[1.25rem] border border-destructive/20 bg-background p-6 shadow-sm">
+                      <p className="text-sm font-semibold text-foreground">
+                        {t("syllabus.viewerLoadFailedTitle", {
+                          defaultValue: "No se pudo cargar el visor"
+                        })}
+                      </p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {documentError}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex w-full max-w-full flex-col items-center gap-6">
+                      {thumbnailPages.map((pageNumber) => {
+                        const isLockedPage = isPageLocked(pageNumber);
+                        const isRenderedPage = pageNumber <= renderedPageCount;
+                        const canRenderPage = !isLockedPage && isRenderedPage;
 
-	                      return (
-	                        <div
-	                          key={`page-${pageNumber}`}
-	                          ref={(node) => {
-	                            if (node) {
-	                              pageRefs.current.set(pageNumber, node);
-	                              return;
-	                            }
+                        return (
+                          <div
+                            key={`page-${pageNumber}`}
+                            ref={(node) => {
+                              if (node) {
+                                pageRefs.current.set(pageNumber, node);
+                                return;
+                              }
 
-	                            pageRefs.current.delete(pageNumber);
-	                          }}
-	                        className={`relative inline-block overflow-hidden rounded-[0.75rem] border leading-none ${pageFrameToneClass}`}
-	                        data-page-number={pageNumber}
-	                      >
-	                        {canRenderPage ? (
-	                          <>
-	                            <div style={pdfPageFilterStyle} draggable={false}>
-	                              <Page
-	                                pageNumber={pageNumber}
-	                                width={mainPageWidth}
-	                                renderAnnotationLayer={false}
-	                                renderTextLayer={Boolean(
-	                                  searchHighlightRegex &&
-	                                    searchMatchesSet.has(pageNumber)
-	                                )}
-	                                customTextRenderer={(textItem) =>
-	                                  renderSearchHighlight(pageNumber, textItem)
-	                                }
-	                                className="pdf-viewer-page leading-none"
-	                                loading={
-	                                  <div className="h-[60vh] w-[42rem] max-w-full bg-slate-50" />
-	                                }
-	                              />
-	                            </div>
-	                            <div
-	                              aria-hidden="true"
-	                              className="pointer-events-none absolute inset-0 overflow-hidden"
-	                            >
-	                              {VIEWER_WATERMARK_BLOCKS.map((position, index) => (
-	                                <div
-	                                  key={`viewer-watermark-${pageNumber}-${index}`}
-	                                  className="absolute flex w-[30%] min-w-[10rem] max-w-[16rem] rotate-[-24deg] flex-col items-center opacity-45"
-	                                  style={position}
-	                                >
-	                                  <img
-	                                    src={opositaiHorizontalLogo}
-	                                    alt=""
-	                                    draggable={false}
-	                                    className="w-full object-contain opacity-[0.50]"
-	                                  />
-	                                  <span className="mt-2 rounded-full bg-white/35 px-3 py-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-600 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.28)]">
-	                                    {viewerWatermarkLabel}
-	                                  </span>
-	                                </div>
-	                              ))}
-	                            </div>
-	                          </>
-	                        ) : (
-	                          <div className="flex min-h-[60vh] w-[42rem] max-w-full flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(226,232,240,0.94))] px-6 text-center text-slate-500">
-	                            {isLockedPage ? (
-	                              <>
-	                                <Lock className="h-8 w-8" />
-	                                <span className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">
-	                                  Premium
-	                                </span>
-	                                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
-	                                  {t("syllabus.viewerPremiumPageMessage", {
-	                                    defaultValue:
-	                                      "Esta pagina forma parte de la vista completa del temario."
-	                                  })}
-	                                </p>
-	                              </>
-	                            ) : (
-	                              <>
-	                                <FileText className="h-8 w-8" />
-	                                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
-	                                  {t("syllabus.viewerPageUnavailable", {
-	                                    defaultValue:
-	                                      "Esta pagina no esta disponible en este momento."
-	                                  })}
-	                                </p>
-	                              </>
-	                            )}
-	                          </div>
-	                        )}
-	                      </div>
-	                    );
-	                  })}
-	                  </div>
-                )}
-              </Document>
+                              pageRefs.current.delete(pageNumber);
+                            }}
+                            className={`relative inline-block overflow-hidden rounded-[0.75rem] border leading-none ${pageFrameToneClass}`}
+                            data-page-number={pageNumber}
+                          >
+                            {canRenderPage ? (
+                              <>
+                                <div
+                                  style={pdfPageFilterStyle}
+                                  draggable={false}
+                                >
+                                  <Page
+                                    pageNumber={pageNumber}
+                                    width={mainPageWidth}
+                                    renderAnnotationLayer={false}
+                                    renderTextLayer={Boolean(
+                                      searchHighlightRegex &&
+                                      searchMatchesSet.has(pageNumber)
+                                    )}
+                                    customTextRenderer={(textItem) =>
+                                      renderSearchHighlight(
+                                        pageNumber,
+                                        textItem
+                                      )
+                                    }
+                                    className="pdf-viewer-page leading-none"
+                                    loading={
+                                      <div className="h-[60vh] w-[42rem] max-w-full bg-slate-50" />
+                                    }
+                                  />
+                                </div>
+                                <div
+                                  aria-hidden="true"
+                                  className="pointer-events-none absolute inset-0 overflow-hidden"
+                                >
+                                  {VIEWER_WATERMARK_BLOCKS.map(
+                                    (position, index) => (
+                                      <div
+                                        key={`viewer-watermark-${pageNumber}-${index}`}
+                                        className="absolute flex w-[30%] min-w-[10rem] max-w-[16rem] rotate-[-24deg] flex-col items-center opacity-45"
+                                        style={position}
+                                      >
+                                        <img
+                                          src={opositaiHorizontalLogo}
+                                          alt=""
+                                          draggable={false}
+                                          className="w-full object-contain opacity-[0.50]"
+                                        />
+                                        <span className="mt-2 rounded-full bg-white/35 px-3 py-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-600 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.28)]">
+                                          {viewerWatermarkLabel}
+                                        </span>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex min-h-[60vh] w-[42rem] max-w-full flex-col items-center justify-center bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(226,232,240,0.94))] px-6 text-center text-slate-500">
+                                {isLockedPage ? (
+                                  <>
+                                    <Lock className="h-8 w-8" />
+                                    <span className="mt-4 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">
+                                      Premium
+                                    </span>
+                                    <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
+                                      {t("syllabus.viewerPremiumPageMessage", {
+                                        defaultValue:
+                                          "Esta pagina forma parte de la vista completa del temario."
+                                      })}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileText className="h-8 w-8" />
+                                    <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
+                                      {t("syllabus.viewerPageUnavailable", {
+                                        defaultValue:
+                                          "Esta pagina no esta disponible en este momento."
+                                      })}
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Document>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       </section>
 
       <PlanUpgradeDialog

@@ -69,7 +69,8 @@ const ProfileSyllabusDownload = () => {
     enabled: Boolean(offer?.opposition_id)
   });
 
-  const oppositionName = opposition?.nombre || offer?.opposition_id || "Oposicion";
+  const oppositionName =
+    opposition?.nombre || offer?.opposition_id || "Oposicion";
   const versionLabel = useMemo(
     () =>
       formatVersionLabel(
@@ -183,7 +184,9 @@ const ProfileSyllabusDownload = () => {
             <CustomButton asChild>
               <Link to={viewerHref}>
                 <ArrowLeft className="h-4 w-4" />
-                {t("syllabus.viewerBack", { defaultValue: "Volver al temario" })}
+                {t("syllabus.viewerBack", {
+                  defaultValue: "Volver al temario"
+                })}
               </Link>
             </CustomButton>
             <CustomButton styleType="ghost" onClick={() => void refetch()}>
@@ -448,7 +451,9 @@ const ProfileSyllabusDownload = () => {
             <CustomButton
               className="mt-5 w-full rounded-full"
               size="lg"
-              onClick={offer.is_purchased ? handleDownload : handleStartCheckout}
+              onClick={
+                offer.is_purchased ? handleDownload : handleStartCheckout
+              }
               disabled={isStartingCheckout || isDownloading || isFetching}
             >
               {offer.is_purchased ? (
