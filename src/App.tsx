@@ -28,6 +28,7 @@ import Register from "./pages/Register";
 import RegisterCheckoutSuccess from "./pages/RegisterCheckoutSuccess";
 import RegisterPlanSelection from "./pages/RegisterPlanSelection";
 import ResetPassword from "./pages/ResetPassword";
+import Support from "./pages/Support";
 import { StudyTimerProvider } from "./study/StudyTimerProvider";
 
 const ProfileSyllabusPdfViewer = lazy(
@@ -143,6 +144,7 @@ const App = () => (
                 path="/perfil/pago-fallido"
                 element={<ProfileBillingIssue />}
               />
+              <Route path="/perfil/soporte" element={<Support />} />
               <Route path="/perfil/test" element={<ProfileTest />} />
               <Route
                 path="/perfil/test/:testId"

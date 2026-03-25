@@ -4,7 +4,11 @@ import CustomInput from "@/components/ui/custom-input";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-const Footer = () => {
+type FooterProps = {
+  onOpenCookiePreferences?: () => void;
+};
+
+const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
   const { t } = useTranslation(["landing", "common"]);
 
   const companyLinks = [
@@ -21,9 +25,22 @@ const Footer = () => {
   ];
 
   const legalLinks = [
-    t("landing:footer.legalLinks.privacy"),
-    t("landing:footer.legalLinks.terms"),
-    t("landing:footer.legalLinks.cookies")
+    {
+      id: "privacy",
+      label: t("landing:footer.legalLinks.privacy"),
+      to: "/"
+    },
+    {
+      id: "terms",
+      label: t("landing:footer.legalLinks.terms"),
+      to: "/"
+    },
+    {
+      id: "cookies",
+      label: t("landing:footer.legalLinks.cookies"),
+      to: "/",
+      onClick: onOpenCookiePreferences
+    }
   ];
 
   return (
@@ -105,15 +122,26 @@ const Footer = () => {
             {t("landing:footer.copyright")}
           </p>
           <div className="flex gap-6">
-            {legalLinks.map((item) => (
-              <Link
-                key={item}
-                to="/"
-                className="text-xs text-white/40 hover:text-white transition-colors"
-              >
-                {item}
-              </Link>
-            ))}
+            {legalLinks.map((item) =>
+              item.onClick ? (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.onClick}
+                  className="text-xs text-white/40 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-charcoal"
+                >
+                  {item.label}
+                </button>
+              ) : (
+                <Link
+                  key={item.id}
+                  to={item.to}
+                  className="text-xs text-white/40 hover:text-white transition-colors"
+                >
+                  {item.label}
+                </Link>
+              )
+            )}
           </div>
         </div>
       </div>

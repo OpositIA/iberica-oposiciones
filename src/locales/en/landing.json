@@ -118,5 +118,51 @@
       "cookies": "Cookies"
     }
   },
+  "cookieConsent": {
+    "banner": {
+      "eyebrow": "Smart privacy",
+      "title": "We use cookies to improve your experience.",
+      "description": "Necessary cookies stay active. You can accept, reject, or adjust the rest.",
+      "policyLink": "View cookie policy",
+      "actionsLabel": "Initial decision",
+      "actionsDescription": "Decide now or configure by category."
+    },
+    "actions": {
+      "acceptAll": "Accept all",
+      "rejectAll": "Reject all",
+      "configure": "Configure",
+      "saveSelection": "Save selection"
+    },
+    "preferences": {
+      "eyebrow": "Preference center",
+      "title": "Configure your cookies",
+      "description": "Necessary cookies cannot be disabled. The rest will only be enabled if you allow them.",
+      "updatedHint": "You can change this later from Cookies in the footer.",
+      "status": {
+        "active": "Active",
+        "alwaysActive": "Always active",
+        "optional": "Optional",
+        "off": "Off"
+      }
+    },
+    "categories": {
+      "necessary": {
+        "title": "Necessary",
+        "description": "They enable basic site operation, session security, and navigation. They cannot be disabled."
+      },
+      "preferences": {
+        "title": "Preferences",
+        "description": "They store experience settings and non-essential personalization."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "They help us measure usage and improve content and performance."
+      },
+      "marketing": {
+        "title": "Marketing",
+        "description": "They enable campaign measurement and promotional personalization."
+      }
+    }
+  },
   "heroImageAlt": "Hero"
 }

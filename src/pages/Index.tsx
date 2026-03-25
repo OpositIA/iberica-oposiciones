@@ -1,8 +1,9 @@
 import heroImage from "@/assets/hero-image.jpg";
 import methodologyImage from "@/assets/methodology-image.jpg";
+import CookieConsentManager from "@/components/CookieConsentManager";
 import CustomButton from "@/components/ui/custom-button";
 import { ArrowRight, BarChart3, BookOpen, Scale, Sparkles } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer";
@@ -10,6 +11,8 @@ import Navbar from "../components/Navbar";
 
 const Index = () => {
   const { t } = useTranslation("landing");
+  const [openCookiePreferencesRequest, setOpenCookiePreferencesRequest] =
+    useState(0);
 
   const stats = useMemo(
     () => [
@@ -438,7 +441,15 @@ const Index = () => {
         </div>
       </section>
 
-      <Footer />
+      <Footer
+        onOpenCookiePreferences={() =>
+          setOpenCookiePreferencesRequest((current) => current + 1)
+        }
+      />
+      <CookieConsentManager
+        cookiePolicyHref={null}
+        openPreferencesRequest={openCookiePreferencesRequest}
+      />
     </div>
   );
 };

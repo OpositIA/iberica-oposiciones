@@ -24,8 +24,46 @@
     "completedTests": "Completed tests",
     "globalAverage": "Global average",
     "averageAccuracy": "Average accuracy",
+    "bestScore": "Best score",
+    "averageDuration": "Average duration",
+    "passRate": "Pass rate",
+    "inProgress": "Test in progress",
     "hoursThisWeek": "Hours this week",
-    "progress": "Progress"
+    "progress": "Progress",
+    "helpers": {
+      "completedTests": "Closed and graded tests in your recent history.",
+      "averageAccuracy": "Average hit rate across completed tests.",
+      "bestScore": "Your highest result within the current panel.",
+      "averageDuration": "Average time spent per completed attempt.",
+      "inProgress": "Test in progress with {{count}} saved answers.",
+      "inProgressEmpty": "You do not have a test in progress right now.",
+      "scoreTrendUp": "+{{value}} points versus the previous test.",
+      "scoreTrendDown": "{{value}} points versus the previous test.",
+      "scoreTrendFlat": "No change versus the latest result.",
+      "scoreTrendFirst": "There is not enough data to compare yet."
+    }
+  },
+  "charts": {
+    "performance": {
+      "badge": "Performance",
+      "title": "Recent performance",
+      "caption": "Last {{count}} tests",
+      "emptyTitle": "No performance data yet",
+      "emptyDescription": "Once you complete your first tests, this area will show your score trend."
+    },
+    "accuracy": {
+      "badge": "Accuracy",
+      "title": "Accuracy per attempt",
+      "emptyTitle": "No accuracy data yet",
+      "emptyDescription": "Complete tests to see how steady your hit rate is over time."
+    },
+    "distribution": {
+      "badge": "Distribution",
+      "title": "Result statuses",
+      "centerLabel": "tests",
+      "emptyTitle": "No distribution to display",
+      "emptyDescription": "The mix of excellent, passed, and reinforce results will appear here."
+    }
   },
   "insights": {
     "trend": "Trend",
@@ -52,6 +90,7 @@
     "loadMore": "View more",
     "loadingMore": "Loading...",
     "empty": "You still have no completed tests.",
+    "emptyDescription": "Once you complete a test, this history will show score, accuracy, and direct access to each attempt.",
     "status": {
       "excellent": "Excellent",
       "approved": "Passed",

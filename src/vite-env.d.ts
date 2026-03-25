@@ -1,1 +1,10 @@
 /// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_SUPPORT_CONTACT_ENDPOINT?: string;
+  readonly VITE_SUPPORT_REPORT_ENDPOINT?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

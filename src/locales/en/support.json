@@ -1,0 +1,467 @@
+{
+  "page": {
+    "badge": "Support",
+    "title": "Clear help for account, tests, and AI",
+    "description": "Resolve common questions, open incidents, and report doubtful content from one space designed to scale."
+  },
+  "navigation": {
+    "sections": [
+      {
+        "id": "help-center",
+        "label": "Help center",
+        "description": "Quick access and brief guidance"
+      },
+      {
+        "id": "faq",
+        "label": "FAQ",
+        "description": "Answers grouped by category"
+      },
+      {
+        "id": "contact",
+        "label": "Contact support",
+        "description": "General support form"
+      },
+      {
+        "id": "report",
+        "label": "Report an issue",
+        "description": "Questions, explanations, or AI"
+      },
+      {
+        "id": "about-ai",
+        "label": "About AI",
+        "description": "How it helps and its limits"
+      }
+    ]
+  },
+  "helpCenter": {
+    "title": "Help center",
+    "description": "Choose the most direct path for each issue and avoid unnecessary steps.",
+    "quickLinks": {
+      "items": [
+        {
+          "id": "faq",
+          "section": "faq",
+          "title": "Solve a common question",
+          "description": "See answers about access, payments, progress, tests, and AI.",
+          "cta": "Open FAQ"
+        },
+        {
+          "id": "contact",
+          "section": "contact",
+          "title": "Contact support",
+          "description": "Send a message if you need manual review or follow-up.",
+          "cta": "Open form"
+        },
+        {
+          "id": "report",
+          "section": "report",
+          "title": "Report doubtful content",
+          "description": "Notify incorrect questions, unclear explanations, or problematic AI responses.",
+          "cta": "Report now"
+        },
+        {
+          "id": "about-ai",
+          "section": "about-ai",
+          "title": "Understand AI assistance",
+          "description": "See how AI is used and when it makes sense to verify or report content.",
+          "cta": "View details"
+        }
+      ]
+    },
+    "coverage": {
+      "title": "What support covers",
+      "items": [
+        {
+          "icon": "faq",
+          "title": "Account and access",
+          "description": "Access recovery, expired sessions, and basic account issues."
+        },
+        {
+          "icon": "billing",
+          "title": "Subscription and billing",
+          "description": "Plans, charges, subscription changes, and billing errors."
+        },
+        {
+          "icon": "tests",
+          "title": "Tests and progress",
+          "description": "Automatic grading, saved progress, and study tracking."
+        },
+        {
+          "icon": "ia",
+          "title": "AI and explanations",
+          "description": "AI-assisted explanations, answer review, and content reporting."
+        }
+      ]
+    },
+    "steps": {
+      "title": "To solve it faster",
+      "items": [
+        {
+          "title": "Start with the right category",
+          "description": "Most common questions are already covered in the FAQ and are usually faster to resolve there."
+        },
+        {
+          "title": "Share the minimum useful context",
+          "description": "Include a question reference, affected area, or plan involved to reduce back-and-forth."
+        },
+        {
+          "title": "Report content if something looks inconsistent",
+          "description": "In an AI-powered exam prep product, concrete reports are more useful than generic complaints."
+        }
+      ]
+    }
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "description": "Realistic questions for an AI-assisted exam prep app, organized by the areas that matter most for daily study.",
+    "allCategories": "All",
+    "groups": [
+      {
+        "id": "account-access",
+        "label": "Account and access",
+        "description": "Sign in, account recovery, and basic session behavior.",
+        "items": [
+          {
+            "id": "login",
+            "question": "I cannot sign in. What should I check first?",
+            "answer": "Make sure you are using the same email you registered with, check that no extra spaces were added when copying your password, and try again from a stable connection. If you just reset your password, close any older session and sign in again."
+          },
+          {
+            "id": "reset-access",
+            "question": "How do I recover access if I forgot my password?",
+            "answer": "Use the recovery flow from the sign-in screen and follow the link sent to your email. If it does not arrive, check spam, promotions, and any filters that may block automated emails."
+          },
+          {
+            "id": "session-close",
+            "question": "Why was my session closed automatically?",
+            "answer": "This can happen because of session expiration, password changes, or browser storage cleanup. In most cases, signing in again is enough."
+          }
+        ]
+      },
+      {
+        "id": "subscription-billing",
+        "label": "Subscription and billing",
+        "description": "Plans, subscription changes, charges, and cancellations.",
+        "items": [
+          {
+            "id": "change-plan",
+            "question": "How do I change plans or update my subscription?",
+            "answer": "You can manage your plan from the profile or billing area when the payment portal is available for your account. If the change does not appear immediately, wait a few minutes and refresh your session."
+          },
+          {
+            "id": "cancel-plan",
+            "question": "What happens if I cancel my plan?",
+            "answer": "Cancellation usually keeps access active until the end of the paid period. After that, premium features stop being available and your account remains with the access level that applies."
+          },
+          {
+            "id": "payment-error",
+            "question": "I had a payment problem. What should I do?",
+            "answer": "First check that your payment method is still valid and that your bank has not blocked the charge. If the issue continues, contact support and include the approximate date and the affected plan."
+          }
+        ]
+      },
+      {
+        "id": "tests-progress",
+        "label": "Tests and progress",
+        "description": "How tests work, automatic grading, and saved progress.",
+        "items": [
+          {
+            "id": "auto-correction",
+            "question": "Are tests graded automatically?",
+            "answer": "Yes. The system grades answers at the end or according to the planned session flow, then updates metrics such as score, accuracy, or progress when enough data is available."
+          },
+          {
+            "id": "progress-save",
+            "question": "My progress is not being saved. What could be happening?",
+            "answer": "This is often caused by expired sessions, connection loss, or interruptions during the test. If it happens repeatedly, send the test identifier or the approximate moment when the progress was lost."
+          },
+          {
+            "id": "resume-test",
+            "question": "Can I resume a test that I left unfinished?",
+            "answer": "It depends on the state in which the session was left. If the test is still marked as in progress, you should be able to continue it. If it no longer appears, contact support with the identifier so it can be reviewed."
+          }
+        ]
+      },
+      {
+        "id": "ai-explanations",
+        "label": "AI and explanations",
+        "description": "How AI is used, explanation quality, and answer review.",
+        "items": [
+          {
+            "id": "ai-explanations",
+            "question": "How does AI work in the explanations?",
+            "answer": "AI helps summarize, add context, and explain questions or topics in a way that is more useful for studying. It does not replace academic validation and should not be treated as a guarantee of absolute accuracy."
+          },
+          {
+            "id": "ai-errors",
+            "question": "Can AI make mistakes?",
+            "answer": "Yes. It may oversimplify, misunderstand a question, or produce an incomplete explanation. That is why the platform includes a dedicated way to report doubtful content and improve review quality."
+          },
+          {
+            "id": "incorrect-explanation",
+            "question": "What should I do if an answer or explanation looks incorrect?",
+            "answer": "Use the report section and include the question reference plus the specific part that looks inconsistent. The more concrete the report, the easier it is to verify and correct."
+          }
+        ]
+      },
+      {
+        "id": "incidents",
+        "label": "Errors or incidents",
+        "description": "Visual bugs, blocking states, incomplete content, or unexpected behavior.",
+        "items": [
+          {
+            "id": "screen-error",
+            "question": "A screen does not load or gets stuck. How should I report it?",
+            "answer": "Tell us the exact section, what you were trying to do, and whether it always happens or only in specific moments. If you know the affected test, question, or plan reference, include it too."
+          },
+          {
+            "id": "content-mismatch",
+            "question": "I found a question, explanation, or piece of data that does not fit the syllabus.",
+            "answer": "The most useful option is to submit it through the content report form with the question reference and why it looks doubtful. That allows a more precise review."
+          },
+          {
+            "id": "slow-platform",
+            "question": "The platform feels slow. Is that a support issue?",
+            "answer": "Your connection or browser may contribute, but there may also be a temporary incident. If it keeps happening, contact support and include your device, browser, and the affected area."
+          }
+        ]
+      }
+    ]
+  },
+  "contact": {
+    "title": "Contact support",
+    "description": "Use this form for issues that need manual review or do not fit the FAQ.",
+    "delivery": {
+      "configuredTitle": "Delivery channel connected",
+      "configuredDescription": "This environment has an endpoint configured to register support requests from the form.",
+      "unconfiguredTitle": "Delivery channel not integrated yet",
+      "unconfiguredDescription": "The interface, validation, and payload shape are ready, but this environment still does not have a configured endpoint to send requests."
+    },
+    "guidance": {
+      "title": "What helps us review faster",
+      "items": [
+        "Explain the issue in one clear sequence: what you expected and what actually happened.",
+        "Add a useful reference if available: test, question, plan, payment, or affected screen.",
+        "If the issue is intermittent, tell us when it last happened and how often it repeats."
+      ]
+    },
+    "form": {
+      "required": "Required",
+      "optional": "Optional",
+      "submit": "Send message",
+      "submitting": "Sending...",
+      "footnote": "If the delivery channel is not connected yet, the form will warn you without sending data.",
+      "fields": {
+        "name": {
+          "label": "Name",
+          "placeholder": "Your name"
+        },
+        "email": {
+          "label": "Email",
+          "placeholder": "you@email.com"
+        },
+        "category": {
+          "label": "Category",
+          "placeholder": "Select a category"
+        },
+        "issueType": {
+          "label": "Request type",
+          "placeholder": "Select a type"
+        },
+        "context": {
+          "label": "Context",
+          "helper": "Example: test 8421, Premium payment, syllabus access, or a specific screen.",
+          "placeholder": "Short reference to locate the case"
+        },
+        "message": {
+          "label": "Message",
+          "helper": "Describe the issue with enough detail to reproduce or review it.",
+          "placeholder": "Tell us what happened and what you need us to review."
+        }
+      },
+      "options": {
+        "categories": [
+          {
+            "value": "account",
+            "label": "Account and access"
+          },
+          {
+            "value": "billing",
+            "label": "Subscription and billing"
+          },
+          {
+            "value": "tests",
+            "label": "Tests and progress"
+          },
+          {
+            "value": "ai",
+            "label": "AI and explanations"
+          },
+          {
+            "value": "technical",
+            "label": "Technical issue"
+          }
+        ],
+        "issueTypes": [
+          {
+            "value": "question",
+            "label": "Question"
+          },
+          {
+            "value": "incident",
+            "label": "Incident"
+          },
+          {
+            "value": "access",
+            "label": "Access"
+          },
+          {
+            "value": "payment",
+            "label": "Payment"
+          },
+          {
+            "value": "content",
+            "label": "Content"
+          }
+        ]
+      }
+    },
+    "toasts": {
+      "successTitle": "Request sent",
+      "successDescription": "Your support message was registered successfully.",
+      "errorTitle": "Unable to send",
+      "errorDescription": "An error occurred while sending the request. Please try again in a few seconds.",
+      "unconfiguredTitle": "Support channel not configured",
+      "unconfiguredDescription": "The form is ready, but this environment still needs a delivery endpoint."
+    }
+  },
+  "report": {
+    "title": "Report a question or explanation",
+    "description": "Use this channel for incorrect content, doubtful explanations, or AI answers that should be reviewed.",
+    "delivery": {
+      "configuredTitle": "Review channel connected",
+      "configuredDescription": "Reports can be sent from this screen to the configured review endpoint.",
+      "unconfiguredTitle": "Review channel pending",
+      "unconfiguredDescription": "Structured report capture is already implemented, but this environment still has no configured delivery target."
+    },
+    "guidance": {
+      "title": "What makes a report useful",
+      "items": [
+        "Include the exact question reference if you have it.",
+        "Explain why the content looks incorrect or incomplete, not only that it feels wrong.",
+        "Add extra context only if it helps review the case faster."
+      ]
+    },
+    "form": {
+      "required": "Required",
+      "optional": "Optional",
+      "submit": "Send report",
+      "submitting": "Sending...",
+      "footnote": "This flow is ready to connect to editorial review or support backend later.",
+      "fields": {
+        "questionReference": {
+          "label": "Question reference",
+          "helper": "If you do not have it, you can still send the report.",
+          "placeholder": "Example: QT-4821 or the visible question ID"
+        },
+        "problemType": {
+          "label": "Issue type",
+          "placeholder": "Select the detected issue"
+        },
+        "contextType": {
+          "label": "Related area",
+          "placeholder": "Select the context"
+        },
+        "description": {
+          "label": "Short description",
+          "helper": "Summarize what is problematic and why it should be reviewed.",
+          "placeholder": "Describe the main issue or doubt."
+        },
+        "additionalContext": {
+          "label": "Additional context",
+          "helper": "Add any detail that may help the review.",
+          "placeholder": "Example: marked answer, expected approach, or legal reference."
+        }
+      },
+      "options": {
+        "problemTypes": [
+          {
+            "value": "incorrect-question",
+            "label": "Incorrect question"
+          },
+          {
+            "value": "doubtful-explanation",
+            "label": "Doubtful explanation"
+          },
+          {
+            "value": "problematic-ai",
+            "label": "Problematic AI answer"
+          }
+        ],
+        "contextTypes": [
+          {
+            "value": "test-session",
+            "label": "Test session"
+          },
+          {
+            "value": "question-bank",
+            "label": "Question bank"
+          },
+          {
+            "value": "ai-chat",
+            "label": "AI chat or explanation"
+          },
+          {
+            "value": "billing-flow",
+            "label": "Billing flow"
+          },
+          {
+            "value": "account-area",
+            "label": "Account area"
+          }
+        ]
+      }
+    },
+    "toasts": {
+      "successTitle": "Report sent",
+      "successDescription": "The content has been marked for review.",
+      "errorTitle": "Unable to send report",
+      "errorDescription": "An error occurred while registering the report. Please try again in a few seconds.",
+      "unconfiguredTitle": "Review channel not connected yet",
+      "unconfiguredDescription": "The form is ready, but this environment still needs a configured channel to receive reports."
+    }
+  },
+  "aboutAi": {
+    "title": "About AI",
+    "description": "AI is meant to help you study better, not to replace critical review of the content.",
+    "cards": [
+      {
+        "icon": "assist",
+        "title": "It helps explain and add context",
+        "description": "It can summarize concepts, clarify questions, and offer explanations that are more useful for studying."
+      },
+      {
+        "icon": "contrast",
+        "title": "You should verify when something feels off",
+        "description": "If an explanation seems inaccurate or contradictory, review it critically and use the reporting channel."
+      },
+      {
+        "icon": "report",
+        "title": "Feedback improves quality",
+        "description": "Reports help detect content that needs review and strengthen overall platform quality."
+      }
+    ],
+    "note": {
+      "title": "Important note",
+      "description": "AI-assisted explanations may not always be perfect. If you detect something incorrect or doubtful, you can verify it and report it from this same section.",
+      "cta": "Go to reports"
+    }
+  },
+  "validation": {
+    "required": "Complete this field.",
+    "email": "Enter a valid email address.",
+    "nameMin": "Use at least 2 characters.",
+    "messageMin": "Describe the issue with a bit more detail.",
+    "reportDescriptionMin": "Summarize the issue with at least a little more context."
+  }
+}

@@ -24,8 +24,46 @@
     "completedTests": "Tests completados",
     "globalAverage": "Media global",
     "averageAccuracy": "Precision media",
+    "bestScore": "Mejor nota",
+    "averageDuration": "Duracion media",
+    "passRate": "Ratio de aprobado",
+    "inProgress": "Test en curso",
     "hoursThisWeek": "Horas esta semana",
-    "progress": "Progreso"
+    "progress": "Progreso",
+    "helpers": {
+      "completedTests": "Tests cerrados y corregidos en tu historial reciente.",
+      "averageAccuracy": "Promedio de aciertos sobre los tests finalizados.",
+      "bestScore": "Tu resultado mas alto dentro del panel actual.",
+      "averageDuration": "Tiempo medio invertido por intento completado.",
+      "inProgress": "Test en curso con {{count}} respuestas guardadas.",
+      "inProgressEmpty": "Ahora mismo no tienes ningun test en curso.",
+      "scoreTrendUp": "+{{value}} puntos frente al test anterior.",
+      "scoreTrendDown": "{{value}} puntos frente al test anterior.",
+      "scoreTrendFlat": "Sin variacion respecto al ultimo resultado.",
+      "scoreTrendFirst": "Todavia no hay comparativa suficiente."
+    }
+  },
+  "charts": {
+    "performance": {
+      "badge": "Evolucion",
+      "title": "Rendimiento reciente",
+      "caption": "Ultimos {{count}} tests",
+      "emptyTitle": "Aun no hay evolucion disponible",
+      "emptyDescription": "Cuando cierres tus primeros tests, aqui veras la curva de notas."
+    },
+    "accuracy": {
+      "badge": "Precision",
+      "title": "Aciertos por intento",
+      "emptyTitle": "Sin datos de precision todavia",
+      "emptyDescription": "Completa tests para ver que nivel de acierto mantienes en el tiempo."
+    },
+    "distribution": {
+      "badge": "Distribucion",
+      "title": "Estados de resultados",
+      "centerLabel": "tests",
+      "emptyTitle": "Sin distribucion por mostrar",
+      "emptyDescription": "La distribucion de excelentes, aprobados y refuerzo aparecera aqui."
+    }
   },
   "insights": {
     "trend": "Tendencia",
@@ -52,6 +90,7 @@
     "loadMore": "Ver mas",
     "loadingMore": "Cargando...",
     "empty": "Aun no tienes tests finalizados.",
+    "emptyDescription": "Cuando completes un test, este historial mostrara notas, precision y acceso directo a cada intento.",
     "status": {
       "excellent": "Excelente",
       "approved": "Aprobado",

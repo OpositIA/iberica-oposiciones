@@ -5,6 +5,9 @@ import { defineConfig } from "vite";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  build: {
+    chunkSizeWarningLimit: 1800
+  },
   server: {
     host: "::",
     port: 8080,

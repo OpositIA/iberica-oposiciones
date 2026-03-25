@@ -161,6 +161,12 @@ const MiPerfil = () => {
   const [activeOppositionId, setActiveOppositionId] = useState("");
   const [isOppositionDialogOpen, setIsOppositionDialogOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const sectionClassName =
+    "rounded-[1.75rem] border border-border/70 bg-background/95 p-6 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.28)] md:p-8 dark:shadow-[0_28px_56px_-46px_rgba(0,0,0,0.54)]";
+  const insetPanelClassName =
+    "rounded-[1.4rem] border border-border/70 bg-secondary/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]";
+  const fieldClassName =
+    "h-12 rounded-2xl border-border/70 bg-background/80 px-4 shadow-sm transition-all duration-200 focus-visible:ring-primary/25 focus-visible:ring-offset-2";
 
   const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
   const hasPaymentMethodManagement =
@@ -581,7 +587,7 @@ const MiPerfil = () => {
 
   return (
     <div className="space-y-6">
-      <section className="border border-border bg-background/95 p-6 md:p-8">
+      <section className={sectionClassName}>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="flex items-start gap-4">
             <div className="shrink-0">
@@ -594,7 +600,7 @@ const MiPerfil = () => {
                     styleType="unstyled"
                     size="none"
                     radius="none"
-                    className="group relative h-20 w-20 overflow-hidden rounded-full border border-border bg-secondary ring-offset-background transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-80"
+                    className="group relative h-24 w-24 overflow-hidden rounded-[1.75rem] border border-border/70 bg-secondary/50 shadow-[0_18px_34px_-24px_rgba(15,23,42,0.28)] ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-80"
                   >
                     {profile.avatarUrl ? (
                       <img
@@ -610,7 +616,7 @@ const MiPerfil = () => {
                     )}
                     <span className="pointer-events-none absolute inset-0 bg-background/55 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" />
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-                      <span className="inline-flex h-12 w-12 items-center justify-center bg-black/40 rounded-full shadow-sm">
+                      <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-black/40 shadow-sm">
                         <Pencil className="h-6 w-6 text-foreground" />
                       </span>
                     </span>
@@ -655,14 +661,14 @@ const MiPerfil = () => {
               />
             </div>
             <div>
-              <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+              <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
                 {t("profile:myProfile.sectionBadge")}
               </p>
               <h1 className="text-2xl md:text-3xl font-serif text-foreground">
                 {profile.firstName || t("profile:myProfile.defaultUser")}{" "}
                 {profile.lastName}
               </h1>
-              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+              <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
                 {t("profile:myProfile.description")}
               </p>
             </div>
@@ -673,6 +679,8 @@ const MiPerfil = () => {
             onClick={handleSaveProfile}
             disabled={isSavingProfile || isAvatarUpdating}
             styleType="primary"
+            radius="full"
+            className="min-w-[12rem]"
           >
             <Save className="h-4 w-4" />
             {isSavingProfile
@@ -682,9 +690,9 @@ const MiPerfil = () => {
         </div>
       </section>
 
-      <section className="border border-border bg-background p-6 md:p-8">
+      <section className={sectionClassName}>
         <div className="mb-5">
-          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+          <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.dataSection.badge")}
           </p>
           <h2 className="text-xl font-serif text-foreground">
@@ -694,7 +702,7 @@ const MiPerfil = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("profile:myProfile.fields.name")}
             </label>
             <CustomInput
@@ -703,11 +711,11 @@ const MiPerfil = () => {
               onChange={(e) =>
                 setProfile((prev) => ({ ...prev, firstName: e.target.value }))
               }
-              className="w-full"
+              className={`w-full ${fieldClassName}`}
             />
           </div>
           <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("profile:myProfile.fields.lastName")}
             </label>
             <CustomInput
@@ -716,36 +724,36 @@ const MiPerfil = () => {
               onChange={(e) =>
                 setProfile((prev) => ({ ...prev, lastName: e.target.value }))
               }
-              className="w-full"
+              className={`w-full ${fieldClassName}`}
             />
           </div>
           <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("profile:myProfile.fields.email")}
             </label>
             <CustomInput
               type="email"
               value={profile.email}
               disabled
-              className="w-full bg-secondary/40 text-muted-foreground"
+              className={`w-full ${fieldClassName} bg-secondary/35 text-muted-foreground`}
             />
           </div>
           <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("profile:myProfile.fields.locale")}
             </label>
             <CustomSelect
               value={locale}
               onChange={handleLocaleChange}
               disabled={isChangingLocale}
-              className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground disabled:opacity-70"
+              className={`w-full ${fieldClassName} disabled:opacity-70`}
             >
               <option value="es">{t("common:locale.es")}</option>
               <option value="en">{t("common:locale.en")}</option>
             </CustomSelect>
           </div>
           <div>
-            <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+            <label className="mb-2 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("profile:myProfile.fields.dateOfBirth")}
             </label>
             <CustomDateInput
@@ -757,15 +765,15 @@ const MiPerfil = () => {
                   dateOfBirth: e.target.value
                 }))
               }
-              className="w-full"
+              className={`w-full ${fieldClassName}`}
             />
           </div>
         </div>
       </section>
 
-      <section className="border border-border bg-background p-6 md:p-8">
+      <section className={sectionClassName}>
         <div className="mb-5">
-          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+          <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.oppositionSection.badge")}
           </p>
           <h2 className="text-xl font-serif text-foreground">
@@ -773,16 +781,16 @@ const MiPerfil = () => {
           </h2>
         </div>
 
-        <div className="rounded-xl border border-border bg-secondary/30 p-4">
-          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+        <div className={insetPanelClassName}>
+          <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.oppositionSection.studyingNow")}
           </p>
-          <p className="text-sm font-medium text-foreground mb-3">
+          <p className="mb-4 text-base font-medium text-foreground">
             {getOppositionName(activeOppositionId) ||
               t("profile:myProfile.oppositionSection.undefined")}
           </p>
 
-          <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.oppositionSection.newOpposition")}
           </label>
           <CustomSelect
@@ -793,7 +801,7 @@ const MiPerfil = () => {
                 preferredOppositionId: e.target.value
               }))
             }
-            className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+            className={`w-full ${fieldClassName}`}
           >
             <option value="">
               {t("profile:myProfile.oppositionSection.selectOption")}
@@ -814,6 +822,7 @@ const MiPerfil = () => {
             onClick={handleOpenOppositionDialog}
             disabled={isChangingOpposition}
             styleType="destructive"
+            radius="full"
             className="mt-4"
           >
             {isChangingOpposition
@@ -823,9 +832,9 @@ const MiPerfil = () => {
         </div>
       </section>
 
-      <section className="border border-border bg-background p-6 md:p-8">
+      <section className={sectionClassName}>
         <div className="mb-5">
-          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+          <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.paymentSection.badge")}
           </p>
           <h2 className="text-xl font-serif text-foreground">
@@ -833,8 +842,8 @@ const MiPerfil = () => {
           </h2>
         </div>
 
-        <div className="rounded-xl border border-border bg-secondary/20 p-4">
-          <p className="text-sm text-muted-foreground">
+        <div className={insetPanelClassName}>
+          <p className="text-sm leading-6 text-muted-foreground">
             {hasPaymentMethodManagement
               ? t("profile:myProfile.paymentSection.description")
               : t("profile:myProfile.paymentSection.noSubscriptionDescription")}
@@ -849,6 +858,7 @@ const MiPerfil = () => {
                 void handleOpenPaymentMethodPortal();
               }}
               disabled={isOpeningPaymentPortal}
+              radius="full"
             >
               {isOpeningPaymentPortal ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -860,7 +870,12 @@ const MiPerfil = () => {
                 : t("profile:myProfile.paymentSection.cta")}
             </CustomButton>
           ) : (
-            <CustomButton asChild styleType="menu" className="mt-4">
+            <CustomButton
+              asChild
+              radius="full"
+              styleType="menu"
+              className="mt-4"
+            >
               <Link to="/perfil/planes">
                 {t("profile:myProfile.paymentSection.managePlansCta")}
               </Link>
