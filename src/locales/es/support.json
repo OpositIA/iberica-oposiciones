@@ -1,0 +1,467 @@
+{
+  "page": {
+    "badge": "Soporte",
+    "title": "Ayuda clara para cuenta, tests e IA",
+    "description": "Resuelve dudas frecuentes, abre incidencias y reporta contenido dudoso desde un único espacio preparado para crecer."
+  },
+  "navigation": {
+    "sections": [
+      {
+        "id": "help-center",
+        "label": "Centro de ayuda",
+        "description": "Accesos rápidos y orientación breve"
+      },
+      {
+        "id": "faq",
+        "label": "Preguntas frecuentes",
+        "description": "Respuestas agrupadas por categoría"
+      },
+      {
+        "id": "contact",
+        "label": "Contactar",
+        "description": "Formulario general de soporte"
+      },
+      {
+        "id": "report",
+        "label": "Reportar error",
+        "description": "Preguntas, explicaciones o IA"
+      },
+      {
+        "id": "about-ai",
+        "label": "Sobre la IA",
+        "description": "Qué hace y qué límites tiene"
+      }
+    ]
+  },
+  "helpCenter": {
+    "title": "Centro de ayuda",
+    "description": "Elige la vía más directa según el tipo de incidencia y evita pasos innecesarios.",
+    "quickLinks": {
+      "items": [
+        {
+          "id": "faq",
+          "section": "faq",
+          "title": "Resolver una duda habitual",
+          "description": "Accede a respuestas sobre acceso, pagos, progreso, tests e IA.",
+          "cta": "Abrir FAQ"
+        },
+        {
+          "id": "contact",
+          "section": "contact",
+          "title": "Contactar con soporte",
+          "description": "Envía un mensaje si necesitas revisión manual o seguimiento.",
+          "cta": "Abrir formulario"
+        },
+        {
+          "id": "report",
+          "section": "report",
+          "title": "Reportar contenido dudoso",
+          "description": "Notifica preguntas incorrectas, explicaciones confusas o respuestas de IA problemáticas.",
+          "cta": "Reportar ahora"
+        },
+        {
+          "id": "about-ai",
+          "section": "about-ai",
+          "title": "Entender la ayuda de la IA",
+          "description": "Consulta cómo interviene la IA y cuándo conviene contrastar o reportar.",
+          "cta": "Ver información"
+        }
+      ]
+    },
+    "coverage": {
+      "title": "Qué cubre soporte",
+      "items": [
+        {
+          "icon": "faq",
+          "title": "Cuenta y acceso",
+          "description": "Recuperación de acceso, sesiones cerradas y problemas básicos de cuenta."
+        },
+        {
+          "icon": "billing",
+          "title": "Suscripción y pagos",
+          "description": "Planes, cobros, cambio de suscripción y errores de facturación."
+        },
+        {
+          "icon": "tests",
+          "title": "Tests y progreso",
+          "description": "Corrección automática, guardado de avance y seguimiento del estudio."
+        },
+        {
+          "icon": "ia",
+          "title": "IA y explicaciones",
+          "description": "Uso de explicaciones asistidas, revisión de respuestas y reporte de contenido."
+        }
+      ]
+    },
+    "steps": {
+      "title": "Para resolverlo más rápido",
+      "items": [
+        {
+          "title": "Revisa primero la categoría adecuada",
+          "description": "La mayoría de dudas comunes ya están cubiertas en FAQ y suelen resolverse más rápido desde ahí."
+        },
+        {
+          "title": "Aporta el contexto mínimo útil",
+          "description": "Incluye referencia de pregunta, área afectada o plan implicado para reducir intercambios."
+        },
+        {
+          "title": "Reporta contenido si ves algo incoherente",
+          "description": "En una plataforma de oposiciones con IA, detectar errores concretos es más útil que describir el problema de forma genérica."
+        }
+      ]
+    }
+  },
+  "faq": {
+    "title": "Preguntas frecuentes",
+    "description": "Consultas realistas de una app de preparación con IA, organizadas por el área que más impacto tiene en el estudio.",
+    "allCategories": "Todas",
+    "groups": [
+      {
+        "id": "account-access",
+        "label": "Cuenta y acceso",
+        "description": "Inicio de sesión, recuperación de acceso y comportamiento básico de la cuenta.",
+        "items": [
+          {
+            "id": "login",
+            "question": "No puedo iniciar sesión. ¿Qué reviso primero?",
+            "answer": "Comprueba que estás usando el mismo email con el que te registraste, revisa si hay espacios extra al copiar la contraseña y vuelve a intentarlo desde una conexión estable. Si acabas de restablecer la contraseña, cierra cualquier sesión antigua y entra de nuevo."
+          },
+          {
+            "id": "reset-access",
+            "question": "¿Cómo recupero el acceso si no recuerdo la contraseña?",
+            "answer": "Usa la recuperación desde la pantalla de acceso y sigue el enlace recibido en tu correo. Si no te llega, revisa spam, promociones y que el buzón no esté filtrando mensajes automáticos."
+          },
+          {
+            "id": "session-close",
+            "question": "¿Por qué la sesión se ha cerrado sola?",
+            "answer": "Puede ocurrir por caducidad de sesión, cambios de contraseña o limpieza del almacenamiento del navegador. Normalmente se resuelve volviendo a iniciar sesión."
+          }
+        ]
+      },
+      {
+        "id": "subscription-billing",
+        "label": "Suscripción y pagos",
+        "description": "Planes, cambios de suscripción, cobros y cancelaciones.",
+        "items": [
+          {
+            "id": "change-plan",
+            "question": "¿Cómo cambio de plan o actualizo mi suscripción?",
+            "answer": "Puedes gestionar tu plan desde el área de perfil o facturación cuando el portal de pagos esté disponible para tu cuenta. Si el cambio no se refleja, espera unos minutos y actualiza la sesión."
+          },
+          {
+            "id": "cancel-plan",
+            "question": "¿Qué pasa si cancelo mi plan?",
+            "answer": "La cancelación suele mantener el acceso hasta el final del periodo ya pagado. A partir de ahí, las funciones premium dejan de estar activas y se conserva tu cuenta con el acceso que corresponda."
+          },
+          {
+            "id": "payment-error",
+            "question": "He tenido un problema con el cobro. ¿Qué hago?",
+            "answer": "Revisa primero que el método de pago siga siendo válido y que no haya bloqueos del banco. Si el error persiste, usa el formulario de contacto indicando la fecha aproximada del intento y el plan afectado."
+          }
+        ]
+      },
+      {
+        "id": "tests-progress",
+        "label": "Tests y progreso",
+        "description": "Funcionamiento de los tests, corrección y guardado del avance.",
+        "items": [
+          {
+            "id": "auto-correction",
+            "question": "¿Los tests se corrigen automáticamente?",
+            "answer": "Sí. El sistema corrige las respuestas al finalizar o según el flujo previsto por la sesión, y actualiza métricas como aciertos, precisión o evolución cuando hay datos suficientes."
+          },
+          {
+            "id": "progress-save",
+            "question": "No se me guarda el progreso. ¿Qué puede estar pasando?",
+            "answer": "Suele deberse a cierres de sesión, pérdida de conexión o interrupciones durante el test. Si te ocurre con frecuencia, indícanos el identificador del test o el momento aproximado en que se perdió el avance."
+          },
+          {
+            "id": "resume-test",
+            "question": "¿Puedo retomar un test que dejé a medias?",
+            "answer": "Depende del estado en el que quedó la sesión. Si el test sigue marcado como en curso, deberías poder continuarlo. Si no aparece, usa soporte indicando el identificador para revisar el caso."
+          }
+        ]
+      },
+      {
+        "id": "ai-explanations",
+        "label": "IA y explicaciones",
+        "description": "Uso de IA, calidad de explicaciones y revisión de respuestas.",
+        "items": [
+          {
+            "id": "ai-explanations",
+            "question": "¿Cómo funciona la IA en las explicaciones?",
+            "answer": "La IA ayuda a resumir, contextualizar y explicar preguntas o temas de forma más útil para el estudio. No sustituye la validación académica del contenido ni debe interpretarse como una garantía absoluta de exactitud."
+          },
+          {
+            "id": "ai-errors",
+            "question": "¿La IA puede equivocarse?",
+            "answer": "Sí. Puede simplificar en exceso, interpretar mal una pregunta o dar una explicación incompleta. Por eso la plataforma incluye una vía específica para reportar contenido dudoso y mejorar la revisión."
+          },
+          {
+            "id": "incorrect-explanation",
+            "question": "¿Qué hago si una respuesta o explicación parece incorrecta?",
+            "answer": "Usa el apartado de reporte indicando la referencia de la pregunta y qué parte te parece inconsistente. Cuanto más concreta sea la observación, más fácil será verificarla y corregirla."
+          }
+        ]
+      },
+      {
+        "id": "incidents",
+        "label": "Errores o incidencias",
+        "description": "Fallos visuales, bloqueos, contenido incompleto o comportamientos no esperados.",
+        "items": [
+          {
+            "id": "screen-error",
+            "question": "Una pantalla no carga o se queda bloqueada. ¿Cómo lo reporto?",
+            "answer": "Indica la sección exacta, qué estabas intentando hacer y si el problema ocurre siempre o solo en momentos concretos. Si conoces la referencia del test, pregunta o plan afectado, añádela también."
+          },
+          {
+            "id": "content-mismatch",
+            "question": "He visto una pregunta, explicación o dato que no encaja con el temario.",
+            "answer": "Lo más útil es enviarlo desde el reporte de contenido indicando la referencia de la pregunta y por qué el contenido te parece dudoso. Así se puede revisar con más precisión."
+          },
+          {
+            "id": "slow-platform",
+            "question": "La plataforma va lenta. ¿Es un problema de soporte?",
+            "answer": "Puede influir tu conexión o el navegador, pero también puede haber una incidencia puntual. Si el comportamiento se repite, contacta con soporte indicando dispositivo, navegador y área concreta de la app."
+          }
+        ]
+      }
+    ]
+  },
+  "contact": {
+    "title": "Contactar con soporte",
+    "description": "Usa este formulario para incidencias que requieren revisión manual o no encajan en las preguntas frecuentes.",
+    "delivery": {
+      "configuredTitle": "Canal de envío conectado",
+      "configuredDescription": "Este entorno tiene configurado un endpoint para registrar solicitudes de soporte desde el formulario.",
+      "unconfiguredTitle": "Canal pendiente de integrar",
+      "unconfiguredDescription": "La interfaz, validación y estructura de datos están listas, pero en este entorno aún no hay un endpoint configurado para enviar solicitudes."
+    },
+    "guidance": {
+      "title": "Qué incluir para agilizar la revisión",
+      "items": [
+        "Explica el problema en una sola secuencia clara: qué esperabas y qué ocurrió realmente.",
+        "Añade una referencia útil si existe: test, pregunta, plan, pago o pantalla afectada.",
+        "Si el problema es intermitente, indica cuándo te pasó por última vez y con qué frecuencia."
+      ]
+    },
+    "form": {
+      "required": "Obligatorio",
+      "optional": "Opcional",
+      "submit": "Enviar mensaje",
+      "submitting": "Enviando...",
+      "footnote": "Si el canal no está conectado todavía, el formulario te avisará sin enviar datos.",
+      "fields": {
+        "name": {
+          "label": "Nombre",
+          "placeholder": "Tu nombre"
+        },
+        "email": {
+          "label": "Email",
+          "placeholder": "tu@email.com"
+        },
+        "category": {
+          "label": "Categoría",
+          "placeholder": "Selecciona una categoría"
+        },
+        "issueType": {
+          "label": "Tipo de solicitud",
+          "placeholder": "Selecciona un tipo"
+        },
+        "context": {
+          "label": "Contexto",
+          "helper": "Ejemplo: test 8421, pago de Premium, acceso a temario o pantalla concreta.",
+          "placeholder": "Referencia breve para ubicar el caso"
+        },
+        "message": {
+          "label": "Mensaje",
+          "helper": "Describe el problema con el detalle justo para poder reproducirlo o revisarlo.",
+          "placeholder": "Cuéntanos qué ha pasado y qué necesitas que revisemos."
+        }
+      },
+      "options": {
+        "categories": [
+          {
+            "value": "account",
+            "label": "Cuenta y acceso"
+          },
+          {
+            "value": "billing",
+            "label": "Suscripción y pagos"
+          },
+          {
+            "value": "tests",
+            "label": "Tests y progreso"
+          },
+          {
+            "value": "ai",
+            "label": "IA y explicaciones"
+          },
+          {
+            "value": "technical",
+            "label": "Incidencia técnica"
+          }
+        ],
+        "issueTypes": [
+          {
+            "value": "question",
+            "label": "Consulta"
+          },
+          {
+            "value": "incident",
+            "label": "Incidencia"
+          },
+          {
+            "value": "access",
+            "label": "Acceso"
+          },
+          {
+            "value": "payment",
+            "label": "Pago"
+          },
+          {
+            "value": "content",
+            "label": "Contenido"
+          }
+        ]
+      }
+    },
+    "toasts": {
+      "successTitle": "Solicitud enviada",
+      "successDescription": "Tu mensaje de soporte se ha registrado correctamente.",
+      "errorTitle": "No se pudo enviar",
+      "errorDescription": "Ha ocurrido un error al enviar la solicitud. Inténtalo de nuevo en unos segundos.",
+      "unconfiguredTitle": "Canal de soporte no configurado",
+      "unconfiguredDescription": "El formulario está preparado, pero falta conectar un endpoint de envío en este entorno."
+    }
+  },
+  "report": {
+    "title": "Reportar una pregunta o explicación",
+    "description": "Usa este canal para contenido incorrecto, explicaciones dudosas o respuestas de IA que deban revisarse.",
+    "delivery": {
+      "configuredTitle": "Canal de revisión conectado",
+      "configuredDescription": "Los reportes pueden enviarse desde esta pantalla al endpoint configurado para revisión.",
+      "unconfiguredTitle": "Canal de revisión pendiente",
+      "unconfiguredDescription": "La captura estructurada del reporte ya está lista, pero este entorno aún no tiene configurado el destino de envío."
+    },
+    "guidance": {
+      "title": "Qué hace útil un buen reporte",
+      "items": [
+        "Indica la referencia exacta de la pregunta si la tienes a mano.",
+        "Explica por qué el contenido parece incorrecto o incompleto, no solo que no te convence.",
+        "Añade contexto extra solo si ayuda a revisar el caso más rápido."
+      ]
+    },
+    "form": {
+      "required": "Obligatorio",
+      "optional": "Opcional",
+      "submit": "Enviar reporte",
+      "submitting": "Enviando...",
+      "footnote": "Este flujo queda listo para conectar con revisión editorial o backend de soporte.",
+      "fields": {
+        "questionReference": {
+          "label": "Referencia de la pregunta",
+          "helper": "Si no la tienes, puedes enviar igualmente el reporte.",
+          "placeholder": "Ejemplo: QT-4821 o ID visible en la pregunta"
+        },
+        "problemType": {
+          "label": "Tipo de problema",
+          "placeholder": "Selecciona el problema detectado"
+        },
+        "contextType": {
+          "label": "Área relacionada",
+          "placeholder": "Selecciona el contexto"
+        },
+        "description": {
+          "label": "Descripción breve",
+          "helper": "Resume qué parte es problemática y por qué debería revisarse.",
+          "placeholder": "Describe el error o la duda principal."
+        },
+        "additionalContext": {
+          "label": "Contexto adicional",
+          "helper": "Añade cualquier detalle útil para revisar mejor el caso.",
+          "placeholder": "Ejemplo: respuesta marcada, enfoque esperado o referencia normativa."
+        }
+      },
+      "options": {
+        "problemTypes": [
+          {
+            "value": "incorrect-question",
+            "label": "Pregunta incorrecta"
+          },
+          {
+            "value": "doubtful-explanation",
+            "label": "Explicación dudosa"
+          },
+          {
+            "value": "problematic-ai",
+            "label": "Respuesta de IA problemática"
+          }
+        ],
+        "contextTypes": [
+          {
+            "value": "test-session",
+            "label": "Sesión de test"
+          },
+          {
+            "value": "question-bank",
+            "label": "Banco de preguntas"
+          },
+          {
+            "value": "ai-chat",
+            "label": "Chat o explicación de IA"
+          },
+          {
+            "value": "billing-flow",
+            "label": "Flujo de pago"
+          },
+          {
+            "value": "account-area",
+            "label": "Área de cuenta"
+          }
+        ]
+      }
+    },
+    "toasts": {
+      "successTitle": "Reporte enviado",
+      "successDescription": "El contenido ha quedado marcado para revisión.",
+      "errorTitle": "No se pudo enviar el reporte",
+      "errorDescription": "Ha ocurrido un error al registrar el reporte. Inténtalo de nuevo en unos segundos.",
+      "unconfiguredTitle": "Revisión aún no conectada",
+      "unconfiguredDescription": "El formulario está listo, pero este entorno todavía no tiene configurado el canal de recepción de reportes."
+    }
+  },
+  "aboutAi": {
+    "title": "Sobre la IA",
+    "description": "La IA está pensada para ayudarte a estudiar mejor, no para sustituir la revisión crítica del contenido.",
+    "cards": [
+      {
+        "icon": "assist",
+        "title": "Ayuda a explicar y contextualizar",
+        "description": "Puede resumir conceptos, aclarar preguntas y ofrecer una explicación más orientada al estudio."
+      },
+      {
+        "icon": "contrast",
+        "title": "Conviene contrastar cuando haya dudas",
+        "description": "Si una explicación parece imprecisa o contradictoria, revísala con criterio y usa el canal de reporte."
+      },
+      {
+        "icon": "report",
+        "title": "El feedback mejora la calidad",
+        "description": "Los reportes ayudan a detectar contenido que debe revisarse y a reforzar la calidad de la plataforma."
+      }
+    ],
+    "note": {
+      "title": "Mensaje importante",
+      "description": "Las explicaciones asistidas por IA pueden no ser perfectas. Si detectas algo incorrecto o dudoso, puedes contrastarlo y reportarlo desde esta misma sección.",
+      "cta": "Ir a reportes"
+    }
+  },
+  "validation": {
+    "required": "Completa este campo.",
+    "email": "Introduce un email válido.",
+    "nameMin": "Escribe al menos 2 caracteres.",
+    "messageMin": "Describe la incidencia con algo más de detalle.",
+    "reportDescriptionMin": "Resume el problema con al menos un poco más de contexto."
+  }
+}

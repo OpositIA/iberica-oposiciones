@@ -74,6 +74,10 @@ const ProfileTest = () => {
   const { t, i18n } = useTranslation(["profile"]);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const sectionClassName =
+    "rounded-[1.75rem] border border-border/70 bg-background/95 p-6 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.28)] md:p-8 dark:shadow-[0_28px_56px_-46px_rgba(0,0,0,0.54)]";
+  const optionPanelClassName =
+    "rounded-[1.5rem] border border-border/70 bg-background/95 p-5 shadow-[0_18px_40px_-36px_rgba(15,23,42,0.24)] transition-colors dark:shadow-[0_22px_50px_-40px_rgba(0,0,0,0.44)]";
   const { user, isAuthReady } = useAuth();
   const shouldLoadOpposition = isAuthReady && Boolean(user?.id);
   const { data: planState } = useUserPlanStateQuery(user?.id);
@@ -396,17 +400,17 @@ const ProfileTest = () => {
   if (!isCurrentPlanPaid) {
     return (
       <div className="space-y-4">
-        <section className="border border-border bg-background/95 p-6 md:p-8">
-          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+        <section className={sectionClassName}>
+          <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("test.badge")}
           </p>
-          <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">
+          <h2 className="mb-2 text-xl font-serif text-foreground md:text-2xl">
             {t("test.title")}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm leading-6 text-muted-foreground">
             {t("test.description")}
           </p>
-          <div className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          <div className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
             <span className="font-semibold uppercase tracking-[0.22em]">
               {t(`plans:plans.${currentPlanKey}.name`)}
             </span>
@@ -414,18 +418,18 @@ const ProfileTest = () => {
           </div>
         </section>
 
-        <section className="border border-border bg-background p-6 md:p-8">
+        <section className={sectionClassName}>
           <div className="max-w-2xl space-y-3">
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
+            <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("testSession.badge")}
             </p>
             <h3 className="text-xl font-serif text-foreground">
               {t("testSession.lockedTitle")}
             </h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm leading-6 text-muted-foreground">
               {t("testSession.lockedDescription")}
             </p>
-            <CustomButton asChild styleType="primary">
+            <CustomButton asChild radius="full" styleType="primary">
               <Link to="/perfil/planes">{t("plans:upgradeDialog.cta")}</Link>
             </CustomButton>
           </div>
@@ -436,16 +440,18 @@ const ProfileTest = () => {
 
   return (
     <div className="space-y-4">
-      <section className="border border-border bg-background/95 p-6 md:p-8">
-        <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+      <section className={sectionClassName}>
+        <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
           {t("test.badge")}
         </p>
-        <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">
+        <h2 className="mb-2 text-xl font-serif text-foreground md:text-2xl">
           {t("test.title")}
         </h2>
-        <p className="text-sm text-muted-foreground">{t("test.description")}</p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {t("test.description")}
+        </p>
         <div
-          className={`mt-4 inline-flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 text-xs ${
+          className={`mt-4 inline-flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs ${
             isCurrentPlanPaid
               ? "border-primary/25 bg-primary/10 text-primary"
               : "border-amber-500/25 bg-amber-500/10 text-amber-700"
@@ -465,9 +471,11 @@ const ProfileTest = () => {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="border border-border bg-background p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
+        <div className={`${optionPanelClassName} space-y-5`}>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+              <FileText className="h-4 w-4" />
+            </span>
             <p className="text-sm font-semibold text-foreground">
               {t("test.mockMode")}
             </p>
@@ -479,15 +487,18 @@ const ProfileTest = () => {
             type="button"
             onClick={iniciarSimulacro}
             styleType="menu"
-            className="w-full !mt-[48px]"
+            radius="full"
+            className="w-full"
           >
             {t("test.startMock")}
           </CustomButton>
         </div>
 
-        <div className="border border-border bg-background p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <ListChecks className="h-4 w-4 text-primary" />
+        <div className={`${optionPanelClassName} space-y-5`}>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+              <ListChecks className="h-4 w-4" />
+            </span>
             <p className="text-sm font-semibold text-foreground">
               {t("test.quickMode")}
             </p>
@@ -511,6 +522,7 @@ const ProfileTest = () => {
               setIsQuickTestDialogOpen(true);
             }}
             styleType="primary"
+            radius="full"
             className="w-full"
             disabled={allTopicIds.length === 0}
           >
@@ -524,8 +536,8 @@ const ProfileTest = () => {
         open={isQuickTestDialogOpen}
         onOpenChange={onQuickTestDialogOpenChange}
       >
-        <DialogContent className="max-w-3xl border-border/70 bg-background/95 p-0">
-          <DialogHeader className="border-b border-border/70 bg-primary/10 px-6 pt-6 pb-4 text-left">
+        <DialogContent className="max-w-3xl overflow-hidden rounded-[1.75rem] border-border/70 bg-background/95 p-0 shadow-[0_28px_64px_-44px_rgba(15,23,42,0.42)]">
+          <DialogHeader className="border-b border-border/70 bg-secondary/20 px-6 pt-6 pb-4 text-left">
             <DialogTitle className="text-base font-semibold leading-tight">
               {t("test.quickDialogTitle")}
             </DialogTitle>
@@ -542,7 +554,7 @@ const ProfileTest = () => {
                 <p className="text-sm font-semibold text-foreground">
                   {t("test.quickDialogQuestionsLabel")}
                 </p>
-                <span className="rounded-md border border-border px-2 py-1 text-xs font-semibold text-foreground">
+                <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground">
                   {quickTestQuestionCount}
                 </span>
               </div>
@@ -615,7 +627,7 @@ const ProfileTest = () => {
               </div>
 
               {quickBlocks.length === 0 && (
-                <p className="rounded-lg border border-border/70 bg-primary/10 px-3 py-2 text-xs text-muted-foreground">
+                <p className="rounded-2xl border border-border/70 bg-secondary/20 px-4 py-3 text-xs text-muted-foreground">
                   {t("test.quickDialogNoTopics")}
                 </p>
               )}
@@ -638,7 +650,11 @@ const ProfileTest = () => {
                   return (
                     <div
                       key={block.code}
-                      className="rounded-xl border border-border/80 bg-background px-4 py-3"
+                      className={`rounded-[1.25rem] border px-4 py-4 shadow-sm transition-colors ${
+                        selectedCount > 0
+                          ? "border-primary/20 bg-primary/[0.04]"
+                          : "border-border/70 bg-background/90"
+                      }`}
                     >
                       <label className="flex cursor-pointer items-start gap-3">
                         <Checkbox
@@ -669,7 +685,7 @@ const ProfileTest = () => {
                         {block.topics.map((topic) => (
                           <label
                             key={topic.id}
-                            className="flex cursor-pointer items-start gap-3 rounded-md border border-border/60 bg-primary/10 px-2 py-1.5"
+                            className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/60 bg-background/80 px-3 py-2 transition-colors hover:bg-secondary/20"
                           >
                             <Checkbox
                               checked={selectedTopicIdSet.has(topic.id)}
@@ -692,10 +708,11 @@ const ProfileTest = () => {
             </section>
           </div>
 
-          <DialogFooter className="border-t border-border/70 bg-primary/10 px-6 py-4 sm:justify-end">
+          <DialogFooter className="border-t border-border/70 bg-secondary/20 px-6 py-4 sm:justify-end">
             <CustomButton
               type="button"
               styleType="menu"
+              radius="full"
               onClick={() => setIsQuickTestDialogOpen(false)}
               disabled={isGeneratingQuickTest}
             >
@@ -704,6 +721,7 @@ const ProfileTest = () => {
             <CustomButton
               type="button"
               styleType="primary"
+              radius="full"
               onClick={() => {
                 void iniciarTestRapido();
               }}

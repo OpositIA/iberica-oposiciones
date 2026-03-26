@@ -118,5 +118,51 @@
       "cookies": "Cookies"
     }
   },
+  "cookieConsent": {
+    "banner": {
+      "eyebrow": "Privacidad inteligente",
+      "title": "Usamos cookies para mejorar tu experiencia.",
+      "description": "Las necesarias siempre están activas. Puedes aceptar, rechazar o ajustar el resto.",
+      "policyLink": "Ver política de cookies",
+      "actionsLabel": "Decisión inicial",
+      "actionsDescription": "Decide ahora o configúralas por categorías."
+    },
+    "actions": {
+      "acceptAll": "Aceptar todas",
+      "rejectAll": "Rechazar todas",
+      "configure": "Configurar",
+      "saveSelection": "Guardar selección"
+    },
+    "preferences": {
+      "eyebrow": "Centro de preferencias",
+      "title": "Configura tus cookies",
+      "description": "Las cookies necesarias no se pueden desactivar. El resto solo se activará si lo autorizas.",
+      "updatedHint": "Podrás cambiar esta decisión más adelante desde Cookies en el pie.",
+      "status": {
+        "active": "Activa",
+        "alwaysActive": "Siempre activa",
+        "optional": "Opcional",
+        "off": "Desactivada"
+      }
+    },
+    "categories": {
+      "necessary": {
+        "title": "Necesarias",
+        "description": "Permiten el funcionamiento básico de la web, la seguridad de la sesión y la navegación. No pueden desactivarse."
+      },
+      "preferences": {
+        "title": "Preferencias",
+        "description": "Guardan ajustes de experiencia y personalización no esencial."
+      },
+      "analytics": {
+        "title": "Analíticas",
+        "description": "Nos ayudan a medir uso y mejorar contenido y rendimiento."
+      },
+      "marketing": {
+        "title": "Marketing",
+        "description": "Permiten medir campañas y personalizar mensajes promocionales."
+      }
+    }
+  },
   "heroImageAlt": "Hero"
 }

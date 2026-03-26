@@ -41,6 +41,7 @@
       "dashboard": "Dashboard",
       "profile": "My profile",
       "ia": "AI",
+      "support": "Support",
       "test": "Tests",
       "syllabus": "Syllabus",
       "study": "Study"
@@ -215,6 +216,8 @@
     "viewerPopupBlockedDescription": "Allow pop-ups and try again.",
     "contentTitle": "Syllabus content",
     "noContent": "No syllabus content is available yet for this exam track.",
+    "noSubtopics": "No subtopics are available yet.",
+    "noTopics": "This exam track does not have uploaded topics yet.",
     "contentLockedTitle": "Content available in Pro",
     "contentLockedDescription": "With the paid plan you can access the full syllabus content.",
     "contentLockedCta": "View plans"

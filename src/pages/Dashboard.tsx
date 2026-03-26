@@ -1,4 +1,10 @@
 import { useAuth } from "@/auth/AuthProvider";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig
+} from "@/components/ui/chart";
 import CustomButton from "@/components/ui/custom-button";
 import { isPaidPlan } from "@/lib/plans";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
@@ -7,28 +13,153 @@ import {
   type QuickTestHistoryRecord
 } from "@/queries/testQueries";
 import { useQuery } from "@tanstack/react-query";
+import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   BookOpen,
-  Brain,
   CalendarDays,
   CheckCircle2,
   Clock3,
   Minus,
   RotateCcw,
+  Sparkles,
   Target,
+  TimerReset,
   TrendingDown,
   TrendingUp,
+  Trophy,
   User
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis
+} from "recharts";
 
 type TestStatus = "excellent" | "approved" | "reinforce";
 type TestTrend = "up" | "down" | "flat";
 type DashboardHistoryRow = QuickTestHistoryRecord & { trend: TestTrend };
+
+type DashboardKpiCardProps = {
+  description: string;
+  helper: string;
+  icon: LucideIcon;
+  toneClassName?: string;
+  title: string;
+  value: string;
+};
+
+type DashboardEmptyStateProps = {
+  description: string;
+  icon: LucideIcon;
+  title: string;
+};
+
 const HISTORY_PAGE_SIZE = 10;
+
+const performanceChartConfig = {
+  score: {
+    label: "Score",
+    theme: {
+      light: "hsl(var(--primary))",
+      dark: "hsl(var(--primary))"
+    }
+  },
+  accuracy: {
+    label: "Accuracy",
+    theme: {
+      light: "hsl(var(--accent))",
+      dark: "hsl(var(--accent))"
+    }
+  },
+  excellent: {
+    label: "Excellent",
+    theme: {
+      light: "hsl(142 72% 42%)",
+      dark: "hsl(142 64% 50%)"
+    }
+  },
+  approved: {
+    label: "Approved",
+    theme: {
+      light: "hsl(199 89% 48%)",
+      dark: "hsl(199 92% 58%)"
+    }
+  },
+  reinforce: {
+    label: "Reinforce",
+    theme: {
+      light: "hsl(38 92% 50%)",
+      dark: "hsl(38 95% 60%)"
+    }
+  }
+} satisfies ChartConfig;
+
+const basePanelClassName =
+  "rounded-[1.75rem] border border-border/70 bg-background/95 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.28)] transition-colors dark:shadow-[0_28px_56px_-46px_rgba(0,0,0,0.54)]";
+
+const DashboardKpiCard = ({
+  description,
+  helper,
+  icon: Icon,
+  title,
+  toneClassName,
+  value
+}: DashboardKpiCardProps) => (
+  <article
+    className={`${basePanelClassName} group h-full overflow-hidden p-5 md:p-6`}
+  >
+    <div className="flex items-start justify-between gap-4">
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+            {title}
+          </p>
+          <p
+            className={`text-3xl font-serif leading-none text-foreground ${toneClassName ?? ""}`}
+          >
+            {value}
+          </p>
+        </div>
+        <p className="text-sm text-foreground/85">{description}</p>
+      </div>
+
+      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/35 text-foreground transition-transform duration-200 group-hover:scale-[1.03]">
+        <Icon className="h-5 w-5" />
+      </span>
+    </div>
+
+    <p className="mt-5 text-xs text-muted-foreground">{helper}</p>
+  </article>
+);
+
+const DashboardEmptyState = ({
+  description,
+  icon: Icon,
+  title
+}: DashboardEmptyStateProps) => (
+  <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-[1.4rem] border border-dashed border-border/70 bg-secondary/15 px-6 py-10 text-center">
+    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-background/80 text-muted-foreground">
+      <Icon className="h-5 w-5" />
+    </span>
+    <div className="space-y-1">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  </div>
+);
 
 const Dashboard = () => {
   const { t, i18n } = useTranslation(["dashboard"]);
@@ -47,7 +178,6 @@ const Dashboard = () => {
   });
   const quickTestStats = dashboardBundle?.stats;
   const inProgressQuickTest = dashboardBundle?.inProgress ?? null;
-  const weeklyTargetHours = 16;
 
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${
@@ -67,12 +197,14 @@ const Dashboard = () => {
           : item.accuracy < previousItem.accuracy
             ? "down"
             : "flat";
+
       return {
         ...item,
         trend
       };
     });
   }, [dashboardBundle?.historyItems]);
+
   const visibleHistoryItems = useMemo(
     () => historialTests.slice(0, visibleHistoryCount),
     [historialTests, visibleHistoryCount]
@@ -83,50 +215,181 @@ const Dashboard = () => {
     setVisibleHistoryCount(HISTORY_PAGE_SIZE);
   }, [user?.id, historialTests.length]);
 
-  const horasEstudio = Math.max(
-    1,
-    Math.round(weeklyTargetHours * 0.72 * 10) / 10
-  );
-  const progresoMeta = Math.min(
-    100,
-    Math.round((horasEstudio / weeklyTargetHours) * 100)
-  );
-
+  const locale = i18n.resolvedLanguage ?? "es";
   const mediaNota = quickTestStats?.averageScore ?? 0;
   const precisionMedia = quickTestStats?.averageAccuracy ?? 0;
   const completedTestsCount = quickTestStats?.completedTests ?? 0;
+  const hasHistoryData = completedTestsCount > 0;
+
+  const bestScore = useMemo(
+    () =>
+      historialTests.reduce(
+        (best, test) => Math.max(best, Number(test.score.toFixed(1))),
+        0
+      ),
+    [historialTests]
+  );
+
+  const averageDuration = useMemo(() => {
+    if (!hasHistoryData) return 0;
+
+    return Math.round(
+      historialTests.reduce((acc, test) => acc + test.durationMinutes, 0) /
+        completedTestsCount
+    );
+  }, [completedTestsCount, hasHistoryData, historialTests]);
+
+  const scoreAxisMax = useMemo(
+    () => Math.max(10, Math.ceil(bestScore)),
+    [bestScore]
+  );
+
+  const latestScoreDelta = useMemo(() => {
+    if (historialTests.length < 2) return null;
+
+    return Number(
+      (historialTests[0].score - historialTests[1].score).toFixed(1)
+    );
+  }, [historialTests]);
+
+  const scoreTrendHelper = useMemo(() => {
+    if (latestScoreDelta === null) return t("cards.helpers.scoreTrendFirst");
+    if (latestScoreDelta > 0)
+      return t("cards.helpers.scoreTrendUp", { value: latestScoreDelta });
+    if (latestScoreDelta < 0)
+      return t("cards.helpers.scoreTrendDown", { value: latestScoreDelta });
+
+    return t("cards.helpers.scoreTrendFlat");
+  }, [latestScoreDelta, t]);
+
+  const recentPerformanceData = useMemo(
+    () =>
+      historialTests
+        .slice(0, 6)
+        .reverse()
+        .map((test, index) => ({
+          accuracy: Math.round(test.accuracy),
+          duration: test.durationMinutes,
+          label: new Date(test.finishedAt).toLocaleDateString(locale, {
+            day: "numeric",
+            month: "short"
+          }),
+          score: Number(test.score.toFixed(1)),
+          testLabel: `${index + 1}`
+        })),
+    [historialTests, locale]
+  );
+
+  const distributionData = useMemo(() => {
+    const statusOrder: TestStatus[] = ["excellent", "approved", "reinforce"];
+    return statusOrder
+      .map((status) => {
+        const value = historialTests.filter(
+          (test) => test.status === status
+        ).length;
+
+        return {
+          fill: `var(--color-${status})`,
+          key: status,
+          label: t(`history.status.${status}`),
+          value
+        };
+      })
+      .filter((item) => item.value > 0);
+  }, [historialTests, t]);
+
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    if (!Number.isFinite(date.valueOf())) return "-";
+
+    return date.toLocaleDateString(locale);
+  };
 
   const statusClass: Record<TestStatus, string> = {
-    excellent: "bg-emerald-500/15 text-emerald-700",
-    approved: "bg-sky-500/15 text-sky-700",
-    reinforce: "bg-amber-500/15 text-amber-700"
+    excellent:
+      "border border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+    approved:
+      "border border-sky-500/20 bg-sky-500/12 text-sky-700 dark:text-sky-300",
+    reinforce:
+      "border border-amber-500/25 bg-amber-500/12 text-amber-700 dark:text-amber-300"
   };
+
+  const kpiCards: DashboardKpiCardProps[] = [
+    {
+      description: t("cards.completedTests"),
+      helper: t("cards.helpers.completedTests"),
+      icon: BookOpen,
+      title: t("cards.completedTests"),
+      value: completedTestsCount.toString()
+    },
+    {
+      description: t("cards.globalAverage"),
+      helper: scoreTrendHelper,
+      icon: TrendingUp,
+      title: t("cards.globalAverage"),
+      value: hasHistoryData ? mediaNota.toFixed(1) : "0.0"
+    },
+    {
+      description: t("cards.averageAccuracy"),
+      helper: t("cards.helpers.averageAccuracy"),
+      icon: Target,
+      title: t("cards.averageAccuracy"),
+      value: `${precisionMedia}%`
+    },
+    {
+      description: t("cards.bestScore"),
+      helper: t("cards.helpers.bestScore"),
+      icon: Trophy,
+      title: t("cards.bestScore"),
+      value: hasHistoryData ? bestScore.toFixed(1) : "0.0"
+    },
+    {
+      description: t("cards.averageDuration"),
+      helper: t("cards.helpers.averageDuration"),
+      icon: Clock3,
+      title: t("cards.averageDuration"),
+      value: hasHistoryData ? `${averageDuration} min` : "0 min"
+    },
+    {
+      description: t("cards.inProgress"),
+      helper: inProgressQuickTest
+        ? t("cards.helpers.inProgress", {
+            count: inProgressQuickTest.answeredCount
+          })
+        : t("cards.helpers.inProgressEmpty"),
+      icon: TimerReset,
+      title: t("cards.inProgress"),
+      value: inProgressQuickTest
+        ? inProgressQuickTest.answeredCount.toString()
+        : "0"
+    }
+  ];
 
   return (
     <div className="space-y-6">
-      <section className="border border-border bg-background/95 p-6 md:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="mb-1 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
+      <section className={`${basePanelClassName} overflow-hidden p-6 md:p-8`}>
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-3xl">
+            <p className="mb-2 text-xs font-semibold tracking-[0.24em] uppercase text-muted-foreground">
               {t("header.badge")}
             </p>
-            <h1 className="text-2xl md:text-3xl font-serif text-foreground">
+            <h1 className="text-2xl font-serif text-foreground md:text-3xl">
               {t("header.greeting", { name: accountName })}
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
               {t("header.description")}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <CustomButton asChild styleType="menu">
+            <CustomButton asChild radius="full" styleType="menu">
               <Link to="/perfil/mi-perfil">
                 <User className="h-4 w-4" />
                 {t("actions.profile")}
               </Link>
             </CustomButton>
             {!inProgressQuickTest && hasQuickTestsAccess && (
-              <CustomButton asChild styleType="menu">
+              <CustomButton asChild radius="full" styleType="menu">
                 <Link to="/perfil/test">
                   <BookOpen className="h-4 w-4" />
                   {t("actions.goToTest")}
@@ -134,7 +397,7 @@ const Dashboard = () => {
               </CustomButton>
             )}
             {inProgressQuickTest && hasQuickTestsAccess && (
-              <CustomButton asChild styleType="menu">
+              <CustomButton asChild radius="full" styleType="menu">
                 <Link
                   to={`/perfil/test/${encodeURIComponent(inProgressQuickTest.testId)}`}
                 >
@@ -143,227 +406,405 @@ const Dashboard = () => {
                 </Link>
               </CustomButton>
             )}
-            <CustomButton asChild styleType="primary">
-              <Link to="/perfil/opositAI">
-                <Brain className="h-4 w-4" />
-                {t("actions.openIA")}
-              </Link>
-            </CustomButton>
           </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="border border-border bg-background p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-              {t("cards.completedTests")}
-            </p>
-          </div>
-          <p className="text-2xl font-serif text-foreground">
-            {completedTestsCount}
-          </p>
-        </div>
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {kpiCards.map((card) => (
+          <DashboardKpiCard key={card.title} {...card} />
+        ))}
+      </section>
 
-        <div className="border border-border bg-background p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-              {t("cards.globalAverage")}
-            </p>
-          </div>
-          <p className="text-2xl font-serif text-foreground">
-            {mediaNota.toFixed(1)}
-          </p>
-        </div>
-
-        <div className="border border-border bg-background p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <Target className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-              {t("cards.averageAccuracy")}
-            </p>
-          </div>
-          <p className="text-2xl font-serif text-foreground">
-            {precisionMedia}%
-          </p>
-        </div>
-
-        <div className="border border-border bg-background p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <Clock3 className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-              {t("cards.hoursThisWeek")}
-            </p>
-          </div>
-          <p className="text-2xl font-serif text-foreground">
-            {horasEstudio} h
-          </p>
-          <div className="mt-2">
-            <div className="mb-1 flex items-center justify-between text-[11px] font-semibold tracking-widest uppercase text-muted-foreground">
-              <span>{t("cards.progress")}</span>
-              <span>{progresoMeta}%</span>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <article className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}>
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+                {t("charts.performance.badge")}
+              </p>
+              <h2 className="mt-1 text-xl font-serif text-foreground">
+                {t("charts.performance.title")}
+              </h2>
             </div>
-            <div className="h-2 bg-secondary overflow-hidden">
-              <div
-                className="h-full bg-primary"
-                style={{ width: `${progresoMeta}%` }}
+            <span className="rounded-full border border-border/70 bg-secondary/30 px-3 py-1 text-xs text-muted-foreground">
+              {t("charts.performance.caption", {
+                count: recentPerformanceData.length
+              })}
+            </span>
+          </div>
+
+          {recentPerformanceData.length > 0 ? (
+            <ChartContainer
+              config={performanceChartConfig}
+              className="h-[280px] w-full"
+            >
+              <AreaChart
+                data={recentPerformanceData}
+                margin={{ left: 4, right: 8 }}
+              >
+                <defs>
+                  <linearGradient
+                    id="dashboard-score-fill"
+                    x1="0"
+                    x2="0"
+                    y1="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor="var(--color-score)"
+                      stopOpacity={0.24}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="var(--color-score)"
+                      stopOpacity={0.02}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  axisLine={false}
+                  dataKey="label"
+                  tickLine={false}
+                  tickMargin={12}
+                />
+                <YAxis
+                  axisLine={false}
+                  domain={[0, scoreAxisMax]}
+                  tickLine={false}
+                  tickMargin={12}
+                  width={30}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value, name) => (
+                        <>
+                          <span className="text-muted-foreground">
+                            {name === "score"
+                              ? t("history.columns.score")
+                              : t("history.columns.accuracy")}
+                          </span>
+                          <span className="font-mono font-medium tabular-nums text-foreground">
+                            {name === "score" ? value : `${value}%`}
+                          </span>
+                        </>
+                      )}
+                    />
+                  }
+                />
+                <Area
+                  dataKey="score"
+                  fill="url(#dashboard-score-fill)"
+                  fillOpacity={1}
+                  stroke="var(--color-score)"
+                  strokeWidth={2.5}
+                  type="monotone"
+                />
+              </AreaChart>
+            </ChartContainer>
+          ) : (
+            <DashboardEmptyState
+              description={t("charts.performance.emptyDescription")}
+              icon={BarChart3}
+              title={t("charts.performance.emptyTitle")}
+            />
+          )}
+        </article>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
+          <article
+            className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}
+          >
+            <div className="mb-5">
+              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+                {t("charts.accuracy.badge")}
+              </p>
+              <h2 className="mt-1 text-xl font-serif text-foreground">
+                {t("charts.accuracy.title")}
+              </h2>
+            </div>
+
+            {recentPerformanceData.length > 0 ? (
+              <ChartContainer
+                config={performanceChartConfig}
+                className="h-[240px] w-full"
+              >
+                <BarChart
+                  data={recentPerformanceData}
+                  margin={{ left: 4, right: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    axisLine={false}
+                    dataKey="label"
+                    tickLine={false}
+                    tickMargin={12}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                    tickLine={false}
+                    tickMargin={12}
+                    width={40}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value) => (
+                          <>
+                            <span className="text-muted-foreground">
+                              {t("history.columns.accuracy")}
+                            </span>
+                            <span className="font-mono font-medium tabular-nums text-foreground">
+                              {value}%
+                            </span>
+                          </>
+                        )}
+                      />
+                    }
+                  />
+                  <Bar
+                    dataKey="accuracy"
+                    fill="var(--color-accuracy)"
+                    maxBarSize={36}
+                    radius={[12, 12, 6, 6]}
+                  />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <DashboardEmptyState
+                description={t("charts.accuracy.emptyDescription")}
+                icon={Target}
+                title={t("charts.accuracy.emptyTitle")}
               />
+            )}
+          </article>
+
+          <article
+            className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}
+          >
+            <div className="mb-5">
+              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+                {t("charts.distribution.badge")}
+              </p>
+              <h2 className="mt-1 text-xl font-serif text-foreground">
+                {t("charts.distribution.title")}
+              </h2>
             </div>
-          </div>
+
+            {distributionData.length > 0 ? (
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,190px)_1fr] xl:grid-cols-1">
+                <div className="relative mx-auto w-full max-w-[220px]">
+                  <ChartContainer
+                    config={performanceChartConfig}
+                    className="mx-auto h-[220px] w-full"
+                  >
+                    <PieChart>
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value, name) => (
+                              <>
+                                <span className="text-muted-foreground">
+                                  {name}
+                                </span>
+                                <span className="font-mono font-medium tabular-nums text-foreground">
+                                  {value}
+                                </span>
+                              </>
+                            )}
+                          />
+                        }
+                      />
+                      <Pie
+                        cx="50%"
+                        cy="50%"
+                        data={distributionData}
+                        dataKey="value"
+                        innerRadius={56}
+                        outerRadius={82}
+                        paddingAngle={4}
+                        strokeWidth={0}
+                      >
+                        {distributionData.map((entry) => (
+                          <Cell fill={entry.fill} key={entry.key} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ChartContainer>
+
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-3xl font-serif text-foreground">
+                      {completedTestsCount}
+                    </span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      {t("charts.distribution.centerLabel")}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {distributionData.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between rounded-2xl border border-border/70 bg-secondary/20 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: item.fill }}
+                        />
+                        <span className="text-sm text-foreground">
+                          {item.label}
+                        </span>
+                      </div>
+                      <span className="text-sm font-semibold text-foreground">
+                        {item.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <DashboardEmptyState
+                description={t("charts.distribution.emptyDescription")}
+                icon={Sparkles}
+                title={t("charts.distribution.emptyTitle")}
+              />
+            )}
+          </article>
         </div>
       </section>
 
-      <section className="border border-border bg-background p-5">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="border border-border bg-secondary/30 p-3">
-            <p className="mb-1 text-xs text-muted-foreground uppercase tracking-widest">
-              {t("insights.trend")}
-            </p>
-            <p className="inline-flex items-center gap-2 text-sm text-foreground">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              {t("insights.trendValue")}
-            </p>
-          </div>
-          <div className="border border-border bg-secondary/30 p-3">
-            <p className="mb-1 text-xs text-muted-foreground uppercase tracking-widest">
-              {t("insights.focus")}
-            </p>
-            <p className="inline-flex items-center gap-2 text-sm text-foreground">
-              <Target className="h-4 w-4 text-primary" />
-              {t("insights.focusValue")}
-            </p>
-          </div>
-          <div className="border border-border bg-secondary/30 p-3">
-            <p className="mb-1 text-xs text-muted-foreground uppercase tracking-widest">
-              {t("insights.averageTime")}
-            </p>
-            <p className="inline-flex items-center gap-2 text-sm text-foreground">
-              <Clock3 className="h-4 w-4 text-primary" />
-              {t("insights.averageTimeValue")}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="border border-border bg-background p-6">
-        <div className="flex items-center justify-between gap-4 mb-4">
+      <section className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}>
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
+            <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("history.badge")}
             </p>
-            <h2 className="text-xl font-serif text-foreground">
+            <h2 className="mt-1 text-xl font-serif text-foreground">
               {t("history.title")}
             </h2>
           </div>
-          <div className="inline-flex items-center gap-2 border border-border px-3 py-1.5">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/20 px-3 py-1.5">
             <Target className="h-4 w-4 text-primary" />
-            <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
+            <span className="text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground">
               {t("history.performance")}
             </span>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-border">
-            <thead className="bg-secondary/60">
-              <tr className="text-left">
-                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-                  {t("history.columns.test")}
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-                  {t("history.columns.date")}
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-                  {t("history.columns.score")}
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-                  {t("history.columns.accuracy")}
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-                  {t("history.columns.duration")}
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-                  {t("history.columns.status")}
-                </th>
-                <th className="px-4 py-3 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
-                  {t("history.columns.open")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleHistoryItems.map((test) => (
-                <tr key={test.testId} className="border-t border-border">
-                  <td className="px-4 py-3 text-sm text-foreground">
-                    {`${test.oppositionName} - #${test.testId.slice(0, 8)}`}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {new Date(test.finishedAt).toLocaleDateString(
-                        i18n.resolvedLanguage ?? "es"
-                      )}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-foreground">
-                    {test.score.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      {test.trend === "up" && (
-                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                      )}
-                      {test.trend === "down" && (
-                        <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
-                      )}
-                      {test.trend === "flat" && (
-                        <Minus className="h-3.5 w-3.5 text-amber-600" />
-                      )}
-                      {Math.round(test.accuracy)}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {`${test.durationMinutes} min`}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold ${statusClass[test.status]}`}
+        {visibleHistoryItems.length > 0 ? (
+          <div className="overflow-hidden rounded-[1.35rem] border border-border/70">
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-secondary/35">
+                  <tr className="text-left">
+                    <th className="px-4 py-3 text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      {t("history.columns.test")}
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      {t("history.columns.date")}
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      {t("history.columns.score")}
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      {t("history.columns.accuracy")}
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      {t("history.columns.duration")}
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      {t("history.columns.status")}
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      {t("history.columns.open")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-background/70">
+                  {visibleHistoryItems.map((test) => (
+                    <tr
+                      key={test.testId}
+                      className="border-t border-border/60 transition-colors hover:bg-secondary/20"
                     >
-                      {test.status === "excellent" && (
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      )}
-                      {t(`history.status.${test.status}`)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <CustomButton asChild size="sm" styleType="menu">
-                      <Link
-                        to={`/perfil/test/${encodeURIComponent(test.testId)}`}
-                      >
-                        {t("history.viewTest")}
-                      </Link>
-                    </CustomButton>
-                  </td>
-                </tr>
-              ))}
-              {!isHistoryLoading && visibleHistoryItems.length === 0 && (
-                <tr className="border-t border-border">
-                  <td
-                    colSpan={7}
-                    className="px-4 py-6 text-sm text-muted-foreground text-center"
-                  >
-                    {t("history.empty")}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                      <td className="px-4 py-3 text-sm text-foreground">
+                        {`${test.oppositionName} - #${test.testId.slice(0, 8)}`}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {formatDate(test.finishedAt)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-foreground">
+                        {test.score.toFixed(1)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                          {test.trend === "up" && (
+                            <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          )}
+                          {test.trend === "down" && (
+                            <TrendingDown className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                          )}
+                          {test.trend === "flat" && (
+                            <Minus className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          )}
+                          {Math.round(test.accuracy)}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {`${test.durationMinutes} min`}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass[test.status]}`}
+                        >
+                          {test.status === "excellent" && (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+                          {t(`history.status.${test.status}`)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <CustomButton
+                          asChild
+                          radius="full"
+                          size="sm"
+                          styleType="menu"
+                        >
+                          <Link
+                            to={`/perfil/test/${encodeURIComponent(test.testId)}`}
+                          >
+                            {t("history.viewTest")}
+                          </Link>
+                        </CustomButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <DashboardEmptyState
+            description={t("history.emptyDescription")}
+            icon={BookOpen}
+            title={t("history.empty")}
+          />
+        )}
+
         {canLoadMoreHistory && (
           <div className="mt-4 flex justify-center">
             <CustomButton
               type="button"
+              radius="full"
               styleType="menu"
               onClick={() =>
                 setVisibleHistoryCount((prev) => prev + HISTORY_PAGE_SIZE)
@@ -373,6 +814,12 @@ const Dashboard = () => {
             </CustomButton>
           </div>
         )}
+
+        {isHistoryLoading && visibleHistoryItems.length === 0 ? (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            {t("history.loadingMore")}
+          </p>
+        ) : null}
       </section>
     </div>
   );

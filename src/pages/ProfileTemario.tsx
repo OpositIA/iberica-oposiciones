@@ -30,6 +30,8 @@ const ProfileTemario = () => {
   const { t, i18n } = useTranslation(["profile"]);
   const { user, isAuthReady } = useAuth();
   const shouldLoadOpposition = isAuthReady && Boolean(user?.id);
+  const sectionClassName =
+    "rounded-[1.75rem] border border-border/70 bg-background/95 p-6 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.28)] md:p-8 dark:shadow-[0_28px_56px_-46px_rgba(0,0,0,0.54)]";
 
   const { data: preferredOpposition, isLoading: isLoadingOppositionQuery } =
     usePreferredOppositionQuery({
@@ -101,17 +103,34 @@ const ProfileTemario = () => {
 
   return (
     <div className="space-y-4">
-      <section className="border border-border bg-background/95 p-6 md:p-8">
-        <h2 className="text-2xl md:text-3xl font-serif text-foreground">
-          {t("syllabus.badge")}
-        </h2>
-        <div className="mt-4 border-t border-border/70 pt-4">
-          <p className="text-base font-semibold text-foreground">
-            {oposicionActiva.nombre}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {oposicionActiva.cuerpo}
-          </p>
+      <section className={sectionClassName}>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+              {t("syllabus.badge")}
+            </p>
+            <h2 className="text-2xl font-serif text-foreground md:text-3xl">
+              {t("syllabus.title")}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              {t("syllabus.description")}
+            </p>
+          </div>
+
+          <div className="rounded-[1.4rem] border border-border/70 bg-secondary/20 px-4 py-3">
+            <p className="text-xs font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+              {t("syllabus.activeOpposition")}
+            </p>
+            <p className="mt-2 text-base font-semibold text-foreground">
+              {oposicionActiva.nombre}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {oposicionActiva.cuerpo}
+            </p>
+            <p className="mt-3 inline-flex rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+              {t("syllabus.topicsList")} · {temasDetalle.length}
+            </p>
+          </div>
         </div>
       </section>
 
@@ -122,11 +141,11 @@ const ProfileTemario = () => {
               <AccordionItem
                 key={tema.code}
                 value={tema.code}
-                className="overflow-hidden rounded-[1.25rem] border border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-4 shadow-[0_18px_40px_-36px_rgba(15,23,42,0.35)] dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.7),rgba(15,23,42,0.5))]"
+                className="overflow-hidden rounded-[1.5rem] border border-border/70 bg-background/95 px-4 shadow-[0_20px_44px_-36px_rgba(15,23,42,0.28)] transition-colors hover:border-border dark:shadow-[0_22px_50px_-40px_rgba(0,0,0,0.52)]"
               >
                 <AccordionTrigger className="py-5 text-left hover:no-underline">
                   <span className="flex min-w-0 items-center gap-4 pr-4">
-                    <span className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                    <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                       {String(index + 1).padStart(2, "0")}
                     </span>
 
@@ -144,7 +163,7 @@ const ProfileTemario = () => {
                 </AccordionTrigger>
                 <AccordionContent className="pb-5">
                   {tema.subtopics.length > 0 ? (
-                    <ul className="space-y-3 rounded-[1rem] border border-border/70 bg-secondary/15 p-4">
+                    <ul className="space-y-3 rounded-[1.25rem] border border-border/70 bg-secondary/15 p-4">
                       {tema.subtopics.map((subtopic, subtopicIndex) => {
                         const subtopicFiles =
                           subtopicFilesById.get(subtopic.id) ?? [];
@@ -167,7 +186,7 @@ const ProfileTemario = () => {
                                 href={viewerHref}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="group flex items-center justify-between gap-4 rounded-[0.9rem] border border-border/60 bg-background/65 p-3 text-foreground transition-all duration-200 hover:border-primary/35 hover:bg-primary/[0.08] hover:shadow-[0_16px_30px_-24px_rgba(249,115,22,0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                className="group flex items-center justify-between gap-4 rounded-[1rem] border border-border/60 bg-background/80 p-3.5 text-foreground transition-all duration-200 hover:border-primary/30 hover:bg-secondary/25 hover:shadow-[0_18px_34px_-28px_rgba(15,23,42,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                               >
                                 <div className="flex min-w-0 items-start gap-3 text-sm leading-6">
                                   <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-primary transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -175,12 +194,12 @@ const ProfileTemario = () => {
                                     {subtopic.title}
                                   </span>
                                 </div>
-                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition-all duration-200 group-hover:border-primary/35 group-hover:bg-primary/15 group-hover:scale-105">
+                                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary transition-all duration-200 group-hover:border-primary/35 group-hover:bg-primary/15 group-hover:scale-105">
                                   <ArrowUpRight className="h-4 w-4" />
                                 </span>
                               </a>
                             ) : (
-                              <div className="flex items-start gap-3 rounded-[0.9rem] border border-border/60 bg-background/65 p-3 text-sm leading-6 text-foreground">
+                              <div className="flex items-start gap-3 rounded-[1rem] border border-border/60 bg-background/80 p-3.5 text-sm leading-6 text-foreground">
                                 <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-primary" />
                                 <span className="break-words">
                                   {subtopic.title}
@@ -192,10 +211,8 @@ const ProfileTemario = () => {
                       })}
                     </ul>
                   ) : (
-                    <p className="rounded-[1rem] border border-dashed border-border/80 bg-secondary/10 px-4 py-3 text-sm leading-6 text-muted-foreground">
-                      {t("syllabus.noSubtopics", {
-                        defaultValue: "Sin subtemas disponibles por ahora."
-                      })}
+                    <p className="rounded-[1.25rem] border border-dashed border-border/80 bg-secondary/10 px-4 py-4 text-sm leading-6 text-muted-foreground">
+                      {t("syllabus.noSubtopics")}
                     </p>
                   )}
                 </AccordionContent>
@@ -204,10 +221,10 @@ const ProfileTemario = () => {
           })}
         </Accordion>
       ) : (
-        <div className="border border-dashed border-border bg-secondary/20 px-3 py-3 text-sm text-muted-foreground">
-          {t("syllabus.noTopics", {
-            defaultValue: "Esta oposicion todavia no tiene temas cargados."
-          })}
+        <div className="flex min-h-[220px] items-center justify-center rounded-[1.75rem] border border-dashed border-border/70 bg-secondary/15 px-6 py-10 text-center">
+          <p className="max-w-md text-sm leading-6 text-muted-foreground">
+            {t("syllabus.noTopics")}
+          </p>
         </div>
       )}
     </div>

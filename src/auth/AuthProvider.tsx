@@ -347,7 +347,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     void initAuth();
 
     const { data: authSubscription } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, nextSession) => {
+      (event: AuthChangeEvent, nextSession) => {
         authLog("onAuthStateChange", {
           event,
           hasSession: Boolean(nextSession),
@@ -369,7 +369,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           return;
         }
 
-        await onValidSession(nextSession, event);
+        // Evita bloquear otras consultas de Supabase dentro del callback de auth.
+        window.setTimeout(() => {
+          if (!isMounted) return;
+          void onValidSession(nextSession, event);
+        }, 0);
       }
     );
 
