@@ -471,24 +471,28 @@ const ProfileTest = () => {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className={`${optionPanelClassName} space-y-5`}>
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-              <FileText className="h-4 w-4" />
-            </span>
-            <p className="text-sm font-semibold text-foreground">
-              {t("test.mockMode")}
+        <div className={`${optionPanelClassName} flex h-full flex-col`}>
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                <FileText className="h-4 w-4" />
+              </span>
+              <p className="text-sm font-semibold text-foreground">
+                {t("test.mockMode")}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("test.activeOpposition", {
+                opposition: oposicionActiva.nombre
+              })}
             </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {t("test.activeOpposition", { opposition: oposicionActiva.nombre })}
-          </p>
           <CustomButton
             type="button"
             onClick={iniciarSimulacro}
             styleType="menu"
             radius="full"
-            className="w-full"
+            className="mt-auto w-full"
           >
             {t("test.startMock")}
           </CustomButton>

@@ -1,5 +1,13 @@
 project_id = "hxvckhyxfmfvdipahobv"
 
+[auth.email.template.confirmation]
+subject = "OpositAI | Confirma tu cuenta / Confirm your account"
+content_path = "./supabase/email-templates/confirm-signup.html"
+
+[auth.email.template.recovery]
+subject = "OpositAI | Restablece tu contraseña / Reset your password"
+content_path = "./supabase/email-templates/reset-password.html"
+
 [functions.create-checkout-session]
 verify_jwt = false
 

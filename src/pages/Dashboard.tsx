@@ -65,6 +65,12 @@ type DashboardEmptyStateProps = {
   title: string;
 };
 
+type DashboardChartStatProps = {
+  label: string;
+  toneClassName?: string;
+  value: string;
+};
+
 const HISTORY_PAGE_SIZE = 10;
 
 const performanceChartConfig = {
@@ -78,8 +84,8 @@ const performanceChartConfig = {
   accuracy: {
     label: "Accuracy",
     theme: {
-      light: "hsl(var(--accent))",
-      dark: "hsl(var(--accent))"
+      light: "hsl(var(--primary) / 0.78)",
+      dark: "hsl(var(--primary) / 0.84)"
     }
   },
   excellent: {
@@ -106,7 +112,20 @@ const performanceChartConfig = {
 } satisfies ChartConfig;
 
 const basePanelClassName =
-  "rounded-[1.75rem] border border-border/70 bg-background/95 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.28)] transition-colors dark:shadow-[0_28px_56px_-46px_rgba(0,0,0,0.54)]";
+  "rounded-[1.75rem] border border-border/70 bg-background/95 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.28)] transition-colors dark:bg-card/95 dark:shadow-[0_28px_56px_-46px_rgba(0,0,0,0.54)]";
+
+const chartSurfaceClassName =
+  "rounded-[1.5rem] border border-primary/10 bg-gradient-to-b from-primary/[0.08] via-background to-background p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:from-primary/[0.14] dark:via-card dark:to-secondary/20";
+
+const chartGridColor = "hsl(var(--border) / 0.72)";
+const chartTickColor = "hsl(var(--muted-foreground) / 0.86)";
+const chartAreaCursorColor = "hsl(var(--primary) / 0.32)";
+const chartBarCursorColor = "hsl(var(--primary) / 0.12)";
+const distributionSurfaceColor: Record<TestStatus, string> = {
+  excellent: "hsl(142 72% 42% / 0.14)",
+  approved: "hsl(199 89% 48% / 0.14)",
+  reinforce: "hsl(38 92% 50% / 0.16)"
+};
 
 const DashboardKpiCard = ({
   description,
@@ -117,29 +136,32 @@ const DashboardKpiCard = ({
   value
 }: DashboardKpiCardProps) => (
   <article
-    className={`${basePanelClassName} group h-full overflow-hidden p-5 md:p-6`}
+    className={`${basePanelClassName} group relative h-full overflow-hidden px-5 py-4 md:px-6 md:py-5`}
   >
+    <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
     <div className="flex items-start justify-between gap-4">
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+          <p className="text-[11px] font-semibold tracking-[0.22em] uppercase text-muted-foreground/90">
             {title}
           </p>
           <p
-            className={`text-3xl font-serif leading-none text-foreground ${toneClassName ?? ""}`}
+            className={`text-3xl font-serif leading-none tracking-tight text-foreground ${toneClassName ?? ""}`}
           >
             {value}
           </p>
         </div>
-        <p className="text-sm text-foreground/85">{description}</p>
+        {description !== title ? (
+          <p className="text-sm text-foreground/85">{description}</p>
+        ) : null}
       </div>
 
-      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/35 text-foreground transition-transform duration-200 group-hover:scale-[1.03]">
+      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-[0_18px_30px_-24px_hsl(var(--primary)/0.72)] transition-transform duration-200 group-hover:scale-[1.03] group-hover:bg-primary/15">
         <Icon className="h-5 w-5" />
       </span>
     </div>
 
-    <p className="mt-5 text-xs text-muted-foreground">{helper}</p>
+    <p className="mt-4 text-xs leading-5 text-muted-foreground">{helper}</p>
   </article>
 );
 
@@ -158,6 +180,21 @@ const DashboardEmptyState = ({
         {description}
       </p>
     </div>
+  </div>
+);
+
+const DashboardChartStat = ({
+  label,
+  toneClassName,
+  value
+}: DashboardChartStatProps) => (
+  <div
+    className={`rounded-2xl border border-border/70 bg-background/80 px-3.5 py-3 shadow-sm dark:bg-background/60 ${toneClassName ?? ""}`}
+  >
+    <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+      {label}
+    </p>
+    <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
   </div>
 );
 
@@ -367,10 +404,14 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <section className={`${basePanelClassName} overflow-hidden p-6 md:p-8`}>
+      <section
+        className={`${basePanelClassName} relative overflow-hidden bg-gradient-to-br from-primary/[0.08] via-background to-background p-6 md:p-8 dark:from-primary/[0.14] dark:via-card dark:to-card`}
+      >
+        <div className="pointer-events-none absolute -left-12 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-48 w-48 rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl">
-            <p className="mb-2 text-xs font-semibold tracking-[0.24em] uppercase text-muted-foreground">
+            <p className="mb-2 inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-[0.24em] uppercase text-primary">
               {t("header.badge")}
             </p>
             <h1 className="text-2xl font-serif text-foreground md:text-3xl">
@@ -389,7 +430,7 @@ const Dashboard = () => {
               </Link>
             </CustomButton>
             {!inProgressQuickTest && hasQuickTestsAccess && (
-              <CustomButton asChild radius="full" styleType="menu">
+              <CustomButton asChild radius="full" styleType="primary">
                 <Link to="/perfil/test">
                   <BookOpen className="h-4 w-4" />
                   {t("actions.goToTest")}
@@ -397,7 +438,7 @@ const Dashboard = () => {
               </CustomButton>
             )}
             {inProgressQuickTest && hasQuickTestsAccess && (
-              <CustomButton asChild radius="full" styleType="menu">
+              <CustomButton asChild radius="full" styleType="primary">
                 <Link
                   to={`/perfil/test/${encodeURIComponent(inProgressQuickTest.testId)}`}
                 >
@@ -416,95 +457,136 @@ const Dashboard = () => {
         ))}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <article className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}>
-          <div className="mb-5 flex items-start justify-between gap-4">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 xl:items-start">
+        <article
+          className={`${basePanelClassName} overflow-hidden p-5 md:p-6 xl:col-span-7`}
+        >
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-primary">
                 {t("charts.performance.badge")}
               </p>
               <h2 className="mt-1 text-xl font-serif text-foreground">
                 {t("charts.performance.title")}
               </h2>
             </div>
-            <span className="rounded-full border border-border/70 bg-secondary/30 px-3 py-1 text-xs text-muted-foreground">
-              {t("charts.performance.caption", {
-                count: recentPerformanceData.length
-              })}
-            </span>
+            <div className="grid grid-cols-2 gap-2 sm:min-w-[260px]">
+              <DashboardChartStat
+                label={t("cards.globalAverage")}
+                toneClassName="border-primary/15 bg-primary/[0.08] dark:bg-primary/[0.12]"
+                value={hasHistoryData ? mediaNota.toFixed(1) : "0.0"}
+              />
+              <DashboardChartStat
+                label={t("cards.bestScore")}
+                value={hasHistoryData ? bestScore.toFixed(1) : "0.0"}
+              />
+            </div>
           </div>
 
           {recentPerformanceData.length > 0 ? (
-            <ChartContainer
-              config={performanceChartConfig}
-              className="h-[280px] w-full"
-            >
-              <AreaChart
-                data={recentPerformanceData}
-                margin={{ left: 4, right: 8 }}
+            <div className={chartSurfaceClassName}>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {t("charts.performance.caption", {
+                    count: recentPerformanceData.length
+                  })}
+                </p>
+              </div>
+              <ChartContainer
+                config={performanceChartConfig}
+                className="h-[220px] w-full"
               >
-                <defs>
-                  <linearGradient
-                    id="dashboard-score-fill"
-                    x1="0"
-                    x2="0"
-                    y1="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="var(--color-score)"
-                      stopOpacity={0.24}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="var(--color-score)"
-                      stopOpacity={0.02}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  axisLine={false}
-                  dataKey="label"
-                  tickLine={false}
-                  tickMargin={12}
-                />
-                <YAxis
-                  axisLine={false}
-                  domain={[0, scoreAxisMax]}
-                  tickLine={false}
-                  tickMargin={12}
-                  width={30}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, name) => (
-                        <>
-                          <span className="text-muted-foreground">
-                            {name === "score"
-                              ? t("history.columns.score")
-                              : t("history.columns.accuracy")}
-                          </span>
-                          <span className="font-mono font-medium tabular-nums text-foreground">
-                            {name === "score" ? value : `${value}%`}
-                          </span>
-                        </>
-                      )}
-                    />
-                  }
-                />
-                <Area
-                  dataKey="score"
-                  fill="url(#dashboard-score-fill)"
-                  fillOpacity={1}
-                  stroke="var(--color-score)"
-                  strokeWidth={2.5}
-                  type="monotone"
-                />
-              </AreaChart>
-            </ChartContainer>
+                <AreaChart
+                  data={recentPerformanceData}
+                  margin={{ left: 6, right: 10, top: 10 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="dashboard-score-fill"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="var(--color-score)"
+                        stopOpacity={0.28}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="var(--color-score)"
+                        stopOpacity={0.03}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    stroke={chartGridColor}
+                    strokeDasharray="4 4"
+                    vertical={false}
+                  />
+                  <XAxis
+                    axisLine={false}
+                    dataKey="label"
+                    tick={{ fill: chartTickColor, fontSize: 11 }}
+                    tickLine={false}
+                    tickMargin={12}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    domain={[0, scoreAxisMax]}
+                    tick={{ fill: chartTickColor, fontSize: 11 }}
+                    tickLine={false}
+                    tickMargin={12}
+                    width={34}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        className="border-primary/15 bg-background/95 shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.35)]"
+                        formatter={(value, name) => (
+                          <>
+                            <span className="text-muted-foreground">
+                              {name === "score"
+                                ? t("history.columns.score")
+                                : t("history.columns.accuracy")}
+                            </span>
+                            <span className="font-mono font-medium tabular-nums text-foreground">
+                              {name === "score" ? value : `${value}%`}
+                            </span>
+                          </>
+                        )}
+                      />
+                    }
+                    cursor={{
+                      stroke: chartAreaCursorColor,
+                      strokeDasharray: "4 4",
+                      strokeWidth: 1.5
+                    }}
+                  />
+                  <Area
+                    activeDot={{
+                      fill: "hsl(var(--background))",
+                      r: 5,
+                      stroke: "var(--color-score)",
+                      strokeWidth: 2.5
+                    }}
+                    dataKey="score"
+                    dot={{
+                      fill: "var(--color-score)",
+                      r: 3,
+                      stroke: "hsl(var(--background))",
+                      strokeWidth: 2
+                    }}
+                    fill="url(#dashboard-score-fill)"
+                    fillOpacity={1}
+                    stroke="var(--color-score)"
+                    strokeWidth={2.75}
+                    type="monotone"
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </div>
           ) : (
             <DashboardEmptyState
               description={t("charts.performance.emptyDescription")}
@@ -514,46 +596,86 @@ const Dashboard = () => {
           )}
         </article>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
-          <article
-            className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}
-          >
-            <div className="mb-5">
-              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+        <article
+          className={`${basePanelClassName} overflow-hidden p-5 md:p-6 xl:col-span-5`}
+        >
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-primary">
                 {t("charts.accuracy.badge")}
               </p>
               <h2 className="mt-1 text-xl font-serif text-foreground">
                 {t("charts.accuracy.title")}
               </h2>
             </div>
+            <div className="grid grid-cols-2 gap-2 sm:min-w-[250px]">
+              <DashboardChartStat
+                label={t("cards.averageAccuracy")}
+                toneClassName="border-primary/15 bg-primary/[0.08] dark:bg-primary/[0.12]"
+                value={`${precisionMedia}%`}
+              />
+              <DashboardChartStat
+                label={t("cards.averageDuration")}
+                value={hasHistoryData ? `${averageDuration} min` : "0 min"}
+              />
+            </div>
+          </div>
 
-            {recentPerformanceData.length > 0 ? (
+          {recentPerformanceData.length > 0 ? (
+            <div className={chartSurfaceClassName}>
               <ChartContainer
                 config={performanceChartConfig}
-                className="h-[240px] w-full"
+                className="h-[248px] w-full"
               >
                 <BarChart
                   data={recentPerformanceData}
-                  margin={{ left: 4, right: 8 }}
+                  margin={{ left: 10, right: 12, top: 10 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <defs>
+                    <linearGradient
+                      id="dashboard-accuracy-fill"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="hsl(var(--primary))"
+                        stopOpacity={0.98}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="hsl(var(--primary) / 0.7)"
+                        stopOpacity={0.86}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    stroke={chartGridColor}
+                    strokeDasharray="4 4"
+                    vertical={false}
+                  />
                   <XAxis
                     axisLine={false}
                     dataKey="label"
+                    tick={{ fill: chartTickColor, fontSize: 11 }}
                     tickLine={false}
                     tickMargin={12}
                   />
                   <YAxis
                     axisLine={false}
                     domain={[0, 100]}
+                    tick={{ fill: chartTickColor, fontSize: 11 }}
                     tickFormatter={(value) => `${value}%`}
                     tickLine={false}
                     tickMargin={12}
-                    width={40}
+                    width={52}
                   />
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
+                        className="border-primary/15 bg-background/95 shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.35)]"
                         formatter={(value) => (
                           <>
                             <span className="text-muted-foreground">
@@ -566,118 +688,152 @@ const Dashboard = () => {
                         )}
                       />
                     }
+                    cursor={{ fill: chartBarCursorColor }}
                   />
                   <Bar
+                    activeBar={{
+                      fill: "hsl(var(--primary))"
+                    }}
                     dataKey="accuracy"
-                    fill="var(--color-accuracy)"
-                    maxBarSize={36}
-                    radius={[12, 12, 6, 6]}
+                    fill="url(#dashboard-accuracy-fill)"
+                    maxBarSize={34}
+                    radius={[14, 14, 8, 8]}
                   />
                 </BarChart>
               </ChartContainer>
-            ) : (
-              <DashboardEmptyState
-                description={t("charts.accuracy.emptyDescription")}
-                icon={Target}
-                title={t("charts.accuracy.emptyTitle")}
-              />
-            )}
-          </article>
+            </div>
+          ) : (
+            <DashboardEmptyState
+              description={t("charts.accuracy.emptyDescription")}
+              icon={Target}
+              title={t("charts.accuracy.emptyTitle")}
+            />
+          )}
+        </article>
 
-          <article
-            className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}
-          >
-            <div className="mb-5">
-              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+        <article
+          className={`${basePanelClassName} overflow-hidden p-5 md:p-6 md:col-span-2 xl:col-span-12`}
+        >
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.22em] uppercase text-primary">
                 {t("charts.distribution.badge")}
               </p>
               <h2 className="mt-1 text-xl font-serif text-foreground">
                 {t("charts.distribution.title")}
               </h2>
             </div>
+            <div className="grid grid-cols-2 gap-2 sm:min-w-[260px]">
+              <DashboardChartStat
+                label={t("cards.completedTests")}
+                toneClassName="border-primary/15 bg-primary/[0.08] dark:bg-primary/[0.12]"
+                value={completedTestsCount.toString()}
+              />
+              <DashboardChartStat
+                label={t("cards.inProgress")}
+                value={
+                  inProgressQuickTest
+                    ? inProgressQuickTest.answeredCount.toString()
+                    : "0"
+                }
+              />
+            </div>
+          </div>
 
-            {distributionData.length > 0 ? (
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,190px)_1fr] xl:grid-cols-1">
-                <div className="relative mx-auto w-full max-w-[220px]">
-                  <ChartContainer
-                    config={performanceChartConfig}
-                    className="mx-auto h-[220px] w-full"
-                  >
-                    <PieChart>
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            formatter={(value, name) => (
-                              <>
-                                <span className="text-muted-foreground">
-                                  {name}
-                                </span>
-                                <span className="font-mono font-medium tabular-nums text-foreground">
-                                  {value}
-                                </span>
-                              </>
-                            )}
-                          />
-                        }
-                      />
-                      <Pie
-                        cx="50%"
-                        cy="50%"
-                        data={distributionData}
-                        dataKey="value"
-                        innerRadius={56}
-                        outerRadius={82}
-                        paddingAngle={4}
-                        strokeWidth={0}
-                      >
-                        {distributionData.map((entry) => (
-                          <Cell fill={entry.fill} key={entry.key} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-3xl font-serif text-foreground">
-                      {completedTestsCount}
-                    </span>
-                    <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      {t("charts.distribution.centerLabel")}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {distributionData.map((item) => (
-                    <div
-                      key={item.key}
-                      className="flex items-center justify-between rounded-2xl border border-border/70 bg-secondary/20 px-4 py-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: item.fill }}
+          {distributionData.length > 0 ? (
+            <div
+              className={`${chartSurfaceClassName} grid items-center gap-4 lg:grid-cols-[220px_minmax(0,1fr)]`}
+            >
+              <div className="relative mx-auto w-full max-w-[220px]">
+                <ChartContainer
+                  config={performanceChartConfig}
+                  className="mx-auto h-[220px] w-full"
+                >
+                  <PieChart>
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          className="border-primary/15 bg-background/95 shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.35)]"
+                          formatter={(value, name) => (
+                            <>
+                              <span className="text-muted-foreground">
+                                {name}
+                              </span>
+                              <span className="font-mono font-medium tabular-nums text-foreground">
+                                {value}
+                              </span>
+                            </>
+                          )}
                         />
-                        <span className="text-sm text-foreground">
-                          {item.label}
+                      }
+                    />
+                    <Pie
+                      cx="50%"
+                      cy="50%"
+                      data={distributionData}
+                      dataKey="value"
+                      innerRadius={58}
+                      outerRadius={84}
+                      paddingAngle={5}
+                      stroke="hsl(var(--background))"
+                      strokeWidth={4}
+                    >
+                      {distributionData.map((entry) => (
+                        <Cell fill={entry.fill} key={entry.key} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="text-3xl font-serif text-foreground">
+                    {completedTestsCount}
+                  </span>
+                  <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    {t("charts.distribution.centerLabel")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {distributionData.map((item) => (
+                  <div
+                    key={item.key}
+                    className="rounded-[1.35rem] border border-border/70 bg-background/80 p-4 shadow-sm dark:bg-background/60"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-2">
+                        <span
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl"
+                          style={{
+                            backgroundColor: distributionSurfaceColor[item.key]
+                          }}
+                        >
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: item.fill }}
+                          />
                         </span>
+                        <p className="text-sm font-medium text-foreground">
+                          {item.label}
+                        </p>
                       </div>
-                      <span className="text-sm font-semibold text-foreground">
+                      <span className="text-2xl font-serif text-foreground">
                         {item.value}
                       </span>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <DashboardEmptyState
-                description={t("charts.distribution.emptyDescription")}
-                icon={Sparkles}
-                title={t("charts.distribution.emptyTitle")}
-              />
-            )}
-          </article>
-        </div>
+            </div>
+          ) : (
+            <DashboardEmptyState
+              description={t("charts.distribution.emptyDescription")}
+              icon={Sparkles}
+              title={t("charts.distribution.emptyTitle")}
+            />
+          )}
+        </article>
       </section>
 
       <section className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}>
@@ -731,7 +887,7 @@ const Dashboard = () => {
                   {visibleHistoryItems.map((test) => (
                     <tr
                       key={test.testId}
-                      className="border-t border-border/60 transition-colors hover:bg-secondary/20"
+                      className="border-t border-border/60 transition-colors hover:bg-primary/[0.06] dark:hover:bg-primary/[0.1]"
                     >
                       <td className="px-4 py-3 text-sm text-foreground">
                         {`${test.oppositionName} - #${test.testId.slice(0, 8)}`}

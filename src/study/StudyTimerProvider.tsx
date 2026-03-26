@@ -25,6 +25,7 @@ type StudyTimerContextValue = {
   start: () => void;
   pause: () => void;
   resume: () => void;
+  restart: () => void;
   stop: () => void;
   formattedRemaining: string;
 };
@@ -42,8 +43,6 @@ type PersistedStudyTimer = {
 const STORAGE_KEY = "study-timer-state-v1";
 const DEFAULT_FOCUS_DURATION_SECONDS = 25 * 60;
 const SHORT_BREAK_DURATION_SECONDS = 5 * 60;
-const LONG_BREAK_DURATION_SECONDS = 15 * 60;
-const POMODOROS_BEFORE_LONG_BREAK = 4;
 
 const clampDurationSeconds = (value: number) => {
   if (!Number.isFinite(value)) return DEFAULT_FOCUS_DURATION_SECONDS;
@@ -55,7 +54,7 @@ const getPhaseDurationSeconds = (
   focusDurationSeconds: number
 ) => {
   if (phase === "shortBreak") return SHORT_BREAK_DURATION_SECONDS;
-  if (phase === "longBreak") return LONG_BREAK_DURATION_SECONDS;
+  if (phase === "longBreak") return SHORT_BREAK_DURATION_SECONDS;
   return focusDurationSeconds;
 };
 
@@ -142,28 +141,41 @@ const playTimerDoneSound = () => {
   if (!AudioContextCtor) return;
 
   const ctx = new AudioContextCtor();
-  const gain = ctx.createGain();
-  gain.connect(ctx.destination);
-  gain.gain.value = 0.0001;
+  const masterGain = ctx.createGain();
+  masterGain.connect(ctx.destination);
+  masterGain.gain.value = 0.0001;
 
-  const beeps = [0, 0.28, 0.56];
-  beeps.forEach((offset, index) => {
+  if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
+
+  const notes = [
+    { offset: 0, frequency: 523.25, duration: 0.18 },
+    { offset: 0.22, frequency: 659.25, duration: 0.2 },
+    { offset: 0.48, frequency: 783.99, duration: 0.26 }
+  ];
+
+  notes.forEach(({ offset, frequency, duration }) => {
     const osc = ctx.createOscillator();
+    const noteGain = ctx.createGain();
+
     osc.type = "sine";
-    osc.frequency.value = index === beeps.length - 1 ? 880 : 660;
-    osc.connect(gain);
+    osc.frequency.setValueAtTime(frequency, ctx.currentTime + offset);
+    osc.connect(noteGain);
+    noteGain.connect(masterGain);
+
     const startAt = ctx.currentTime + offset;
-    const endAt = startAt + 0.16;
-    gain.gain.setValueAtTime(0.0001, startAt);
-    gain.gain.exponentialRampToValueAtTime(0.18, startAt + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, endAt);
+    const endAt = startAt + duration;
+
+    noteGain.gain.setValueAtTime(0.0001, startAt);
+    noteGain.gain.exponentialRampToValueAtTime(0.08, startAt + 0.04);
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, endAt);
+
     osc.start(startAt);
     osc.stop(endAt);
   });
 
   window.setTimeout(() => {
     void ctx.close().catch(() => undefined);
-  }, 1300);
+  }, 1400);
 };
 
 const StudyTimerContext = createContext<StudyTimerContextValue | null>(null);
@@ -210,20 +222,14 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
       nextCompletedFocusSessions: number;
     } => {
       if (currentPhase === "focus") {
-        const nextCompletedFocusSessions = currentCompletedFocusSessions + 1;
-        const nextPhase =
-          nextCompletedFocusSessions % POMODOROS_BEFORE_LONG_BREAK === 0
-            ? "longBreak"
-            : "shortBreak";
-
         return {
-          nextPhase,
-          nextCompletedFocusSessions
+          nextPhase: "shortBreak",
+          nextCompletedFocusSessions: currentCompletedFocusSessions + 1
         };
       }
 
       return {
-        nextPhase: "focus" as StudyTimerPhase,
+        nextPhase: "focus",
         nextCompletedFocusSessions: currentCompletedFocusSessions
       };
     },
@@ -360,7 +366,7 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
     setEndAtMs(Date.now() + remainingSeconds * 1000);
   }, [remainingSeconds, status]);
 
-  const stop = useCallback(() => {
+  const restart = useCallback(() => {
     const resetDuration = getPhaseDurationSeconds(
       "focus",
       focusDurationSeconds
@@ -370,6 +376,8 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
     setEndAtMs(null);
     setRemainingSeconds(resetDuration);
   }, [focusDurationSeconds]);
+
+  const stop = restart;
 
   const contextValue = useMemo<StudyTimerContextValue>(
     () => ({
@@ -382,6 +390,7 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
       start,
       pause,
       resume,
+      restart,
       stop,
       formattedRemaining: formatSeconds(remainingSeconds)
     }),
@@ -391,6 +400,7 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
       pause,
       phase,
       remainingSeconds,
+      restart,
       resume,
       setDurationMinutes,
       start,

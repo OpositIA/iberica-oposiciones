@@ -44,7 +44,7 @@
       "support": "Support",
       "test": "Tests",
       "syllabus": "Syllabus",
-      "study": "Study"
+      "study": "Pomodoro"
     },
     "myProfile": "My profile",
     "activePlan": "Active plan",
@@ -234,10 +234,12 @@
     "upgrade": "Upgrade to Pro"
   },
   "study": {
-    "badge": "Study",
-    "description": "Set a Pomodoro timer and keep control from any screen.",
+    "badge": "Pomodoro",
+    "description": "Manage your Pomodoro cycle and keep control from any screen.",
+    "autoCycle": "Automatic 25/5 cycle",
     "remainingLabel": "Time remaining",
     "phaseLabel": "Current phase",
+    "statusLabel": "Status",
     "phasefocus": "Focus",
     "phaseshortBreak": "Short break",
     "phaselongBreak": "Long break",

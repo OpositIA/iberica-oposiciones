@@ -174,7 +174,7 @@ const UserActionsDropdown = ({
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/perfil/a-estudiar" className="flex items-center gap-2">
+          <Link to="/perfil/pomodoro" className="flex items-center gap-2">
             <TimerReset className="h-4 w-4" />
             {t("profile:layout.menuItems.study")}
           </Link>

@@ -16,11 +16,8 @@
     "
     data-skip-in-text="true"
   >
-    {{ if eq .Data.locale "en" }}Reset your OpositAI password securely.{{ else
-    }}Restablece tu contraseña de OpositAI de forma segura.{{ end }}
-    <div>
-       ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿
-    </div>
+    {{ if eq .Data.locale "en" }}Confirm your account and start preparing your
+    exam with OpositAI.{{ else }}Confirma tu cuenta y empieza a preparar tu opo
   </div>
   <body style="background-color: #f8fafc; margin: 0; padding: 0">
     <table
@@ -107,8 +104,8 @@
                                         margin-left: 0;
                                       "
                                     >
-                                      {{ if eq .Data.locale "en" }}Access
-                                      recovery{{ else }}Recuperacion de acceso{{
+                                      {{ if eq .Data.locale "en" }}Account
+                                      activation{{ else }}Activacion de cuenta{{
                                       end }}
                                     </p>
                                     <p
@@ -152,51 +149,51 @@
                                     <p
                                       style="font-size:34px;line-height:1.12;color:#0f172a;font-family:Georgia, &#x27;Times New Roman&#x27;, serif;font-style:italic;font-weight:700;letter-spacing:-0.03em;margin:0 0 18px;margin-top:0;margin-right:0;margin-bottom:18px;margin-left:0"
                                     >
-                                      {{ if eq .Data.locale "en" }}Set a new
-                                      password{{ else }}Define una nueva
-                                      contraseña{{ end }}
-                                    </p>
-                                    <p
-                                      style="
-                                        font-size: 15px;
-                                        line-height: 27px;
-                                        color: #475569;
-                                        margin: 0 0 14px;
-                                        margin-top: 0;
-                                        margin-right: 0;
-                                        margin-bottom: 14px;
-                                        margin-left: 0;
-                                      "
-                                    >
-                                      {{ if eq .Data.locale "en" }}We received a
-                                      request to reset your password. Use the
-                                      link below to create a new one and regain
-                                      access to your account.{{ else }}Hemos
-                                      recibido una solicitud para restablecer tu
-                                      contraseña. Usa el enlace de abajo para
-                                      crear una nueva clave y recuperar el
-                                      acceso a tu cuenta.{{ end }}
-                                    </p>
-                                    <p
-                                      style="
-                                        font-size: 15px;
-                                        line-height: 27px;
-                                        color: #475569;
-                                        margin: 0 0 14px;
-                                        margin-top: 0;
-                                        margin-right: 0;
-                                        margin-bottom: 14px;
-                                        margin-left: 0;
-                                      "
-                                    >
-                                      {{ if eq .Data.locale "en" }}If you did
-                                      not request this change, you do not need
-                                      to do anything. Your account will stay
-                                      protected unless this link is used.{{ else
-                                      }}Si no has pedido este cambio, no hace
-                                      falta que hagas nada. Tu cuenta seguira
-                                      protegida mientras no uses este enlace.{{
+                                      {{ if eq .Data.locale "en" }}Confirm your
+                                      email and activate your account{{ else
+                                      }}Confirma tu email y activa tu cuenta{{
                                       end }}
+                                    </p>
+                                    <p
+                                      style="
+                                        font-size: 15px;
+                                        line-height: 27px;
+                                        color: #475569;
+                                        margin: 0 0 14px;
+                                        margin-top: 0;
+                                        margin-right: 0;
+                                        margin-bottom: 14px;
+                                        margin-left: 0;
+                                      "
+                                    >
+                                      {{ if eq .Data.locale "en" }}Your sign-up
+                                      is almost finished. You only need to
+                                      verify this email to access your dashboard
+                                      and keep your progress from day one.{{
+                                      else }}Tu alta ya esta casi lista. Solo
+                                      necesitas verificar este correo para
+                                      acceder a tu panel y guardar tu progreso
+                                      desde el primer dia.{{ end }}
+                                    </p>
+                                    <p
+                                      style="
+                                        font-size: 15px;
+                                        line-height: 27px;
+                                        color: #475569;
+                                        margin: 0 0 14px;
+                                        margin-top: 0;
+                                        margin-right: 0;
+                                        margin-bottom: 14px;
+                                        margin-left: 0;
+                                      "
+                                    >
+                                      {{ if eq .Data.locale "en" }}Once you
+                                      confirm the link, you can enter OpositAI
+                                      and continue your preparation without
+                                      extra steps.{{ else }}Cuando confirmes el
+                                      enlace, podras entrar en OpositAI y
+                                      continuar con la preparacion sin pasos
+                                      extra.{{ end }}
                                     </p>
                                     <table
                                       align="center"
@@ -250,8 +247,8 @@
                                                   mso-text-raise: 11.25px;
                                                 "
                                                 >{{ if eq .Data.locale "en"
-                                                }}Reset password{{ else
-                                                }}Restablecer contraseña{{ end
+                                                }}Confirm my account{{ else
+                                                }}Confirmar mi cuenta{{ end
                                                 }}</span
                                               ><span
                                                 ><!--[if mso
@@ -319,13 +316,11 @@
                                               "
                                             >
                                               {{ if eq .Data.locale "en" }}If
-                                              the button does not open
-                                              correctly, copy this link and use
-                                              it directly in your browser.{{
-                                              else }}Si el boton no se abre
-                                              correctamente, copia este enlace y
-                                              usalo directamente en tu
-                                              navegador.{{ end }}
+                                              the button does not work, copy
+                                              this link and paste it into your
+                                              browser.{{ else }}Si el boton no
+                                              funciona, copia este enlace y
+                                              pegalo en tu navegador.{{ end }}
                                             </p>
                                             <a
                                               href="{{ .ConfirmationURL }}"
@@ -356,12 +351,13 @@
                                         margin-left: 0;
                                       "
                                     >
-                                      {{ if eq .Data.locale "en" }}For security
-                                      reasons, this link can be used only once
-                                      and may expire after a limited time.{{
-                                      else }}Por seguridad, este enlace es de un
-                                      solo uso y puede expirar tras un tiempo
-                                      limitado.{{ end }}
+                                      {{ if eq .Data.locale "en" }}If you did
+                                      not create this account, you can ignore
+                                      this message. The link is personal and may
+                                      expire for security reasons.{{ else }}Si
+                                      no has creado esta cuenta, puedes ignorar
+                                      este mensaje. El enlace es personal y
+                                      puede caducar por seguridad.{{ end }}
                                     </p>
                                   </td>
                                 </tr>
@@ -400,11 +396,11 @@
                                         margin-left: 0;
                                       "
                                     >
-                                      {{ if eq .Data.locale "en" }}Recover
-                                      access and get back to your dashboard
-                                      without losing your pace.{{ else
-                                      }}Recupera el acceso y vuelve a tu panel
-                                      con el mismo ritmo de estudio.{{ end }}
+                                      {{ if eq .Data.locale "en" }}Strong
+                                      preparation comes from steady progress,
+                                      not noise.{{ else }}Una preparacion buena
+                                      no depende del ruido, sino de avanzar con
+                                      criterio todos los dias.{{ end }}
                                     </p>
                                     <p
                                       style="
@@ -418,12 +414,12 @@
                                         margin-left: 0;
                                       "
                                     >
-                                      {{ if eq .Data.locale "en" }}If you notice
-                                      activity you do not recognize, review your
-                                      sign-in details before continuing.{{ else
-                                      }}Si detectas actividad que no reconoces,
-                                      revisa tus datos de acceso antes de
-                                      continuar.{{ end }}
+                                      {{ if eq .Data.locale "en" }}You keep your
+                                      dashboard, study tools, and learning
+                                      context in one place.{{ else }}Mantienes
+                                      el acceso a tu panel, tus herramientas y
+                                      tu contexto de estudio en un solo lugar.{{
+                                      end }}
                                     </p>
                                     <p
                                       style="

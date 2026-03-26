@@ -29,16 +29,33 @@ import {
   Pause,
   Play,
   Sparkles,
-  Square,
   TimerReset,
   X
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "opositai:sidebar-collapsed";
 const BILLING_ISSUE_DISMISS_PREFIX = "opositai:billing-issue-dismissed";
+const STUDY_TIMER_BADGE_POSITION_STORAGE_KEY =
+  "opositai:study-timer-badge-position-v1";
+const STUDY_TIMER_BADGE_WIDTH = 208;
+const STUDY_TIMER_BADGE_HEIGHT = 44;
+const STUDY_TIMER_BADGE_MARGIN = 38;
+const STUDY_TIMER_BADGE_DEFAULT_RIGHT_MARGIN = 80;
+
+type StudyTimerBadgePosition = {
+  x: number;
+  y: number;
+};
 
 const formatPlanEndDate = (value: string | null, locale: string) => {
   if (!value) return null;
@@ -52,11 +69,70 @@ const formatPlanEndDate = (value: string | null, locale: string) => {
   });
 };
 
+const clampStudyTimerBadgePosition = (
+  position: StudyTimerBadgePosition,
+  viewportWidth: number,
+  viewportHeight: number
+): StudyTimerBadgePosition => ({
+  x: Math.min(
+    Math.max(position.x, STUDY_TIMER_BADGE_MARGIN),
+    Math.max(
+      STUDY_TIMER_BADGE_MARGIN,
+      viewportWidth - STUDY_TIMER_BADGE_WIDTH - STUDY_TIMER_BADGE_MARGIN
+    )
+  ),
+  y: Math.min(
+    Math.max(position.y, STUDY_TIMER_BADGE_MARGIN),
+    Math.max(
+      STUDY_TIMER_BADGE_MARGIN,
+      viewportHeight - STUDY_TIMER_BADGE_HEIGHT - STUDY_TIMER_BADGE_MARGIN
+    )
+  )
+});
+
+const getDefaultStudyTimerBadgePosition = () =>
+  clampStudyTimerBadgePosition(
+    {
+      x:
+        window.innerWidth -
+        STUDY_TIMER_BADGE_WIDTH -
+        STUDY_TIMER_BADGE_DEFAULT_RIGHT_MARGIN,
+      y: STUDY_TIMER_BADGE_MARGIN
+    },
+    window.innerWidth,
+    window.innerHeight
+  );
+
+const getInitialStudyTimerBadgePosition =
+  (): StudyTimerBadgePosition | null => {
+    if (typeof window === "undefined") return null;
+
+    const rawValue = window.localStorage.getItem(
+      STUDY_TIMER_BADGE_POSITION_STORAGE_KEY
+    );
+    if (!rawValue) return getDefaultStudyTimerBadgePosition();
+
+    try {
+      const parsed = JSON.parse(rawValue) as Partial<StudyTimerBadgePosition>;
+      if (typeof parsed.x !== "number" || typeof parsed.y !== "number")
+        return getDefaultStudyTimerBadgePosition();
+
+      return clampStudyTimerBadgePosition(
+        { x: parsed.x, y: parsed.y },
+        window.innerWidth,
+        window.innerHeight
+      );
+    } catch {
+      return getDefaultStudyTimerBadgePosition();
+    }
+  };
+
 const AuthenticatedSidebarLayout = () => {
   const location = useLocation();
   const { t, i18n } = useTranslation(["profile", "common", "plans"]);
   const { profile, user } = useAuth();
-  const { status, formattedRemaining, pause, resume, stop } = useStudyTimer();
+  const { status, formattedRemaining, pause, restart, resume } =
+    useStudyTimer();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -105,6 +181,15 @@ const AuthenticatedSidebarLayout = () => {
     dismissedBillingIssueFingerprint,
     setDismissedBillingIssueFingerprint
   ] = useState("");
+  const [studyTimerBadgePosition, setStudyTimerBadgePosition] =
+    useState<StudyTimerBadgePosition | null>(() =>
+      getInitialStudyTimerBadgePosition()
+    );
+  const studyTimerBadgeDragRef = useRef<{
+    offsetX: number;
+    offsetY: number;
+    pointerId: number;
+  } | null>(null);
 
   const menuGroups = useMemo(
     () => [
@@ -138,7 +223,7 @@ const AuthenticatedSidebarLayout = () => {
           },
           {
             label: t("profile:layout.menuItems.study"),
-            to: "/perfil/a-estudiar",
+            to: "/perfil/pomodoro",
             icon: TimerReset
           }
         ]
@@ -164,7 +249,7 @@ const AuthenticatedSidebarLayout = () => {
     setIsSidebarCollapsed((prev) => !prev);
   };
   const showHeaderTimer =
-    location.pathname !== "/perfil/a-estudiar" && status !== "idle";
+    location.pathname !== "/perfil/pomodoro" && status !== "idle";
 
   useEffect(() => {
     const updateScrollState = () => {
@@ -202,6 +287,75 @@ const AuthenticatedSidebarLayout = () => {
     setDismissedBillingIssueFingerprint(stored);
   }, [user?.id]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!studyTimerBadgePosition) {
+      setStudyTimerBadgePosition(getDefaultStudyTimerBadgePosition());
+      return;
+    }
+
+    window.localStorage.setItem(
+      STUDY_TIMER_BADGE_POSITION_STORAGE_KEY,
+      JSON.stringify(studyTimerBadgePosition)
+    );
+  }, [studyTimerBadgePosition]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleResize = () => {
+      setStudyTimerBadgePosition((currentPosition) => {
+        const fallbackPosition = getDefaultStudyTimerBadgePosition();
+        if (!currentPosition) return fallbackPosition;
+
+        return clampStudyTimerBadgePosition(
+          currentPosition,
+          window.innerWidth,
+          window.innerHeight
+        );
+      });
+    };
+
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const dragState = studyTimerBadgeDragRef.current;
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+
+      setStudyTimerBadgePosition(
+        clampStudyTimerBadgePosition(
+          {
+            x: event.clientX - dragState.offsetX,
+            y: event.clientY - dragState.offsetY
+          },
+          window.innerWidth,
+          window.innerHeight
+        )
+      );
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const dragState = studyTimerBadgeDragRef.current;
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+      studyTimerBadgeDragRef.current = null;
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, []);
+
   const showBillingIssueBanner =
     Boolean(billingIssue) &&
     billingIssue.subscription_status === "past_due" &&
@@ -217,6 +371,22 @@ const AuthenticatedSidebarLayout = () => {
       billingIssueFingerprint
     );
     setDismissedBillingIssueFingerprint(billingIssueFingerprint);
+  };
+
+  const handleStudyTimerBadgePointerDown = (
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => {
+    if (!studyTimerBadgePosition) return;
+
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest("[data-timer-action]"))
+      return;
+
+    studyTimerBadgeDragRef.current = {
+      offsetX: event.clientX - studyTimerBadgePosition.x,
+      offsetY: event.clientY - studyTimerBadgePosition.y,
+      pointerId: event.pointerId
+    };
   };
 
   return (
@@ -273,48 +443,60 @@ const AuthenticatedSidebarLayout = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                {showHeaderTimer && (
-                  <div className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 p-1 text-primary">
-                    <span className="px-2 text-[11px] font-semibold tracking-widest uppercase">
-                      {formattedRemaining}
-                    </span>
-                    {status === "running" && (
-                      <button
-                        type="button"
-                        onClick={pause}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-                        aria-label={t("profile:study.pause")}
-                        title={t("profile:study.pause")}
-                      >
-                        <Pause className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {status === "paused" && (
-                      <button
-                        type="button"
-                        onClick={resume}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-                        aria-label={t("profile:study.resume")}
-                        title={t("profile:study.resume")}
-                      >
-                        <Play className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={stop}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
-                      aria-label={t("profile:study.stop")}
-                      title={t("profile:study.stop")}
-                    >
-                      <Square className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                )}
                 <UserActionsDropdown />
               </div>
             </div>
           </header>
+        ) : null}
+
+        {showHeaderTimer && studyTimerBadgePosition ? (
+          <div
+            className="fixed z-40 inline-flex items-center gap-1 rounded-full border border-primary/35 bg-background/92 p-1 text-primary shadow-[0_18px_45px_-28px_rgba(15,23,42,0.6)] backdrop-blur-xl select-none"
+            style={{
+              left: studyTimerBadgePosition.x,
+              top: studyTimerBadgePosition.y,
+              touchAction: "none"
+            }}
+            onPointerDown={handleStudyTimerBadgePointerDown}
+          >
+            <span className="cursor-grab rounded-full px-2 text-[11px] font-semibold tracking-widest uppercase active:cursor-grabbing">
+              {formattedRemaining}
+            </span>
+            {status === "running" && (
+              <button
+                type="button"
+                data-timer-action="pause"
+                onClick={pause}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+                aria-label={t("profile:study.pause")}
+                title={t("profile:study.pause")}
+              >
+                <Pause className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {status === "paused" && (
+              <button
+                type="button"
+                data-timer-action="resume"
+                onClick={resume}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+                aria-label={t("profile:study.resume")}
+                title={t("profile:study.resume")}
+              >
+                <Play className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              data-timer-action="restart"
+              onClick={restart}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+              aria-label={t("profile:study.restart")}
+              title={t("profile:study.restart")}
+            >
+              <TimerReset className="h-3.5 w-3.5" />
+            </button>
+          </div>
         ) : null}
 
         {!isPdfViewerRoute && isMobileOpen && (

@@ -1,0 +1,37 @@
+{
+  "shared": {
+    "brandName": "OpositAI",
+    "brandStrapline": "Preparacion con foco, claridad y continuidad.",
+    "fallbackTitle": "Enlace alternativo",
+    "siteLabel": "Abrir web",
+    "supportLabel": "Ver soporte"
+  },
+  "confirmation": {
+    "previewText": "Confirma tu cuenta y empieza a preparar tu oposicion en OpositAI.",
+    "eyebrow": "Activacion de cuenta",
+    "title": "Confirma tu email y activa tu cuenta",
+    "paragraphs": [
+      "Tu alta ya esta casi lista. Solo necesitas verificar este correo para acceder a tu panel y guardar tu progreso desde el primer dia.",
+      "Cuando confirmes el enlace, podras entrar en OpositAI y continuar con la preparacion sin pasos extra."
+    ],
+    "actionLabel": "Confirmar mi cuenta",
+    "fallbackLabel": "Si el boton no funciona, copia este enlace y pegalo en tu navegador.",
+    "securityNote": "Si no has creado esta cuenta, puedes ignorar este mensaje. El enlace es personal y puede caducar por seguridad.",
+    "footerPrimary": "Una preparacion buena no depende del ruido, sino de avanzar con criterio todos los dias.",
+    "footerSecondary": "Mantienes el acceso a tu panel, tus herramientas y tu contexto de estudio en un solo lugar."
+  },
+  "recovery": {
+    "previewText": "Restablece tu contraseña de OpositAI de forma segura.",
+    "eyebrow": "Recuperacion de acceso",
+    "title": "Define una nueva contraseña",
+    "paragraphs": [
+      "Hemos recibido una solicitud para restablecer tu contraseña. Usa el enlace de abajo para crear una nueva clave y recuperar el acceso a tu cuenta.",
+      "Si no has pedido este cambio, no hace falta que hagas nada. Tu cuenta seguira protegida mientras no uses este enlace."
+    ],
+    "actionLabel": "Restablecer contraseña",
+    "fallbackLabel": "Si el boton no se abre correctamente, copia este enlace y usalo directamente en tu navegador.",
+    "securityNote": "Por seguridad, este enlace es de un solo uso y puede expirar tras un tiempo limitado.",
+    "footerPrimary": "Recupera el acceso y vuelve a tu panel con el mismo ritmo de estudio.",
+    "footerSecondary": "Si detectas actividad que no reconoces, revisa tus datos de acceso antes de continuar."
+  }
+}

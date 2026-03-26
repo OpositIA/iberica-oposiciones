@@ -964,7 +964,7 @@ const ProfileSyllabusPdfViewer = () => {
                   onLoadSuccess={handleDocumentLoad}
                   onLoadError={handleDocumentLoadError}
                   error={null}
-                >  
+                >
                   {documentError ? (
                     <div className="max-w-xl rounded-[1.25rem] border border-destructive/20 bg-background p-6 shadow-sm">
                       <p className="text-sm font-semibold text-foreground">

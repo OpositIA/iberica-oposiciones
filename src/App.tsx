@@ -159,7 +159,11 @@ const App = () => (
                 path="/perfil/temario/descarga/:subtopicFileId"
                 element={<ProfileSyllabusDownload />}
               />
-              <Route path="/perfil/a-estudiar" element={<ProfileStudy />} />
+              <Route
+                path="/perfil/a-estudiar"
+                element={<Navigate to="/perfil/pomodoro" replace />}
+              />
+              <Route path="/perfil/pomodoro" element={<ProfileStudy />} />
               <Route path="/perfil/mi-perfil" element={<MiPerfil />} />
               <Route
                 path="/perfil/estadisticas"

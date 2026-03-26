@@ -44,7 +44,7 @@
       "support": "Soporte",
       "test": "Test",
       "syllabus": "Temario",
-      "study": "A estudiar"
+      "study": "Pomodoro"
     },
     "myProfile": "Mi perfil",
     "activePlan": "Plan activo",
@@ -234,10 +234,12 @@
     "upgrade": "Subir a Pro"
   },
   "study": {
-    "badge": "A estudiar",
-    "description": "Configura un temporizador Pomodoro y controlalo desde cualquier pantalla.",
+    "badge": "Pomodoro",
+    "description": "Gestiona tu ciclo Pomodoro y manten el control desde cualquier pantalla.",
+    "autoCycle": "Ciclo automatico 25/5",
     "remainingLabel": "Tiempo restante",
     "phaseLabel": "Fase actual",
+    "statusLabel": "Estado",
     "phasefocus": "Concentracion",
     "phaseshortBreak": "Descanso corto",
     "phaselongBreak": "Descanso largo",
