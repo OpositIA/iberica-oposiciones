@@ -32,11 +32,15 @@ import { Link } from "react-router-dom";
 type UserActionsDropdownProps = {
   buttonClassName?: string;
   fallbackIconClassName?: string;
+  onOpenTour?: () => void;
+  triggerDataTourId?: string;
 };
 
 const UserActionsDropdown = ({
   buttonClassName,
-  fallbackIconClassName
+  fallbackIconClassName,
+  onOpenTour,
+  triggerDataTourId
 }: UserActionsDropdownProps) => {
   const { t } = useTranslation(["profile", "common"]);
   const { forceLogout, profile, user, isAuthenticated } = useAuth();
@@ -91,6 +95,7 @@ const UserActionsDropdown = ({
           radius="full"
           className={cn("h-10 w-10 overflow-hidden", buttonClassName)}
           aria-label={t("profile:layout.profileMenuLabel")}
+          data-tour-id={triggerDataTourId}
         >
           {avatarUrl && !avatarLoadError ? (
             <img
@@ -184,6 +189,15 @@ const UserActionsDropdown = ({
         <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground">
           {t("profile:layout.accountMenu.sections.preferences")}
         </DropdownMenuLabel>
+        {onOpenTour ? (
+          <DropdownMenuItem
+            className={dropdownActionClassName}
+            onClick={onOpenTour}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            {t("profile:layout.accountMenu.reopenTour")}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           className={dropdownActionClassName}
           onClick={handleToggleTheme}

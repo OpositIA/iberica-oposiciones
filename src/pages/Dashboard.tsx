@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/chart";
 import CustomButton from "@/components/ui/custom-button";
 import { isPaidPlan } from "@/lib/plans";
+import { WORKSPACE_TOUR_TARGETS } from "@/lib/workspaceTour";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   fetchQuickTestsDashboardBundle,
@@ -406,6 +407,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <section
         className={`${basePanelClassName} relative overflow-hidden bg-gradient-to-br from-primary/[0.08] via-background to-background p-6 md:p-8 dark:from-primary/[0.14] dark:via-card dark:to-card`}
+        data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardHero}
       >
         <div className="pointer-events-none absolute -left-12 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
         <div className="pointer-events-none absolute bottom-0 right-0 h-48 w-48 rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
@@ -451,7 +453,10 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section
+        className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+        data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardMetrics}
+      >
         {kpiCards.map((card) => (
           <DashboardKpiCard key={card.title} {...card} />
         ))}
@@ -460,6 +465,7 @@ const Dashboard = () => {
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 xl:items-start">
         <article
           className={`${basePanelClassName} overflow-hidden p-5 md:p-6 xl:col-span-7`}
+          data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardPerformance}
         >
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -836,7 +842,10 @@ const Dashboard = () => {
         </article>
       </section>
 
-      <section className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}>
+      <section
+        className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}
+        data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardHistory}
+      >
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">

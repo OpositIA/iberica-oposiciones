@@ -1,0 +1,37 @@
+{
+  "badge": "Tour guiado",
+  "step": "Paso {{current}} de {{total}}",
+  "actions": {
+    "back": "Atras",
+    "next": "Siguiente",
+    "skip": "Omitir",
+    "finish": "Finalizar",
+    "close": "Cerrar tour"
+  },
+  "steps": {
+    "navigation": {
+      "title": "Tu espacio principal siempre a mano",
+      "description": "Desde esta navegacion accedes rapidamente a dashboard, IA, test, temario y Pomodoro. En movil se concentra en el menu superior para mantener la interfaz limpia."
+    },
+    "dashboardHero": {
+      "title": "Resumen inmediato de tu preparacion",
+      "description": "Este bloque centraliza el estado general de tu cuenta y los accesos directos mas utiles para retomar tu flujo sin perder tiempo."
+    },
+    "dashboardMetrics": {
+      "title": "Metricas clave de un vistazo",
+      "description": "Aqui ves volumen, nota media, precision, mejor resultado, ritmo y sesiones en curso. Es la zona rapida para detectar si avanzas como esperas."
+    },
+    "dashboardPerformance": {
+      "title": "Evolucion reciente con contexto",
+      "description": "Los graficos convierten tus ultimos intentos en una lectura clara: progreso, consistencia y margen de mejora, todo sin salir del dashboard."
+    },
+    "dashboardHistory": {
+      "title": "Historial para volver al detalle",
+      "description": "Cada intento reciente queda accesible desde aqui para revisar fecha, nota, precision y reabrirlo exactamente donde lo dejaste."
+    },
+    "accountMenu": {
+      "title": "Preferencias y reapertura del tour",
+      "description": "En tu avatar concentras ajustes de cuenta, tema visual y la opcion para relanzar este recorrido cuando quieras volver a orientarte."
+    }
+  }
+}

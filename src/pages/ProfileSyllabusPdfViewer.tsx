@@ -82,6 +82,24 @@ const extractPageText = async (pdf: LoadedPdfDocument, pageNumber: number) => {
     .toLocaleLowerCase();
 };
 
+const countTextMatches = (value: string, search: string) => {
+  if (!value || !search) return 0;
+
+  const normalizedValue = value.toLocaleLowerCase();
+  let startIndex = 0;
+  let matchCount = 0;
+
+  while (startIndex < normalizedValue.length) {
+    const nextIndex = normalizedValue.indexOf(search, startIndex);
+    if (nextIndex === -1) break;
+
+    matchCount += 1;
+    startIndex = nextIndex + search.length;
+  }
+
+  return matchCount;
+};
+
 const ProfileSyllabusPdfViewer = () => {
   const { t } = useTranslation(["profile"]);
   const { user } = useAuth();
@@ -151,19 +169,40 @@ const ProfileSyllabusPdfViewer = () => {
     () => Array.from({ length: pageCount }, (_, index) => index + 1),
     [pageCount]
   );
-  const searchMatches = useMemo(() => {
+  const searchResults = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase();
-    if (!normalizedSearch) return [];
+    if (!normalizedSearch) {
+      return [] as Array<{
+        pageNumber: number;
+        matchIndexOnPage: number;
+      }>;
+    }
 
-    return thumbnailPages.filter((pageNumber) =>
-      pageTexts[pageNumber]?.includes(normalizedSearch)
-    );
+    return thumbnailPages.flatMap((pageNumber) => {
+      const matchCount = countTextMatches(
+        pageTexts[pageNumber] ?? "",
+        normalizedSearch
+      );
+
+      return Array.from({ length: matchCount }, (_, matchIndexOnPage) => ({
+        pageNumber,
+        matchIndexOnPage
+      }));
+    });
   }, [pageTexts, searchTerm, thumbnailPages]);
   const searchMatchesSet = useMemo(
-    () => new Set(searchMatches),
-    [searchMatches]
+    () => new Set(searchResults.map(({ pageNumber }) => pageNumber)),
+    [searchResults]
   );
-  const activeSearchPage = searchMatches[activeSearchMatchIndex] ?? null;
+  const pageSearchOffsets = useMemo(() => {
+    const offsets = new Map<number, number>();
+
+    searchResults.forEach(({ pageNumber }, resultIndex) => {
+      if (!offsets.has(pageNumber)) offsets.set(pageNumber, resultIndex);
+    });
+
+    return offsets;
+  }, [searchResults]);
   const highlightSearchTerm = searchTerm.trim();
   const searchHighlightRegex = useMemo(() => {
     if (!highlightSearchTerm) return null;
@@ -200,7 +239,8 @@ const ProfileSyllabusPdfViewer = () => {
   );
   const renderSearchHighlight = (
     pageNumber: number,
-    textItem: { str?: string }
+    textItem: { str?: string },
+    getNextMatchIndex: () => number
   ) => {
     const value = typeof textItem?.str === "string" ? textItem.str : "";
     const safeValue = escapeHtml(value);
@@ -211,11 +251,13 @@ const ProfileSyllabusPdfViewer = () => {
     )
       return safeValue;
 
-    const activeClass = activeSearchPage === pageNumber ? " is-active" : "";
-    return safeValue.replace(
-      searchHighlightRegex,
-      `<mark class="pdf-search-highlight${activeClass}">$1</mark>`
-    );
+    return safeValue.replace(searchHighlightRegex, (match) => {
+      const matchIndex = getNextMatchIndex();
+      const activeClass =
+        matchIndex === activeSearchMatchIndex ? " is-active" : "";
+
+      return `<mark class="pdf-search-highlight${activeClass}" data-search-match-index="${matchIndex}" data-search-page="${pageNumber}">${match}</mark>`;
+    });
   };
 
   useEffect(() => {
@@ -322,23 +364,41 @@ const ProfileSyllabusPdfViewer = () => {
   }, [pdfPayload]);
 
   useEffect(() => {
-    if (searchMatches.length === 0) {
+    if (searchResults.length === 0) {
       setActiveSearchMatchIndex(0);
       return;
     }
 
     setActiveSearchMatchIndex((previousIndex) =>
-      clamp(previousIndex, 0, searchMatches.length - 1)
+      clamp(previousIndex, 0, searchResults.length - 1)
     );
-  }, [searchMatches]);
+  }, [searchResults]);
 
-  const scrollToResolvedPage = useCallback(
-    (pageNumber: number, behavior: ScrollBehavior = "smooth") => {
-      const node = pageRefs.current.get(pageNumber);
+  const releaseProgrammaticScroll = useCallback(() => {
+    isProgrammaticScrollRef.current = false;
+    targetPageRef.current = null;
+    targetScrollTopRef.current = null;
+    if (scrollReleaseTimeoutRef.current) {
+      window.clearTimeout(scrollReleaseTimeoutRef.current);
+      scrollReleaseTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scrollViewerTo = useCallback(
+    (
+      scrollTop: number,
+      pageNumber: number,
+      behavior: ScrollBehavior = "smooth"
+    ) => {
       const container = viewerScrollRef.current;
-      if (!node || !container) return;
+      if (!container) return;
 
-      const nextTop = Math.max(0, node.offsetTop - 24);
+      const maxScrollTop = Math.max(
+        0,
+        container.scrollHeight - container.clientHeight
+      );
+      const nextTop = clamp(scrollTop, 0, maxScrollTop);
+
       isProgrammaticScrollRef.current = behavior === "smooth";
       targetPageRef.current = pageNumber;
       targetScrollTopRef.current = nextTop;
@@ -350,19 +410,27 @@ const ProfileSyllabusPdfViewer = () => {
 
       if (behavior === "smooth") {
         scrollReleaseTimeoutRef.current = window.setTimeout(() => {
-          isProgrammaticScrollRef.current = false;
-          targetPageRef.current = null;
-          targetScrollTopRef.current = null;
-          scrollReleaseTimeoutRef.current = null;
+          releaseProgrammaticScroll();
         }, 500);
-      }
+      } else releaseProgrammaticScroll();
 
       container.scrollTo({
         top: nextTop,
         behavior
       });
     },
-    []
+    [releaseProgrammaticScroll]
+  );
+
+  const scrollToResolvedPage = useCallback(
+    (pageNumber: number, behavior: ScrollBehavior = "smooth") => {
+      const node = pageRefs.current.get(pageNumber);
+      if (!node) return;
+
+      const nextTop = Math.max(0, node.offsetTop - 24);
+      scrollViewerTo(nextTop, pageNumber, behavior);
+    },
+    [scrollViewerTo]
   );
 
   const scrollToFirstPage = useCallback(
@@ -391,9 +459,65 @@ const ProfileSyllabusPdfViewer = () => {
   );
 
   useEffect(() => {
-    if (!searchTerm || searchMatches.length === 0) return;
-    scrollToPage(searchMatches[activeSearchMatchIndex]);
-  }, [activeSearchMatchIndex, scrollToPage, searchMatches, searchTerm]);
+    if (!searchTerm || searchResults.length === 0) return;
+
+    const activeResult = searchResults[activeSearchMatchIndex];
+    if (!activeResult) return;
+
+    setCurrentPage(activeResult.pageNumber);
+    setPageInput(String(activeResult.pageNumber));
+
+    let attemptCount = 0;
+    let frameId = 0;
+    let retryTimeoutId: number | null = null;
+
+    const scrollToActiveMatch = () => {
+      const container = viewerScrollRef.current;
+      if (!container) return true;
+
+      const activeMatchNode = container.querySelector<HTMLElement>(
+        `[data-search-match-index="${activeSearchMatchIndex}"]`
+      );
+
+      if (!activeMatchNode) {
+        attemptCount += 1;
+        if (attemptCount > 18) {
+          scrollToResolvedPage(activeResult.pageNumber, "auto");
+          return true;
+        }
+
+        retryTimeoutId = window.setTimeout(() => {
+          frameId = window.requestAnimationFrame(scrollToActiveMatch);
+        }, 60);
+
+        return false;
+      }
+
+      const containerRect = container.getBoundingClientRect();
+      const matchRect = activeMatchNode.getBoundingClientRect();
+      const nextTop =
+        container.scrollTop +
+        (matchRect.top - containerRect.top) -
+        container.clientHeight / 2 +
+        matchRect.height / 2;
+
+      scrollViewerTo(nextTop, activeResult.pageNumber, "smooth");
+      return true;
+    };
+
+    frameId = window.requestAnimationFrame(scrollToActiveMatch);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      if (retryTimeoutId) window.clearTimeout(retryTimeoutId);
+    };
+  }, [
+    activeSearchMatchIndex,
+    scrollToResolvedPage,
+    scrollViewerTo,
+    searchResults,
+    searchTerm
+  ]);
 
   useEffect(() => {
     setSearchTerm(searchInput.trim());
@@ -405,16 +529,6 @@ const ProfileSyllabusPdfViewer = () => {
     if (!container || pageCount <= 0) return;
 
     let frameId = 0;
-    const releaseProgrammaticScroll = () => {
-      isProgrammaticScrollRef.current = false;
-      targetPageRef.current = null;
-      targetScrollTopRef.current = null;
-      if (scrollReleaseTimeoutRef.current) {
-        window.clearTimeout(scrollReleaseTimeoutRef.current);
-        scrollReleaseTimeoutRef.current = null;
-      }
-    };
-
     const syncPageFromScroll = () => {
       if (isProgrammaticScrollRef.current) {
         const targetScrollTop = targetScrollTopRef.current;
@@ -471,7 +585,7 @@ const ProfileSyllabusPdfViewer = () => {
       releaseProgrammaticScroll();
       container.removeEventListener("scroll", onScroll);
     };
-  }, [isPageLocked, pageCount, scrollToFirstPage]);
+  }, [isPageLocked, pageCount, releaseProgrammaticScroll, scrollToFirstPage]);
 
   const commitPageInput = () => {
     if (!pageCount) {
@@ -488,11 +602,11 @@ const ProfileSyllabusPdfViewer = () => {
   };
 
   const goToSearchMatch = (nextIndex: number) => {
-    if (searchMatches.length === 0) return;
+    if (searchResults.length === 0) return;
 
     const normalizedIndex =
-      ((nextIndex % searchMatches.length) + searchMatches.length) %
-      searchMatches.length;
+      ((nextIndex % searchResults.length) + searchResults.length) %
+      searchResults.length;
 
     setActiveSearchMatchIndex(normalizedIndex);
   };
@@ -713,7 +827,7 @@ const ProfileSyllabusPdfViewer = () => {
                           defaultValue: "Indexando"
                         })
                       : searchTerm
-                        ? `${searchMatches.length === 0 ? 0 : activeSearchMatchIndex + 1}/${searchMatches.length}`
+                        ? `${searchResults.length === 0 ? 0 : activeSearchMatchIndex + 1}/${searchResults.length}`
                         : ""}
                   </span>
                 </div>
@@ -722,7 +836,7 @@ const ProfileSyllabusPdfViewer = () => {
                   styleType="unstyled"
                   className="rounded-full text-slate-600 hover:bg-white"
                   onClick={() => goToSearchMatch(activeSearchMatchIndex - 1)}
-                  disabled={searchMatches.length === 0}
+                  disabled={searchResults.length === 0}
                   aria-label={t("syllabus.viewerSearchPrevious", {
                     defaultValue: "Resultado anterior"
                   })}
@@ -734,7 +848,7 @@ const ProfileSyllabusPdfViewer = () => {
                   styleType="unstyled"
                   className="rounded-full text-slate-600 hover:bg-white"
                   onClick={() => goToSearchMatch(activeSearchMatchIndex + 1)}
-                  disabled={searchMatches.length === 0}
+                  disabled={searchResults.length === 0}
                   aria-label={t("syllabus.viewerSearchNext", {
                     defaultValue: "Resultado siguiente"
                   })}
@@ -982,6 +1096,17 @@ const ProfileSyllabusPdfViewer = () => {
                         const isLockedPage = isPageLocked(pageNumber);
                         const isRenderedPage = pageNumber <= renderedPageCount;
                         const canRenderPage = !isLockedPage && isRenderedPage;
+                        const pageMatchOffset =
+                          pageSearchOffsets.get(pageNumber) ?? 0;
+                        let pageMatchCursor = 0;
+                        const renderPageSearchHighlight = (textItem: {
+                          str?: string;
+                        }) =>
+                          renderSearchHighlight(
+                            pageNumber,
+                            textItem,
+                            () => pageMatchOffset + pageMatchCursor++
+                          );
 
                         return (
                           <div
@@ -1011,11 +1136,8 @@ const ProfileSyllabusPdfViewer = () => {
                                       searchHighlightRegex &&
                                       searchMatchesSet.has(pageNumber)
                                     )}
-                                    customTextRenderer={(textItem) =>
-                                      renderSearchHighlight(
-                                        pageNumber,
-                                        textItem
-                                      )
+                                    customTextRenderer={
+                                      renderPageSearchHighlight
                                     }
                                     className="pdf-viewer-page leading-none"
                                     loading={

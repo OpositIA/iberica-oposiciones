@@ -185,7 +185,7 @@ const ProfileStudy = () => {
                 <Sparkles className="mb-6 h-8 w-8 text-accent/65 dark:text-accent/75" />
               ) : null}
 
-              <div className="flex items-end justify-center gap-2 text-foreground">
+              <div className="flex items-center justify-center gap-2 text-foreground">
                 <span className="text-7xl font-serif leading-none md:text-8xl">
                   {minutesDisplay}
                 </span>

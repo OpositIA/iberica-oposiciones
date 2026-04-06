@@ -15,6 +15,7 @@
     "panel": "Panel",
     "accountMenu": {
       "navigation": "Navegacion",
+      "reopenTour": "Volver a ver tour",
       "sections": {
         "web": "Web",
         "workspace": "Panel",

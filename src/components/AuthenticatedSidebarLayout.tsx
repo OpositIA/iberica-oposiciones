@@ -1,6 +1,9 @@
 import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
 import opositaiLogo from "@/assets/opositai-logo.png";
 import { useAuth } from "@/auth/AuthProvider";
+import WorkspaceTour, {
+  type WorkspaceTourHandle
+} from "@/components/onboarding/WorkspaceTour";
 import CustomButton from "@/components/ui/custom-button";
 import {
   Tooltip,
@@ -11,6 +14,7 @@ import {
 import UserActionsDropdown from "@/components/UserActionsDropdown";
 import { isPaidPlan } from "@/lib/plans";
 import { cn } from "@/lib/utils";
+import { WORKSPACE_TOUR_TARGETS } from "@/lib/workspaceTour";
 import {
   useUserBillingIssueQuery,
   useUserPlanStateQuery
@@ -190,6 +194,7 @@ const AuthenticatedSidebarLayout = () => {
     offsetY: number;
     pointerId: number;
   } | null>(null);
+  const workspaceTourRef = useRef<WorkspaceTourHandle | null>(null);
 
   const menuGroups = useMemo(
     () => [
@@ -425,6 +430,7 @@ const AuthenticatedSidebarLayout = () => {
                   radius="full"
                   className="h-10 w-10 lg:hidden"
                   aria-label={t("profile:layout.mobileMenuOpen")}
+                  data-tour-id={WORKSPACE_TOUR_TARGETS.navigation}
                 >
                   <Menu className="h-4 w-4" />
                 </CustomButton>
@@ -443,7 +449,10 @@ const AuthenticatedSidebarLayout = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <UserActionsDropdown />
+                <UserActionsDropdown
+                  onOpenTour={() => workspaceTourRef.current?.start()}
+                  triggerDataTourId={WORKSPACE_TOUR_TARGETS.accountMenu}
+                />
               </div>
             </div>
           </header>
@@ -451,7 +460,7 @@ const AuthenticatedSidebarLayout = () => {
 
         {showHeaderTimer && studyTimerBadgePosition ? (
           <div
-            className="fixed z-40 inline-flex items-center gap-1 rounded-full border border-primary/35 bg-background/92 p-1 text-primary shadow-[0_18px_45px_-28px_rgba(15,23,42,0.6)] backdrop-blur-xl select-none"
+            className="fixed z-[60] inline-flex items-center gap-1 rounded-full border border-primary/35 bg-background/92 p-1 text-primary shadow-[0_18px_45px_-28px_rgba(15,23,42,0.6)] backdrop-blur-xl select-none"
             style={{
               left: studyTimerBadgePosition.x,
               top: studyTimerBadgePosition.y,
@@ -574,7 +583,10 @@ const AuthenticatedSidebarLayout = () => {
                 </div>
               </header>
 
-              <nav className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-3">
+              <nav
+                className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-3"
+                data-tour-id={WORKSPACE_TOUR_TARGETS.navigation}
+              >
                 <ul className="space-y-1.5">
                   {sidebarMenuItems.map((item) => {
                     const active = location.pathname === item.to;
@@ -785,6 +797,8 @@ const AuthenticatedSidebarLayout = () => {
             <Outlet />
           )}
         </main>
+
+        <WorkspaceTour ref={workspaceTourRef} userId={user?.id ?? null} />
       </div>
     </TooltipProvider>
   );
