@@ -1,4 +1,5 @@
-export const WORKSPACE_TOUR_STORAGE_KEY_PREFIX = "opositai:workspace-tour:v1";
+export const WORKSPACE_TOUR_STORAGE_KEY_PREFIX =
+  "iberica-oposiciones:workspace-tour:v1";
 
 export const WORKSPACE_TOUR_TARGETS = {
   navigation: "workspace-tour-navigation",

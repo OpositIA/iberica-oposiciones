@@ -1,18 +1,18 @@
 {
   "shared": {
-    "brandName": "OpositAI",
+    "brandName": "Iberica Oposiciones",
     "brandStrapline": "Preparation with focus, clarity, and consistency.",
     "fallbackTitle": "Fallback link",
     "siteLabel": "Open website",
     "supportLabel": "View support"
   },
   "confirmation": {
-    "previewText": "Confirm your account and start preparing your exam with OpositAI.",
+    "previewText": "Confirm your account and start preparing your exam with Iberica Oposiciones.",
     "eyebrow": "Account activation",
     "title": "Confirm your email and activate your account",
     "paragraphs": [
       "Your sign-up is almost finished. You only need to verify this email to access your dashboard and keep your progress from day one.",
-      "Once you confirm the link, you can enter OpositAI and continue your preparation without extra steps."
+      "Once you confirm the link, you can enter Iberica Oposiciones and continue your preparation without extra steps."
     ],
     "actionLabel": "Confirm my account",
     "fallbackLabel": "If the button does not work, copy this link and paste it into your browser.",
@@ -21,7 +21,7 @@
     "footerSecondary": "You keep your dashboard, study tools, and learning context in one place."
   },
   "recovery": {
-    "previewText": "Reset your OpositAI password securely.",
+    "previewText": "Reset your Iberica Oposiciones password securely.",
     "eyebrow": "Access recovery",
     "title": "Set a new password",
     "paragraphs": [

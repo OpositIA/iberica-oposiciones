@@ -223,14 +223,14 @@
     "contentLockedDescription": "Con el plan de pago podras acceder al contenido completo del temario.",
     "contentLockedCta": "Ver planes"
   },
-  "opositAI": {
+  "assistantAccess": {
     "badge": "IA",
-    "title": "Apartado opositAI",
+    "title": "Apartado del asistente IA",
     "description": "Tu asistente para resolver dudas, generar planes de estudio y preparar repasos en tiempo real.",
     "assistant": "Asistente inteligente",
-    "directAccess": "opositAI en acceso directo",
+    "directAccess": "Asistente IA en acceso directo",
     "directAccessDescription": "Abre la experiencia completa para trabajar con prompts, contexto de estudio y recomendaciones.",
-    "open": "Abrir opositAI",
+    "open": "Abrir asistente IA",
     "planSummary": "Tu plan actual incluye acceso a IA.",
     "upgrade": "Subir a Pro"
   },

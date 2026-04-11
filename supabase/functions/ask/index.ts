@@ -11,9 +11,10 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")?.trim() || "";
 const OPENROUTER_BASE_URL =
   Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
 const OPENROUTER_APP_URL =
-  Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+  Deno.env.get("OPENROUTER_APP_URL")?.trim() ||
+  "https://ibericaoposiciones.com";
 const OPENROUTER_APP_NAME =
-  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
+  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "Iberica Oposiciones";
 const OPENROUTER_CHAT_MODEL =
   Deno.env.get("OPENROUTER_CHAT_MODEL")?.trim() || "qwen/qwen3-235b-a22b-2507";
 const OPENROUTER_TIMEOUT_MS = Math.max(

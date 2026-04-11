@@ -1,4 +1,4 @@
-import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
@@ -229,8 +229,8 @@ const PlanSelection = () => {
           <header className="flex items-center justify-between gap-4">
             <Link to="/" className="inline-flex items-center">
               <img
-                src={opositaiHorizontalLogo}
-                alt="OpositAI"
+                src={ibericaOposicionesHorizontalLogo}
+                alt="Iberica Oposiciones"
                 className="h-10 w-auto"
               />
             </Link>

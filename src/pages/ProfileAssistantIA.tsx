@@ -6,7 +6,7 @@ import { ArrowRight, Brain, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-const ProfileOpositAI = () => {
+const ProfileAssistantIA = () => {
   const { t } = useTranslation(["profile", "plans"]);
   const { user } = useAuth();
   const { data: planState } = useUserPlanStateQuery(user?.id);
@@ -20,13 +20,13 @@ const ProfileOpositAI = () => {
     <section className="border border-border bg-background/95 p-6 md:p-8 space-y-6">
       <div>
         <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">
-          {t("opositAI.badge")}
+          {t("assistantAccess.badge")}
         </p>
         <h2 className="text-xl md:text-2xl font-serif text-foreground mb-2">
-          {t("opositAI.title")}
+          {t("assistantAccess.title")}
         </h2>
         <p className="text-sm text-muted-foreground max-w-2xl">
-          {t("opositAI.description")}
+          {t("assistantAccess.description")}
         </p>
       </div>
 
@@ -34,13 +34,13 @@ const ProfileOpositAI = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
           <div>
             <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
-              {t("opositAI.assistant")}
+              {t("assistantAccess.assistant")}
             </p>
             <h3 className="text-xl font-serif text-foreground mb-2">
-              {t("opositAI.directAccess")}
+              {t("assistantAccess.directAccess")}
             </h3>
             <p className="text-sm text-muted-foreground max-w-xl">
-              {t("opositAI.directAccessDescription")}
+              {t("assistantAccess.directAccessDescription")}
             </p>
           </div>
           <div className="space-y-3">
@@ -62,7 +62,7 @@ const ProfileOpositAI = () => {
                 </p>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                {t("profile:opositAI.planSummary", {
+                {t("profile:assistantAccess.planSummary", {
                   aiLimit: planState?.ai_daily_limit ?? 3
                 })}
               </p>
@@ -72,14 +72,14 @@ const ProfileOpositAI = () => {
               <CustomButton asChild styleType="primary" className="px-6 py-3">
                 <Link to="/asistente-ia">
                   <Brain className="h-4 w-4" />
-                  {t("opositAI.open")}
+                  {t("assistantAccess.open")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </CustomButton>
               {!isCurrentPlanPaid && (
                 <CustomButton asChild styleType="menu" className="px-6 py-3">
                   <Link to="/perfil/planes">
-                    {t("profile:opositAI.upgrade")}
+                    {t("profile:assistantAccess.upgrade")}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </CustomButton>
@@ -92,4 +92,4 @@ const ProfileOpositAI = () => {
   );
 };
 
-export default ProfileOpositAI;
+export default ProfileAssistantIA;

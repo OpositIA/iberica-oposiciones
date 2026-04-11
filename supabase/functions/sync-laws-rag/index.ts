@@ -22,9 +22,10 @@ const OPENROUTER_BASE_URL =
   Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
 const OPENROUTER_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
 const OPENROUTER_APP_URL =
-  Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+  Deno.env.get("OPENROUTER_APP_URL")?.trim() ||
+  "https://ibericaoposiciones.com";
 const OPENROUTER_APP_NAME =
-  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
+  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "Iberica Oposiciones";
 const OPENROUTER_TIMEOUT_MS = Math.max(
   5000,
   Number(Deno.env.get("OPENROUTER_TIMEOUT_MS") ?? "45000")

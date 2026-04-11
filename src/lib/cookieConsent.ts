@@ -1,5 +1,6 @@
-export const COOKIE_CONSENT_STORAGE_KEY = "opositai:cookie-consent";
-export const COOKIE_CONSENT_UPDATED_EVENT = "opositai:cookie-consent-updated";
+export const COOKIE_CONSENT_STORAGE_KEY = "iberica-oposiciones:cookie-consent";
+export const COOKIE_CONSENT_UPDATED_EVENT =
+  "iberica-oposiciones:cookie-consent-updated";
 
 export type CookieConsentCategory =
   | "necessary"

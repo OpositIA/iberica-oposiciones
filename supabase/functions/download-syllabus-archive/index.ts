@@ -138,15 +138,15 @@ const personalizePdfBytes = async (
   pdf.setSubject(`Temario ${syllabus.opposition_id} - ${topicTitle}`);
   pdf.setKeywords(
     [
-      "OpositAI",
+      "Iberica Oposiciones",
       syllabus.opposition_id,
       topicTitle,
       metadataUser,
       sanitizeSingleLineText(syllabus.boe_id, 60)
     ].filter(Boolean)
   );
-  pdf.setProducer("OpositAI");
-  pdf.setCreator("OpositAI");
+  pdf.setProducer("Iberica Oposiciones");
+  pdf.setCreator("Iberica Oposiciones");
   pdf.setLanguage("es-ES");
   pdf.setCreationDate(new Date());
   pdf.setModificationDate(new Date());

@@ -132,13 +132,13 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route
                 path="/asistente-ia"
-                element={<Navigate to="/perfil/opositAI" replace />}
+                element={<Navigate to="/perfil/asistente-ia" replace />}
               />
               <Route
                 path="/perfil"
                 element={<Navigate to="/perfil/mi-perfil" replace />}
               />
-              <Route path="/perfil/opositAI" element={<AssistantIA />} />
+              <Route path="/perfil/asistente-ia" element={<AssistantIA />} />
               <Route path="/perfil/planes" element={<Plans />} />
               <Route
                 path="/perfil/pago-fallido"

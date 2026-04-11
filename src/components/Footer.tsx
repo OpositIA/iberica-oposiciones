@@ -1,4 +1,4 @@
-import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { useTranslation } from "react-i18next";
@@ -50,8 +50,8 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <img
-                src={opositaiHorizontalLogo}
-                alt="OpositAI"
+                src={ibericaOposicionesHorizontalLogo}
+                alt="Iberica Oposiciones"
                 className="h-20 w-auto"
               />
             </div>

@@ -155,7 +155,7 @@ const UserActionsDropdown = ({
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/perfil/opositAI" className="flex items-center gap-2">
+          <Link to="/perfil/asistente-ia" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
             {t("profile:layout.menuItems.ia")}
           </Link>

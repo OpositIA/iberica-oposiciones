@@ -1,4 +1,4 @@
-import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import { useAuth } from "@/auth/AuthProvider";
 import AppLoading from "@/components/AppLoading";
 import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
@@ -1157,7 +1157,7 @@ const ProfileSyllabusPdfViewer = () => {
                                         style={position}
                                       >
                                         <img
-                                          src={opositaiHorizontalLogo}
+                                          src={ibericaOposicionesHorizontalLogo}
                                           alt=""
                                           draggable={false}
                                           className="w-full object-contain opacity-[0.50]"

@@ -1,4 +1,4 @@
-import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { supabase } from "@/integrations/supabase/client";
@@ -173,8 +173,8 @@ const ResetPassword = () => {
         <div className="max-w-md">
           <Link to="/" className="flex items-center gap-2 mb-16">
             <img
-              src={opositaiHorizontalLogo}
-              alt="OpositAI"
+              src={ibericaOposicionesHorizontalLogo}
+              alt="Iberica Oposiciones"
               className="h-60 w-auto"
             />
           </Link>
@@ -194,8 +194,8 @@ const ResetPassword = () => {
           <div className="lg:hidden mb-10">
             <Link to="/" className="flex items-center gap-2 mb-8">
               <img
-                src={opositaiHorizontalLogo}
-                alt="OpositAI"
+                src={ibericaOposicionesHorizontalLogo}
+                alt="Iberica Oposiciones"
                 className="h-4 w-auto"
               />
             </Link>

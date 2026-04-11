@@ -1,4 +1,4 @@
-import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
+import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import { useAuth } from "@/auth/AuthProvider";
 import CustomButton from "@/components/ui/custom-button";
 import UserActionsDropdown from "@/components/UserActionsDropdown";
@@ -40,8 +40,8 @@ const Navbar = () => {
       <div className="flex items-center gap-8">
         <Link to="/" className="flex items-center gap-2 mb-[-5px]">
           <img
-            src={opositaiHorizontalLogo}
-            alt="OpositAI"
+            src={ibericaOposicionesHorizontalLogo}
+            alt="Iberica Oposiciones"
             className="h-16 w-auto"
           />
         </Link>

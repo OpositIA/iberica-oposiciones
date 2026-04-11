@@ -1,5 +1,5 @@
-import opositaiHorizontalLogo from "@/assets/opositai-horizontal.png";
-import opositaiLogo from "@/assets/opositai-logo.png";
+import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
+import ibericaOposicionesLogo from "@/assets/iberica-oposiciones-logo.svg";
 import { useAuth } from "@/auth/AuthProvider";
 import WorkspaceTour, {
   type WorkspaceTourHandle
@@ -47,10 +47,11 @@ import {
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
-const SIDEBAR_COLLAPSE_STORAGE_KEY = "opositai:sidebar-collapsed";
-const BILLING_ISSUE_DISMISS_PREFIX = "opositai:billing-issue-dismissed";
+const SIDEBAR_COLLAPSE_STORAGE_KEY = "iberica-oposiciones:sidebar-collapsed";
+const BILLING_ISSUE_DISMISS_PREFIX =
+  "iberica-oposiciones:billing-issue-dismissed";
 const STUDY_TIMER_BADGE_POSITION_STORAGE_KEY =
-  "opositai:study-timer-badge-position-v1";
+  "iberica-oposiciones:study-timer-badge-position-v1";
 const STUDY_TIMER_BADGE_WIDTH = 208;
 const STUDY_TIMER_BADGE_HEIGHT = 44;
 const STUDY_TIMER_BADGE_MARGIN = 38;
@@ -208,7 +209,7 @@ const AuthenticatedSidebarLayout = () => {
           },
           {
             label: t("profile:layout.menuItems.ia"),
-            to: "/perfil/opositAI",
+            to: "/perfil/asistente-ia",
             icon: Brain
           }
         ]
@@ -243,7 +244,7 @@ const AuthenticatedSidebarLayout = () => {
 
   const closeMobileSidebar = () => setIsMobileOpen(false);
   const isPdfViewerRoute = location.pathname.startsWith("/perfil/temario/pdf/");
-  const isAssistantRoute = location.pathname === "/perfil/opositAI";
+  const isAssistantRoute = location.pathname === "/perfil/asistente-ia";
   const showTopHeader = !isPdfViewerRoute;
   const desktopSidebarOffsetClass = isPdfViewerRoute
     ? ""
@@ -441,8 +442,8 @@ const AuthenticatedSidebarLayout = () => {
                   onClick={closeMobileSidebar}
                 >
                   <img
-                    src={opositaiHorizontalLogo}
-                    alt="OpositAI"
+                    src={ibericaOposicionesHorizontalLogo}
+                    alt="Iberica Oposiciones"
                     className="h-20 w-auto"
                   />
                 </Link>
@@ -551,16 +552,16 @@ const AuthenticatedSidebarLayout = () => {
                   )}
                 >
                   <img
-                    src={opositaiHorizontalLogo}
-                    alt="OpositAI"
+                    src={ibericaOposicionesHorizontalLogo}
+                    alt="Iberica Oposiciones"
                     className={cn(
                       "h-14 w-auto",
                       isSidebarCollapsed && "lg:hidden"
                     )}
                   />
                   <img
-                    src={opositaiLogo}
-                    alt="OpositAI"
+                    src={ibericaOposicionesLogo}
+                    alt="Iberica Oposiciones"
                     className={cn(
                       "hidden h-9 w-9 rounded-xl object-cover ring-1 ring-border/70",
                       isSidebarCollapsed ? "lg:block" : "lg:hidden"

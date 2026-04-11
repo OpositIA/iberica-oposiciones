@@ -10,9 +10,10 @@ import {
 const OPENROUTER_BASE_URL =
   Deno.env.get("OPENROUTER_BASE_URL")?.trim() || "https://openrouter.ai/api/v1";
 const OPENROUTER_APP_URL =
-  Deno.env.get("OPENROUTER_APP_URL")?.trim() || "https://opositai.com";
+  Deno.env.get("OPENROUTER_APP_URL")?.trim() ||
+  "https://ibericaoposiciones.com";
 const OPENROUTER_APP_NAME =
-  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "OpositAI";
+  Deno.env.get("OPENROUTER_APP_NAME")?.trim() || "Iberica Oposiciones";
 const OPENROUTER_CHAT_MODEL =
   Deno.env.get("OPENROUTER_CHAT_MODEL")?.trim() || "qwen/qwen3.5-flash-02-23";
 const OPENROUTER_TIMEOUT_MS = Math.max(

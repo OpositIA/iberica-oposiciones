@@ -223,14 +223,14 @@
     "contentLockedDescription": "With the paid plan you can access the full syllabus content.",
     "contentLockedCta": "View plans"
   },
-  "opositAI": {
+  "assistantAccess": {
     "badge": "AI",
-    "title": "opositAI section",
+    "title": "AI assistant section",
     "description": "Your assistant for solving questions, generating study plans, and preparing real-time reviews.",
     "assistant": "Smart assistant",
-    "directAccess": "Direct opositAI access",
+    "directAccess": "Direct AI assistant access",
     "directAccessDescription": "Open the full experience to work with prompts, study context, and recommendations.",
-    "open": "Open opositAI",
+    "open": "Open AI assistant",
     "planSummary": "Your current plan allows {{aiLimit}} AI requests per day.",
     "upgrade": "Upgrade to Pro"
   },
