@@ -11,6 +11,7 @@ import PlanRequiredRoute from "./components/PlanRequiredRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import AssistantIA from "./pages/AssistantIA";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -78,6 +79,7 @@ const App = () => (
               }
             />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route
               path="/registro"
               element={

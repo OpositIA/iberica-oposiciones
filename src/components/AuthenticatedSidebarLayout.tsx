@@ -1,6 +1,6 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
-import ibericaOposicionesLogo from "@/assets/iberica-oposiciones-logo.svg";
+import logoPrincipal from "@/assets/logo-principal.png";
 import { useAuth } from "@/auth/AuthProvider";
+import BrandLogo from "@/components/BrandLogo";
 import WorkspaceTour, {
   type WorkspaceTourHandle
 } from "@/components/onboarding/WorkspaceTour";
@@ -441,11 +441,7 @@ const AuthenticatedSidebarLayout = () => {
                   className="inline-flex items-center gap-2"
                   onClick={closeMobileSidebar}
                 >
-                  <img
-                    src={ibericaOposicionesHorizontalLogo}
-                    alt="Iberica Oposiciones"
-                    className="h-20 w-auto"
-                  />
+                  <BrandLogo className="h-20 w-auto" />
                 </Link>
               </div>
 
@@ -551,22 +547,15 @@ const AuthenticatedSidebarLayout = () => {
                     isSidebarCollapsed && "lg:gap-0"
                   )}
                 >
-                  <img
-                    src={ibericaOposicionesHorizontalLogo}
-                    alt="Iberica Oposiciones"
-                    className={cn(
-                      "h-14 w-auto",
-                      isSidebarCollapsed && "lg:hidden"
-                    )}
-                  />
-                  <img
-                    src={ibericaOposicionesLogo}
-                    alt="Iberica Oposiciones"
-                    className={cn(
-                      "hidden h-9 w-9 rounded-xl object-cover ring-1 ring-border/70",
-                      isSidebarCollapsed ? "lg:block" : "lg:hidden"
-                    )}
-                  />
+                  {isSidebarCollapsed ? (
+                    <img
+                      src={logoPrincipal}
+                      alt="Iberica Oposiciones"
+                      className="hidden h-15 w-15 rounded-xl  p-1 object-contain shadow-sm  lg:block"
+                    />
+                  ) : (
+                    <BrandLogo className="h-14 w-auto" />
+                  )}
                 </Link>
 
                 <div className="flex items-center gap-1 lg:hidden">

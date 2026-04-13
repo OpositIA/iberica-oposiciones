@@ -1,6 +1,6 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import { useAuth } from "@/auth/AuthProvider";
 import AppLoading from "@/components/AppLoading";
+import BrandLogo from "@/components/BrandLogo";
 import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import CustomButton from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
@@ -1156,12 +1156,12 @@ const ProfileSyllabusPdfViewer = () => {
                                         className="absolute flex w-[30%] min-w-[10rem] max-w-[16rem] rotate-[-24deg] flex-col items-center opacity-45"
                                         style={position}
                                       >
-                                        <img
-                                          src={ibericaOposicionesHorizontalLogo}
-                                          alt=""
-                                          draggable={false}
-                                          className="w-full object-contain opacity-[0.50]"
-                                        />
+                                        <span className="w-full opacity-[0.50]">
+                                          <BrandLogo
+                                            alt=""
+                                            className="w-full object-contain"
+                                          />
+                                        </span>
                                         <span className="mt-2 rounded-full bg-white/35 px-3 py-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-600 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.28)]">
                                           {viewerWatermarkLabel}
                                         </span>

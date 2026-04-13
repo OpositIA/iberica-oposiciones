@@ -1,5 +1,5 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import { useAuth } from "@/auth/AuthProvider";
+import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import UserActionsDropdown from "@/components/UserActionsDropdown";
 import { LogIn } from "lucide-react";
@@ -39,11 +39,7 @@ const Navbar = () => {
     >
       <div className="flex items-center gap-8">
         <Link to="/" className="flex items-center gap-2 mb-[-5px]">
-          <img
-            src={ibericaOposicionesHorizontalLogo}
-            alt="Iberica Oposiciones"
-            className="h-16 w-auto"
-          />
+          <BrandLogo className="h-16 w-auto" />
         </Link>
         <div className="hidden md:flex items-center gap-6">
           {navItems.map((item) => (

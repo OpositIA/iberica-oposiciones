@@ -1,5 +1,5 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import { useAuth } from "@/auth/AuthProvider";
+import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { useToast } from "@/hooks/use-toast";
@@ -228,11 +228,7 @@ const PlanSelection = () => {
         <section className="flex flex-col px-6 py-8 md:px-10 lg:px-12">
           <header className="flex items-center justify-between gap-4">
             <Link to="/" className="inline-flex items-center">
-              <img
-                src={ibericaOposicionesHorizontalLogo}
-                alt="Iberica Oposiciones"
-                className="h-10 w-auto"
-              />
+              <BrandLogo className="h-10 w-auto" />
             </Link>
             <CustomButton
               type="button"

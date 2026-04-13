@@ -1,4 +1,4 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
+import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import {
@@ -227,7 +227,7 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       });
 
@@ -250,16 +250,10 @@ const Login = () => {
       <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-16">
         <div className="max-w-md">
           <Link to="/" className="flex items-center gap-2 mb-16">
-            <img
-              src={ibericaOposicionesHorizontalLogo}
-              alt="Iberica Oposiciones"
-              className="h-60 w-auto"
-            />
+            <BrandLogo className="h-60 w-auto" />
           </Link>
-          <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
-            {t("auth:login.heroTitleLine1")}
-            <br />
-            {t("auth:login.heroTitleLine2")}
+          <h1 className="text-4xl font-serif italic text-slate-100 leading-tight mb-6">
+            {t("auth:login.heroTitleLine")}
           </h1>
           <p className="text-sm text-slate-300 leading-relaxed">
             {t("auth:login.heroDescription")}
@@ -271,11 +265,7 @@ const Login = () => {
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-10">
             <Link to="/" className="flex items-center gap-2 mb-8">
-              <img
-                src={ibericaOposicionesHorizontalLogo}
-                alt="Iberica Oposiciones"
-                className="h-4 w-auto"
-              />
+              <BrandLogo className="h-4 w-auto" />
             </Link>
           </div>
 

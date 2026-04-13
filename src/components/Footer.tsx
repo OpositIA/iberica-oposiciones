@@ -1,4 +1,4 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
+import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { useTranslation } from "react-i18next";
@@ -49,11 +49,7 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <img
-                src={ibericaOposicionesHorizontalLogo}
-                alt="Iberica Oposiciones"
-                className="h-20 w-auto"
-              />
+              <BrandLogo className="h-20 w-auto" />
             </div>
             <p className="text-sm text-white/50 leading-relaxed">
               {t("landing:footer.description")}
