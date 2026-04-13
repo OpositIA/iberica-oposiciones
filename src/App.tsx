@@ -14,6 +14,9 @@ import SeoManager from "./components/SeoManager";
 import AssistantIA from "./pages/AssistantIA";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
+import FooterAbout from "./pages/FooterAbout";
+import FooterPrivacy from "./pages/FooterPrivacy";
+import FooterTerms from "./pages/FooterTerms";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import MiPerfil from "./pages/MiPerfil";
@@ -124,6 +127,30 @@ const App = () => (
               element={
                 <LandingRouteGuard>
                   <PublicPlans />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/terminos"
+              element={
+                <LandingRouteGuard>
+                  <FooterTerms />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/privacidad"
+              element={
+                <LandingRouteGuard>
+                  <FooterPrivacy />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/sobre-nosotros"
+              element={
+                <LandingRouteGuard>
+                  <FooterAbout />
                 </LandingRouteGuard>
               }
             />

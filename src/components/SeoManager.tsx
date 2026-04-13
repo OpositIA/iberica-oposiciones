@@ -52,6 +52,7 @@ const SeoManager = () => {
   const { i18n, t } = useTranslation([
     "auth",
     "common",
+    "footerPages",
     "faq",
     "landing",
     "plans"
@@ -87,6 +88,24 @@ const SeoManager = () => {
             description: t("faq:seo.page.description"),
             robots: "index, follow",
             title: composeTitle(t("faq:seo.page.title"), siteName)
+          };
+        case "/terminos":
+          return {
+            description: t("footerPages:terms.seo.description"),
+            robots: "index, follow",
+            title: composeTitle(t("footerPages:terms.seo.title"), siteName)
+          };
+        case "/privacidad":
+          return {
+            description: t("footerPages:privacy.seo.description"),
+            robots: "index, follow",
+            title: composeTitle(t("footerPages:privacy.seo.title"), siteName)
+          };
+        case "/sobre-nosotros":
+          return {
+            description: t("footerPages:about.seo.description"),
+            robots: "index, follow",
+            title: composeTitle(t("footerPages:about.seo.title"), siteName)
           };
         case "/login":
           return {

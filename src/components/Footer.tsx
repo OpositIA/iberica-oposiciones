@@ -15,7 +15,7 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
     {
       id: "about",
       label: t("landing:footer.companyLinks.about"),
-      to: "/"
+      to: "/sobre-nosotros"
     }
   ];
 
@@ -31,12 +31,12 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
     {
       id: "privacy",
       label: t("landing:footer.legalLinks.privacy"),
-      to: "/"
+      to: "/privacidad"
     },
     {
       id: "terms",
       label: t("landing:footer.legalLinks.terms"),
-      to: "/"
+      to: "/terminos"
     },
     {
       id: "cookies",

@@ -1,0 +1,133 @@
+{
+  "common": {
+    "updatedAt": "13 de abril de 2026",
+    "lastUpdated": "Última actualización:",
+    "legalEyebrow": "Información legal",
+    "privacyEyebrow": "Privacidad y datos"
+  },
+  "terms": {
+    "title": "Términos y Condiciones",
+    "intro": "Estos términos regulan el acceso y uso de Iberica Oposiciones. Al navegar por la web o utilizar nuestros servicios, aceptas estas condiciones y te comprometes a hacer un uso responsable, conforme a la ley y a la finalidad académica de la plataforma.",
+    "sections": [
+      {
+        "id": "acceptance",
+        "title": "Aceptación",
+        "body": "El uso de esta web implica la aceptación plena de estos términos. Si no estás de acuerdo con alguna de sus disposiciones, debes abstenerte de utilizar la plataforma, crear una cuenta o contratar cualquiera de nuestros servicios."
+      },
+      {
+        "id": "use",
+        "title": "Uso del servicio",
+        "body": "La plataforma está orientada a la preparación de oposiciones y al acceso a recursos formativos digitales. El usuario se compromete a utilizar los contenidos, herramientas y funcionalidades de forma lícita, sin afectar al funcionamiento del servicio ni a la experiencia de otros usuarios."
+      },
+      {
+        "id": "responsibility",
+        "title": "Responsabilidad",
+        "body": "Trabajamos para ofrecer información actualizada y una experiencia estable, pero no garantizamos la disponibilidad ininterrumpida del servicio ni la ausencia total de errores. Iberica Oposiciones no será responsable de daños indirectos derivados del uso de la web, salvo en los supuestos previstos legalmente."
+      },
+      {
+        "id": "intellectualProperty",
+        "title": "Propiedad intelectual",
+        "body": "Todos los contenidos, diseños, textos, marcas, recursos visuales y desarrollos técnicos presentes en la plataforma son titularidad de Iberica Oposiciones o se utilizan con autorización. Queda prohibida su reproducción, distribución o explotación sin consentimiento previo y por escrito."
+      },
+      {
+        "id": "changes",
+        "title": "Cambios",
+        "body": "Podemos actualizar estos términos cuando resulte necesario para adaptar la web a cambios legales, operativos o de producto. La versión vigente será la publicada en esta página y entrará en vigor desde su fecha de actualización."
+      },
+      {
+        "id": "contact",
+        "title": "Contacto",
+        "body": "Si necesitas aclaraciones sobre estas condiciones o deseas realizar una consulta legal relacionada con la plataforma, puedes escribirnos a legal@ibericaoposiciones.com y revisaremos tu solicitud a la mayor brevedad posible."
+      }
+    ],
+    "seo": {
+      "title": "Términos y condiciones",
+      "description": "Consulta las condiciones de uso de Iberica Oposiciones, el alcance del servicio, la responsabilidad aplicable y nuestros datos de contacto."
+    }
+  },
+  "privacy": {
+    "title": "Política de Privacidad",
+    "intro": "En Iberica Oposiciones tratamos los datos personales con criterios de minimización, seguridad y transparencia. Esta política explica qué información recopilamos, con qué finalidad la utilizamos y qué derechos puedes ejercer sobre tus datos.",
+    "sections": [
+      {
+        "id": "collectedData",
+        "title": "Datos recopilados",
+        "body": "Podemos recopilar datos identificativos y de contacto, información técnica de navegación, preferencias de uso y datos necesarios para gestionar el acceso a la plataforma, la facturación y la atención al usuario. Solo solicitamos la información necesaria para cada finalidad."
+      },
+      {
+        "id": "usage",
+        "title": "Uso de los datos",
+        "body": "Utilizamos los datos para prestar el servicio, gestionar cuentas, procesar suscripciones, responder consultas, mejorar la experiencia de uso y cumplir obligaciones legales. También podemos emplear información agregada para análisis internos y mejora del producto."
+      },
+      {
+        "id": "cookies",
+        "title": "Cookies",
+        "body": "Empleamos cookies técnicas necesarias para el funcionamiento de la web y, cuando nos autorizas, cookies adicionales para preferencias, análisis o personalización. Puedes revisar y actualizar tus preferencias en cualquier momento desde el gestor de cookies del sitio."
+      },
+      {
+        "id": "security",
+        "title": "Seguridad",
+        "body": "Aplicamos medidas técnicas y organizativas razonables para proteger la información frente a accesos no autorizados, pérdida, alteración o divulgación indebida. Revisamos nuestros procesos de forma periódica para mantener un nivel de protección adecuado."
+      },
+      {
+        "id": "rights",
+        "title": "Derechos",
+        "body": "Puedes solicitar acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad de tus datos cuando resulte aplicable. También puedes retirar tu consentimiento en cualquier momento para aquellos tratamientos basados en él."
+      },
+      {
+        "id": "contact",
+        "title": "Contacto",
+        "body": "Para cualquier cuestión relacionada con privacidad o para ejercer tus derechos, puedes escribirnos a privacidad@ibericaoposiciones.com. Analizaremos tu solicitud conforme a la normativa vigente y responderemos dentro de los plazos aplicables."
+      }
+    ],
+    "seo": {
+      "title": "Política de privacidad",
+      "description": "Consulta qué datos recoge Iberica Oposiciones, cómo los utilizamos, qué medidas de seguridad aplicamos y cómo ejercer tus derechos."
+    }
+  },
+  "about": {
+    "eyebrow": "Quiénes somos",
+    "title": "Tecnología, criterio y producto al servicio del estudio.",
+    "intro": "Somos un equipo pequeño y especializado en construir productos digitales claros, rápidos y útiles para quienes preparan oposiciones. Diseñamos cada flujo con foco real en estudio, continuidad y confianza.",
+    "team": {
+      "members": [
+        {
+          "id": "eduardo",
+          "name": "Eduardo Ruiz García",
+          "role": "Full Stack Developer",
+          "bio": "Eduardo trabaja con una visión muy orientada a producto, conectando experiencia de usuario, frontend y lógica de negocio para que cada flujo se sienta claro y útil desde el primer uso. Su forma de construir prioriza interfaces limpias, decisiones técnicas prácticas y una ejecución rápida, pero bien pensada. En el día a día se centra en transformar ideas en funcionalidades reales, cuidando tanto la parte visual como la estabilidad general de la plataforma.",
+          "imageAlt": "Retrato de Eduardo Ruiz García"
+        },
+        {
+          "id": "oscar",
+          "name": "Óscar Alcalá Espigares",
+          "role": "Full Stack Developer",
+          "bio": "Óscar aporta un perfil Full Stack centrado en convertir necesidades complejas en soluciones mantenibles, con especial atención a la solidez técnica y a la continuidad del producto. Combina una base de desarrollo versátil con una forma de trabajo ordenada, enfocada en simplificar la implementación sin perder calidad. Su aportación se nota en la consistencia del sistema, en la fiabilidad del código y en la capacidad de llevar cada entrega a un nivel de detalle más alto.",
+          "imageAlt": "Retrato de Óscar Alcalá Espigares"
+        }
+      ]
+    },
+    "values": {
+      "eyebrow": "Nuestros valores",
+      "title": "Lo esencial, bien hecho.",
+      "items": [
+        {
+          "title": "Claridad",
+          "description": "Priorizamos interfaces que reducen carga mental y ayudan a estudiar con foco."
+        },
+        {
+          "title": "Rigor",
+          "description": "Tomamos decisiones de producto y desarrollo con criterio técnico y atención al detalle."
+        },
+        {
+          "title": "Continuidad",
+          "description": "Diseñamos herramientas útiles a largo plazo, fáciles de mantener y fáciles de usar."
+        }
+      ]
+    },
+    "seo": {
+      "title": "Sobre nosotros",
+      "description": "Conoce al equipo detrás de Iberica Oposiciones y los valores con los que diseñamos la plataforma."
+    }
+  }
+}
