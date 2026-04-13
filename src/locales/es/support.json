@@ -270,12 +270,12 @@
         },
         "context": {
           "label": "Contexto",
-          "helper": "Ejemplo: test 8421, pago de Premium, acceso a temario o pantalla concreta.",
+          "helper": "",
           "placeholder": "Referencia breve para ubicar el caso"
         },
         "message": {
           "label": "Mensaje",
-          "helper": "Describe el problema con el detalle justo para poder reproducirlo o revisarlo.",
+          "helper": "",
           "placeholder": "Cuéntanos qué ha pasado y qué necesitas que revisemos."
         }
       },

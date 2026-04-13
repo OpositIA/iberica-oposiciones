@@ -7,6 +7,7 @@
       "freeTests": "Free Tests"
     },
     "account": "My account",
+    "registerNow": "Sign up now",
     "login": "Sign in",
     "freeMonth": "Free month"
   },
@@ -94,7 +95,7 @@
     "pricing": "View pricing"
   },
   "footer": {
-    "description": "European benchmark in technology applied to exam preparation. Rigor, elegance, and results since 2012.",
+    "description": "European benchmark in technology applied to exam preparation. Rigor, elegance, and results since 2026.",
     "company": "Company",
     "companyLinks": {
       "about": "About us",
@@ -164,5 +165,11 @@
       }
     }
   },
-  "heroImageAlt": "Hero"
+  "heroImageAlt": "Hero",
+  "seo": {
+    "home": {
+      "title": "Civil service exam prep with AI and online tests",
+      "description": "Prepare for civil service exams with online tests, realistic simulators, and AI support in a platform designed for focused and consistent study."
+    }
+  }
 }

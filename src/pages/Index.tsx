@@ -89,7 +89,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* ── HERO ── */}
-      <section className="relative min-h-screen overflow-hidden">
+      <section className="relative min-h-[88vh] overflow-hidden">
         {/* Background image with overlay */}
         <div className="absolute inset-0">
           <img
@@ -104,18 +104,18 @@ const Index = () => {
 
         <Navbar />
 
-        <div className="relative z-10 flex flex-col justify-center min-h-screen px-6 md:px-12 lg:px-20 max-w-[1400px] mx-auto">
-          <div className="pt-28 pb-20 md:pt-36 md:pb-28">
+        <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-[1400px] flex-col justify-center px-6 md:px-12 lg:px-20">
+          <div className="pb-16 pt-24 md:pb-20 md:pt-28">
             {/* Badge */}
-            <div className="landing-fade-up mb-8">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/15 bg-white/5 backdrop-blur-sm text-xs font-semibold tracking-[0.25em] uppercase text-white/70">
+            <div className="landing-fade-up mb-6">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70 backdrop-blur-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 {t("hero.badge")}
               </span>
             </div>
 
             {/* Title */}
-            <h1 className="landing-fade-up-delay-1 text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-display leading-[0.95] tracking-tight text-white max-w-5xl">
+            <h1 className="landing-fade-up-delay-1 max-w-4xl text-4xl font-display leading-[0.98] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem]">
               {t("hero.titleMain")}
               <br />
               <span className="italic text-primary">
@@ -124,17 +124,17 @@ const Index = () => {
             </h1>
 
             {/* Description */}
-            <p className="landing-fade-up-delay-2 mt-8 text-base md:text-lg text-white/50 leading-relaxed max-w-lg">
+            <p className="landing-fade-up-delay-2 mt-6 max-w-md text-sm leading-7 text-white/52 md:text-[15px]">
               {t("hero.description")}
             </p>
 
             {/* CTAs */}
-            <div className="landing-fade-up-delay-3 flex flex-wrap gap-4 mt-10">
+            <div className="landing-fade-up-delay-3 mt-8 flex flex-wrap gap-3">
               <CustomButton
                 asChild
                 styleType="primary"
                 radius="full"
-                className="h-12 px-8 text-sm shadow-[0_20px_50px_-15px_hsl(var(--primary)/0.5)]"
+                className="h-11 px-6 text-sm shadow-[0_20px_50px_-15px_hsl(var(--primary)/0.5)]"
               >
                 <Link to="/registro">
                   {t("hero.ctaStart")}
@@ -145,20 +145,20 @@ const Index = () => {
                 asChild
                 styleType="unstyled"
                 radius="full"
-                className="h-12 px-8 text-sm border border-white/20 text-white hover:bg-white/10 hover:border-white/30"
+                className="h-11 border border-white/20 px-6 text-sm text-white hover:border-white/30 hover:bg-white/10"
               >
                 <Link to="/planes">{t("hero.ctaPlans")}</Link>
               </CustomButton>
             </div>
 
             {/* Inline stats */}
-            <div className="landing-fade-up-delay-4 mt-16 flex flex-wrap gap-x-10 gap-y-4">
+            <div className="landing-fade-up-delay-4 mt-12 flex flex-wrap gap-x-8 gap-y-3">
               {stats.slice(0, 3).map((stat) => (
                 <div key={stat.label} className="flex items-baseline gap-2">
-                  <span className="text-2xl md:text-3xl font-display text-white">
+                  <span className="text-xl font-display text-white md:text-2xl">
                     {stat.value}
                   </span>
-                  <span className="text-xs tracking-widest uppercase text-white/40">
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
                     {stat.label}
                   </span>
                 </div>
@@ -172,17 +172,17 @@ const Index = () => {
       </section>
 
       {/* ── STATS MARQUEE ── */}
-      <section className="border-y border-border bg-background overflow-hidden py-5">
+      <section className="overflow-hidden border-y border-border bg-background py-4">
         <div className="flex landing-stats-marquee">
           {[...stats, ...stats, ...stats, ...stats].map((stat, i) => (
             <div
               key={`${stat.label}-${i}`}
-              className="flex items-center gap-3 px-10 shrink-0"
+              className="flex shrink-0 items-center gap-3 px-8"
             >
-              <span className="text-2xl font-display text-foreground">
+              <span className="text-xl font-display text-foreground">
                 {stat.value}
               </span>
-              <span className="text-xs tracking-widest uppercase text-muted-foreground whitespace-nowrap">
+              <span className="whitespace-nowrap text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                 {stat.label}
               </span>
               <span className="text-muted-foreground/30 ml-7">•</span>
@@ -192,53 +192,46 @@ const Index = () => {
       </section>
 
       {/* ── SPECIALIZATIONS ── */}
-      <section className="landing-gradient-bg py-24 md:py-32">
+      <section className="landing-gradient-bg py-20 md:py-24">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-16">
+          <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-[0.3em] uppercase text-primary mb-3">
                 {t("specializations.sector", { num: "—" })
                   .replace("—", "")
                   .trim()}
               </p>
-              <h2 className="text-4xl md:text-5xl lg:text-6xl font-display text-foreground leading-[1.05]">
+              <h2 className="text-3xl font-display leading-[1.08] text-foreground md:text-4xl lg:text-5xl">
                 {t("specializations.title")}
               </h2>
-              <p className="text-base text-muted-foreground mt-4 max-w-xl leading-relaxed">
+              <p className="mt-3 max-w-lg text-sm leading-7 text-muted-foreground md:text-[15px]">
                 {t("specializations.description")}
               </p>
             </div>
-            <Link
-              to="/"
-              className="hidden md:flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors group shrink-0"
-            >
-              {t("specializations.viewAll")}
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-            </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {sectors.map((sector) => {
               const Icon = sector.icon;
               return (
                 <div
                   key={sector.id}
-                  className="group relative bg-card border border-border rounded-2xl p-8 hover:border-primary/40 hover:shadow-[0_20px_60px_-20px_hsl(var(--primary)/0.15)] transition-all duration-500 cursor-pointer overflow-hidden"
+                  className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all duration-500 hover:border-primary/40 hover:shadow-[0_20px_60px_-20px_hsl(var(--primary)/0.15)]"
                 >
                   {/* Hover glow */}
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
 
                   <div className="relative">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/15 transition-colors">
+                    <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
                       <Icon className="h-5 w-5 text-primary" />
                     </div>
-                    <p className="text-xs text-muted-foreground tracking-widest uppercase mb-3">
+                    <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       {t("specializations.sector", { num: sector.num })}
                     </p>
-                    <h3 className="text-2xl font-display text-foreground mb-3">
+                    <h3 className="mb-2 text-xl font-display text-foreground">
                       {sector.name}
                     </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                    <p className="mb-5 text-sm leading-6 text-muted-foreground">
                       {sector.desc}
                     </p>
                     <div className="flex items-center justify-between">
@@ -256,25 +249,25 @@ const Index = () => {
       </section>
 
       {/* ── METHODOLOGY ── */}
-      <section className="bg-charcoal text-white overflow-hidden">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20 py-24 md:py-32">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+      <section className="overflow-hidden bg-charcoal text-white">
+        <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20 py-20 md:py-24">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-18">
             <div>
               <p className="text-xs font-semibold tracking-[0.3em] uppercase text-primary mb-6">
                 {t("methodology.badge")}
               </p>
-              <h2 className="text-4xl md:text-5xl lg:text-6xl font-display italic text-white leading-[1.05] mb-8">
+              <h2 className="mb-6 text-3xl font-display italic leading-[1.08] text-white md:text-4xl lg:text-5xl">
                 {t("methodology.titleLine1")}
                 <br />
                 {t("methodology.titleLine2")}
               </h2>
-              <p className="text-base text-white/50 leading-relaxed mb-12 max-w-md">
+              <p className="mb-10 max-w-md text-sm leading-7 text-white/50 md:text-[15px]">
                 {t("methodology.description")}
               </p>
 
-              <div className="space-y-8">
-                <div className="flex items-start gap-5">
-                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
                     <Scale className="h-5 w-5 text-primary" />
                   </div>
                   <div>
@@ -286,8 +279,8 @@ const Index = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-5">
-                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
                     <BarChart3 className="h-5 w-5 text-primary" />
                   </div>
                   <div>
@@ -312,7 +305,7 @@ const Index = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-charcoal/80 via-transparent to-transparent" />
               </div>
               {/* Floating quote card */}
-              <div className="absolute -bottom-6 -left-6 right-12 bg-white/10 backdrop-blur-xl border border-white/10 rounded-xl p-6">
+              <div className="absolute -bottom-5 -left-5 right-10 rounded-xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                     <span className="text-white text-xs font-bold">✓</span>
@@ -321,7 +314,7 @@ const Index = () => {
                     {t("hero.successTitle")}
                   </span>
                 </div>
-                <p className="text-sm font-display italic text-white leading-relaxed">
+                <p className="text-sm font-display italic leading-relaxed text-white">
                   {t("methodology.quote")}
                 </p>
                 <p className="text-xs text-white/40 mt-2">
@@ -334,26 +327,26 @@ const Index = () => {
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section className="py-24 md:py-32 bg-background">
+      <section className="bg-background py-20 md:py-24">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20">
-          <div className="mb-16">
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-display text-foreground leading-[1.05]">
+          <div className="mb-12">
+            <h2 className="text-3xl font-display leading-[1.08] text-foreground md:text-4xl lg:text-5xl">
               {t("testimonials.title")}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {testimonials.map((testimonial, i) => (
               <div
                 key={testimonial.id}
-                className={`relative rounded-2xl p-8 md:p-10 border transition-all duration-300 hover:-translate-y-1 ${
+                className={`relative rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 md:p-7 ${
                   i === 1
                     ? "bg-charcoal text-white border-charcoal"
                     : "bg-card border-border hover:border-primary/30"
                 }`}
               >
                 {/* Stars */}
-                <div className="flex gap-0.5 mb-6">
+                <div className="mb-5 flex gap-0.5">
                   {[...Array(5)].map((_, j) => (
                     <span
                       key={j}
@@ -365,7 +358,7 @@ const Index = () => {
                 </div>
 
                 <p
-                  className={`text-base leading-relaxed mb-8 ${
+                  className={`mb-6 text-sm leading-7 ${
                     i === 1 ? "text-white/70" : "text-muted-foreground"
                   }`}
                 >
@@ -410,11 +403,11 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-charcoal via-charcoal to-[hsl(var(--primary)/0.15)]" />
         <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-primary/10 blur-[150px] pointer-events-none" />
 
-        <div className="relative max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20 py-28 md:py-36 text-center">
-          <h2 className="text-5xl md:text-6xl lg:text-7xl font-display italic text-white mb-6 max-w-3xl mx-auto leading-[1.05]">
+        <div className="relative mx-auto max-w-[1400px] px-6 py-20 text-center md:px-12 md:py-24 lg:px-20">
+          <h2 className="mx-auto mb-5 max-w-3xl text-3xl font-display italic leading-[1.08] text-white md:text-4xl lg:text-5xl">
             {t("cta.title")}
           </h2>
-          <p className="text-base text-white/40 mb-12 max-w-md mx-auto leading-relaxed">
+          <p className="mx-auto mb-10 max-w-md text-sm leading-7 text-white/40 md:text-[15px]">
             {t("cta.description")}
           </p>
           <div className="flex flex-wrap justify-center gap-4">
@@ -422,7 +415,7 @@ const Index = () => {
               asChild
               styleType="primary"
               radius="full"
-              className="h-13 px-10 text-sm shadow-[0_20px_50px_-15px_hsl(var(--primary)/0.5)]"
+              className="h-11 px-7 text-sm shadow-[0_20px_50px_-15px_hsl(var(--primary)/0.5)]"
             >
               <Link to="/registro">
                 {t("cta.register")}
@@ -433,7 +426,7 @@ const Index = () => {
               asChild
               styleType="unstyled"
               radius="full"
-              className="h-13 px-10 text-sm border border-white/20 text-white hover:bg-white/10 hover:border-white/30"
+              className="h-11 border border-white/20 px-7 text-sm text-white hover:border-white/30 hover:bg-white/10"
             >
               <Link to="/planes">{t("cta.pricing")}</Link>
             </CustomButton>

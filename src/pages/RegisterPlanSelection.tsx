@@ -12,7 +12,7 @@ import {
   writeRegisterFlowDraft
 } from "@/lib/registerFlow";
 import {
-  createPublicStripeCheckoutSession,
+  createStripeCheckoutSession,
   usePublicSubscriptionPlansQuery
 } from "@/queries/subscriptionQueries";
 import { ArrowRight, CheckCircle2, Crown } from "lucide-react";
@@ -33,7 +33,8 @@ const RegisterPlanSelection = () => {
   const [selectedPlanCode, setSelectedPlanCode] = useState(
     () => requestedPlanCode || persistedDraft?.selectedPlanCode || ""
   );
-  const { isSubmitting, submitRegister } = useRegisterSubmit(locale);
+  const { isSubmitting, preparePaidCheckout, submitRegister } =
+    useRegisterSubmit(locale);
   const maxBirthDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const sanitizedDraft = useMemo(
@@ -314,14 +315,20 @@ const RegisterPlanSelection = () => {
               });
 
               if (selectedPlan.price_cents > 0) {
-                void createPublicStripeCheckoutSession({
-                  planCode: selectedPlan.code,
-                  email: sanitizedForm.email,
-                  successPath: `/registro/pago-completado?session_id={CHECKOUT_SESSION_ID}&plan=${encodeURIComponent(selectedPlan.code)}`,
-                  cancelPath: `/registro/planes?step=3&plan=${encodeURIComponent(selectedPlan.code)}&checkout=cancel`
+                void preparePaidCheckout({
+                  form: sanitizedForm
                 })
-                  .then(({ checkoutUrl }) => {
-                    window.location.assign(checkoutUrl);
+                  .then((canContinueToCheckout) => {
+                    if (!canContinueToCheckout) return null;
+
+                    return createStripeCheckoutSession({
+                      planCode: selectedPlan.code,
+                      source: "plan_selection"
+                    });
+                  })
+                  .then((checkoutResult) => {
+                    if (!checkoutResult) return;
+                    window.location.assign(checkoutResult.checkoutUrl);
                   })
                   .catch((error) => {
                     toast({

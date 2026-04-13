@@ -11,23 +11,23 @@
     "placeholder": "Selecciona una fecha",
     "selectedDate": "Fecha seleccionada",
     "noDate": "Ninguna fecha elegida",
-    "helper": "Muévete por meses o cambia el año en un clic."
+    "helper": "Muevete por meses o cambia el ano en un clic."
   },
   "locale": {
     "label": "Idioma",
-    "es": "Español",
-    "en": "Inglés"
+    "es": "Espanol",
+    "en": "Ingles"
   },
   "a11y": {
     "close": "Cerrar",
-    "breadcrumb": "Ruta de navegación",
+    "breadcrumb": "Ruta de navegacion",
     "previousSlide": "Diapositiva anterior",
     "nextSlide": "Diapositiva siguiente",
-    "pagination": "Paginación",
-    "previousPage": "Ir a la página anterior",
-    "nextPage": "Ir a la página siguiente",
-    "morePages": "Más páginas",
-    "more": "Más",
+    "pagination": "Paginacion",
+    "previousPage": "Ir a la pagina anterior",
+    "nextPage": "Ir a la pagina siguiente",
+    "morePages": "Mas paginas",
+    "more": "Mas",
     "toggleSidebar": "Alternar barra lateral"
   },
   "pagination": {
@@ -35,9 +35,23 @@
     "next": "Siguiente"
   },
   "status": {
-    "validatingSession": "Validando sesión..."
+    "validatingSession": "Validando sesion..."
+  },
+  "seo": {
+    "privateArea": {
+      "title": "Area privada",
+      "description": "Zona privada de usuario. Esta pagina no esta pensada para indexacion publica."
+    },
+    "secureAccess": {
+      "title": "Acceso seguro",
+      "description": "Flujo de acceso seguro y verificacion de cuenta."
+    },
+    "notFound": {
+      "title": "Pagina no encontrada",
+      "description": "La pagina solicitada no esta disponible."
+    }
   },
   "meta": {
-    "version": "Versión"
+    "version": "Version"
   }
 }

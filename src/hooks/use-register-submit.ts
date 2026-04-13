@@ -2,7 +2,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  buildRegisterPlanSelectionPath,
   clearRegisterFlowDraft,
   sanitizeRegisterForm,
   type RegisterForm
@@ -28,6 +27,65 @@ export const useRegisterSubmit = (locale: AppLocale) => {
   const { t } = useTranslation(["auth"]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const preparePaidCheckout = async ({ form }: { form: RegisterForm }) => {
+    const sanitizedForm = sanitizeRegisterForm(form);
+
+    setIsSubmitting(true);
+
+    try {
+      const { sendEmail, autoLogin, accessToken, refreshToken } =
+        await completeFreeSignup({
+          form: {
+            name: sanitizedForm.name,
+            lastName: sanitizedForm.lastName,
+            email: sanitizedForm.email,
+            password: sanitizedForm.password,
+            dateOfBirth: sanitizedForm.dateOfBirth,
+            preferredOpposition: sanitizedForm.preferredOpposition
+          },
+          locale
+        });
+
+      clearRegisterFlowDraft();
+
+      if (autoLogin && accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (sessionError) throw sessionError;
+
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+
+        if (user?.email_confirmed_at) return true;
+      }
+
+      toast({
+        title: t("auth:register.toasts.verifyEmailBeforePaymentTitle"),
+        description: sendEmail
+          ? t("auth:register.toasts.verifyEmailBeforePaymentDescription")
+          : t("auth:register.toasts.checkEmailDescription")
+      });
+      navigate("/login", { replace: true });
+      return false;
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: t("auth:register.toasts.createFailedTitle"),
+        description:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : t("auth:register.toasts.planContinuationFailedDescription")
+      });
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const submitRegister = async ({
     form,
     selectedPlan
@@ -36,8 +94,6 @@ export const useRegisterSubmit = (locale: AppLocale) => {
     selectedPlan: RegisterPlanSummary | null;
   }) => {
     const sanitizedForm = sanitizeRegisterForm(form);
-    const planCode = selectedPlan?.code ?? "";
-    const planSelectionPath = buildRegisterPlanSelectionPath(planCode);
 
     setIsSubmitting(true);
 
@@ -82,12 +138,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
                 ? planError.message
                 : t("auth:register.toasts.planContinuationFailedDescription")
           });
-          navigate(
-            selectedPlan?.price_cents && selectedPlan.price_cents > 0
-              ? planSelectionPath
-              : "/dashboard",
-            { replace: true }
-          );
+          navigate("/dashboard", { replace: true });
           return false;
         }
       }
@@ -116,5 +167,5 @@ export const useRegisterSubmit = (locale: AppLocale) => {
     }
   };
 
-  return { isSubmitting, submitRegister };
+  return { isSubmitting, preparePaidCheckout, submitRegister };
 };

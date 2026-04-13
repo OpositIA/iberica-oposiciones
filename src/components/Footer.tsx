@@ -9,19 +9,22 @@ type FooterProps = {
 };
 
 const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
-  const { t } = useTranslation(["landing", "common"]);
+  const { t } = useTranslation(["faq", "landing", "common"]);
 
   const companyLinks = [
-    t("landing:footer.companyLinks.about"),
-    t("landing:footer.companyLinks.methodology"),
-    t("landing:footer.companyLinks.careers"),
-    t("landing:footer.companyLinks.press")
+    {
+      id: "about",
+      label: t("landing:footer.companyLinks.about"),
+      to: "/"
+    }
   ];
 
   const resourceLinks = [
-    t("landing:footer.resourceLinks.blog"),
-    t("landing:footer.resourceLinks.guides"),
-    t("landing:footer.resourceLinks.laws")
+    {
+      id: "faq",
+      label: t("faq:hero.badge"),
+      to: "/preguntas-frecuentes"
+    }
   ];
 
   const legalLinks = [
@@ -61,12 +64,12 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
             </h4>
             <ul className="space-y-3">
               {companyLinks.map((item) => (
-                <li key={item}>
+                <li key={item.id}>
                   <Link
-                    to="/"
+                    to={item.to}
                     className="text-sm text-white/50 hover:text-white transition-colors"
                   >
-                    {item}
+                    {item.label}
                   </Link>
                 </li>
               ))}
@@ -78,12 +81,12 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
             </h4>
             <ul className="space-y-3">
               {resourceLinks.map((item) => (
-                <li key={item}>
+                <li key={item.id}>
                   <Link
-                    to="/"
+                    to={item.to}
                     className="text-sm text-white/50 hover:text-white transition-colors"
                   >
-                    {item}
+                    {item.label}
                   </Link>
                 </li>
               ))}

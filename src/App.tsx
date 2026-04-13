@@ -10,6 +10,7 @@ import LandingRouteGuard from "./components/LandingRouteGuard";
 import PlanRequiredRoute from "./components/PlanRequiredRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
+import SeoManager from "./components/SeoManager";
 import AssistantIA from "./pages/AssistantIA";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
@@ -24,6 +25,7 @@ import ProfileQuickTestSession from "./pages/ProfileQuickTestSession";
 import ProfileStudy from "./pages/ProfileStudy";
 import ProfileTemario from "./pages/ProfileTemario";
 import ProfileTest from "./pages/ProfileTest";
+import PublicFaq from "./pages/PublicFaq";
 import PublicPlans from "./pages/PublicPlans";
 import Register from "./pages/Register";
 import RegisterCheckoutSuccess from "./pages/RegisterCheckoutSuccess";
@@ -60,6 +62,7 @@ const App = () => (
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
         <AuthProvider>
+          <SeoManager />
           <ScrollToTop />
           <Routes>
             <Route
@@ -103,6 +106,18 @@ const App = () => (
                   <RegisterCheckoutSuccess />
                 </LandingRouteGuard>
               }
+            />
+            <Route
+              path="/preguntas-frecuentes"
+              element={
+                <LandingRouteGuard>
+                  <PublicFaq />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/faq"
+              element={<Navigate to="/preguntas-frecuentes" replace />}
             />
             <Route
               path="/planes"

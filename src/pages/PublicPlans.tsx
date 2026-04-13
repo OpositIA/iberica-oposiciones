@@ -55,28 +55,28 @@ const PublicPlans = () => {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,138,69,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.06),transparent_28%)]" />
         <Navbar />
 
-        <div className="relative mx-auto max-w-6xl px-6 pb-10 pt-24 md:px-8">
-          <div className="max-w-3xl">
+        <div className="relative mx-auto max-w-6xl px-6 pb-8 pt-24 md:px-8">
+          <div className="max-w-2xl">
             <p className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
               {t("public.badge")}
             </p>
-            <h1 className="mt-4 text-3xl font-serif text-primary-foreground md:text-5xl">
+            <h1 className="mt-4 text-2xl font-serif text-primary-foreground md:text-4xl">
               {t("public.title")}
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-primary-foreground/75 md:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-7 text-primary-foreground/70">
               {t("public.description")}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 pb-16 pt-8 md:px-8">
+      <div className="mx-auto max-w-5xl px-6 pb-16 pt-8 md:px-8">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {isLoadingPublicPlans &&
             Array.from({ length: 2 }).map((_, index) => (
               <div
                 key={index}
-                className="min-h-[340px] rounded-2xl border border-border/70 bg-background/80 p-6"
+                className="min-h-[280px] rounded-2xl border border-border/70 bg-background/80 p-6"
               />
             ))}
 
@@ -84,20 +84,29 @@ const PublicPlans = () => {
             plans.map((plan) => (
               <article
                 key={plan.code}
-                className={`relative flex flex-col overflow-hidden rounded-[1.5rem] border p-4 md:p-5 ${
+                className={`relative flex flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
                   plan.featured
-                    ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_22px_50px_-40px_rgba(15,23,42,0.82)]"
-                    : "border-foreground/20 bg-background/80 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.06),0_18px_44px_-36px_rgba(15,23,42,0.45)]"
+                    ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] text-primary-foreground shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
+                    : "border-foreground/15 bg-background/88 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
                 }`}
               >
                 {plan.featured && (
-                  <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
+                  <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/16 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
                     <Crown className="h-3 w-3" />
                     {t("featured")}
                   </div>
                 )}
 
                 <div className="max-w-sm">
+                  <p
+                    className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                      plan.featured
+                        ? "text-primary-foreground/58"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {plan.eyebrow}
+                  </p>
                   <h3 className="text-[1.7rem] font-serif leading-none">
                     {plan.name}
                   </h3>
@@ -110,77 +119,21 @@ const PublicPlans = () => {
                     </span>
                   </div>
                   <p
-                    className={`mt-3 text-sm leading-6 ${
+                    className={`mt-4 text-sm leading-6 ${
                       plan.featured
-                        ? "text-primary-foreground/72"
+                        ? "text-primary-foreground/70"
                         : "text-muted-foreground"
                     }`}
                   >
                     {plan.description}
                   </p>
-                  <p
-                    className={`mt-2.5 text-[11px] uppercase tracking-[0.16em] ${
-                      plan.featured
-                        ? "text-primary-foreground/65"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {t("public.bestForLabel")}
-                  </p>
-                  <p
-                    className={`mt-1 text-sm leading-6 ${
-                      plan.featured
-                        ? "text-primary-foreground/85"
-                        : "text-foreground/90"
-                    }`}
-                  >
-                    {plan.planKey === "pro"
-                      ? t("public.proBestFor")
-                      : t("public.freeBestFor")}
-                  </p>
                 </div>
 
-                <div className="mt-3.5 space-y-2 rounded-xl border border-current/15 bg-black/5 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                    {t("public.includesLabel")}
-                  </p>
-                  <ul className="space-y-1.5 text-sm">
-                    <li>{t(`public.planHighlights.ai.${plan.planKey}`)}</li>
-                    <li>
-                      {t(`public.planHighlights.quickTests.${plan.planKey}`)}
-                    </li>
-                    <li>
-                      {t(`public.planHighlights.syllabus.${plan.planKey}`)}
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-                  <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                      {t("comparison.aiLimit")}
-                    </p>
-                    <p className="mt-1.5 text-xl font-serif">
-                      {plan.ai_daily_limit}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                      {t("comparison.quickTestLimit")}
-                    </p>
-                    <p className="mt-1.5 text-xl font-serif">
-                      {plan.planKey === "pro"
-                        ? plan.quick_test_question_limit
-                        : t("comparison.quickTestUnavailable")}
-                    </p>
-                  </div>
-                </div>
-
-                <ul className="mt-4 flex-1 space-y-2">
+                <ul className="mt-6 flex-1 space-y-2.5 border-t border-current/12 pt-5">
                   {plan.features.map((feature) => (
                     <li
                       key={feature}
-                      className="flex items-start gap-2 text-sm"
+                      className="flex items-start gap-2.5 text-sm"
                     >
                       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                       <span
@@ -199,7 +152,7 @@ const PublicPlans = () => {
                 <CustomButton
                   asChild
                   styleType={plan.featured ? "primary" : "menu"}
-                  className="mt-4 w-full py-2.5"
+                  className="mt-6 w-full py-2.5"
                 >
                   <Link to={`/registro?plan=${encodeURIComponent(plan.code)}`}>
                     {plan.ctaGuest}

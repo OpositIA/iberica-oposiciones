@@ -25,7 +25,7 @@ import {
   type RegisterForm
 } from "@/lib/registerFlow";
 import {
-  createPublicStripeCheckoutSession,
+  createStripeCheckoutSession,
   usePublicSubscriptionPlansQuery
 } from "@/queries/subscriptionQueries";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -55,7 +55,8 @@ const Register = () => {
     usePublicSubscriptionPlansQuery();
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
-  const { isSubmitting, submitRegister } = useRegisterSubmit(locale);
+  const { isSubmitting, preparePaidCheckout, submitRegister } =
+    useRegisterSubmit(locale);
   const availablePlanCodes = useMemo(
     () => new Set(publicPlans.map((plan) => plan.code)),
     [publicPlans]
@@ -319,11 +320,15 @@ const Register = () => {
       });
 
       try {
-        const { checkoutUrl } = await createPublicStripeCheckoutSession({
+        const canContinueToCheckout = await preparePaidCheckout({
+          form: sanitizedForm
+        });
+
+        if (!canContinueToCheckout) return;
+
+        const { checkoutUrl } = await createStripeCheckoutSession({
           planCode: activePlan.code,
-          email: sanitizedForm.email,
-          successPath: `/registro/pago-completado?session_id={CHECKOUT_SESSION_ID}&plan=${encodeURIComponent(activePlan.code)}`,
-          cancelPath: `/registro?step=2&plan=${encodeURIComponent(activePlan.code)}&checkout=cancel`
+          source: "plan_selection"
         });
 
         window.location.assign(checkoutUrl);

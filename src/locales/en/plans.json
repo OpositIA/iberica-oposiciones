@@ -16,8 +16,8 @@
   "featured": "Recommended",
   "public": {
     "badge": "Clear comparison",
-    "title": "Choose the plan that matches your pace",
-    "description": "Both plans keep the same core product. The real difference is usage capacity and study depth.",
+    "title": "Choose your access",
+    "description": "Two plans. One real difference: how much of the product you can use each day.",
     "bestForLabel": "Best for",
     "freeBestFor": "People getting started and validating the methodology without commitment.",
     "proBestFor": "People studying every day who need full continuity in AI and revision.",
@@ -224,31 +224,35 @@
     "discountAppliedErrorTitle": "Unable to apply code",
     "discountAppliedErrorDescription": "Review the code and try again."
   },
+  "seo": {
+    "public": {
+      "title": "Pricing plans for civil service exam prep",
+      "description": "Compare Iberica Oposiciones plans and choose between free access or Premium depending on your study pace, AI usage, and test access."
+    }
+  },
   "plans": {
     "free": {
       "eyebrow": "Base access",
       "name": "Free",
-      "description": "Best for getting started, validating the product, and keeping a light routine with no monthly cost.",
+      "description": "For getting started with no monthly cost.",
       "ctaGuest": "Create free account",
       "ctaAuthenticated": "Switch to Free",
       "features": [
-        "Same core features as Pro.",
-        "{{aiLimit}} AI requests per day.",
-        "No access to quick tests.",
-        "Ideal for exploring the platform before scaling up."
+        "Daily AI with base limit.",
+        "No access to tests.",
+        "Limited syllabus view."
       ]
     },
     "pro": {
       "eyebrow": "More daily headroom",
       "name": "Premium",
-      "description": "Built for users relying on the product every day and needing continuity with AI, tests, and full syllabus access for 5.99 EUR per month.",
+      "description": "For daily study with full access and less friction.",
       "ctaGuest": "Join Premium",
       "ctaAuthenticated": "Switch to Premium",
       "features": [
-        "All free-plan capabilities with no extra cuts.",
-        "{{aiLimit}} AI requests per day.",
-        "Full access to quick tests.",
-        "Compatible with percentage discounts for months or yearly term."
+        "Higher daily AI capacity.",
+        "Full access to tests.",
+        "Full syllabus access."
       ]
     }
   }
