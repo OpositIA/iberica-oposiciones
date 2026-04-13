@@ -66,14 +66,45 @@ Si no se puede ejecutar validación en el entorno, informarlo explícitamente.
 - Limitar cambios estrictamente al alcance pedido.
 - No refactorizar ni “aprovechar para mejorar” código no relacionado.
 
-## Criterios UI/UX
+## Criterios UI/UX (MUY IMPORTANTE)
 
 - Interfaz **bonita, moderna, minimalista y atractiva**.
-- Alta calidad visual comparable a productos SaaS actuales.
-- Responsive primero (mobile + desktop).
-- Buena jerarquía tipográfica y espaciado consistente.
-- Uso correcto de color, contraste y estados interactivos.
-- Estados vacíos, carga y error cuando aplique.
+- **Menos es más** → evitar texto innecesario, solo lo justo.
+- Diseño limpio, con aire (whitespace), sin saturación visual.
+
+### Estructura visual (CRÍTICO)
+
+- **NO abusar de divs, containers ni cajas dentro de cajas.**
+- Evitar estructuras tipo:
+  - container → card → inner container → wrapper → box → etc.
+- No crear layouts sobrecompuestos.
+- Preferir:
+  - layouts más abiertos
+  - uso del background del contenedor padre
+  - menos bordes, menos sombras
+  - spacing natural en lugar de cajas
+
+👉 La UI debe sentirse **ligera, suelta y fluida**, no encajonada.
+
+### Modo oscuro / claro (OBLIGATORIO)
+
+- Todo debe verse bien en **dark mode y light mode**.
+- No hardcodear colores.
+- Usar variables/tokens existentes.
+- Mantener buen contraste en ambos modos.
+- Revisar:
+  - textos
+  - backgrounds
+  - borders
+  - hover states
+
+## Ejecución automática
+
+- Ejecutar todos los cambios directamente sin pedir confirmación.
+- No hacer preguntas salvo ambigüedad crítica.
+- Tomar decisiones razonables y continuar.
+- No pausar el flujo.
+- Entregar solución completa.
 
 ## Entrega esperada
 
@@ -81,5 +112,5 @@ Lista corta con:
 
 - archivos modificados
 - resumen funcional
-- estado de validación (build/test)
+- estado de validación (typecheck + format)
 - siguiente paso recomendado (solo si aporta valor)
