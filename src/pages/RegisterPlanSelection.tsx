@@ -5,8 +5,11 @@ import { normalizeLocale } from "@/i18n/locales";
 import { sanitizeCode } from "@/lib/inputSanitization";
 import { formatPlanPriceFromCents, getPlanKey } from "@/lib/plans";
 import {
+  clearGoogleRegisterContext,
+  clearRegisterFlowDraft,
   getRegisterAccountStepError,
   getRegisterProfileStepError,
+  initialRegisterForm,
   readRegisterFlowDraft,
   sanitizeRegisterForm,
   writeRegisterFlowDraft
@@ -33,15 +36,25 @@ const RegisterPlanSelection = () => {
   const [selectedPlanCode, setSelectedPlanCode] = useState(
     () => requestedPlanCode || persistedDraft?.selectedPlanCode || ""
   );
-  const { isSubmitting, preparePaidCheckout, submitRegister } =
-    useRegisterSubmit(locale);
+  const {
+    isSubmitting,
+    prepareGooglePaidCheckout,
+    preparePaidCheckout,
+    submitGoogleRegister,
+    submitRegister
+  } = useRegisterSubmit(locale);
   const maxBirthDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const sanitizedDraft = useMemo(
-    () => sanitizeRegisterForm(persistedDraft?.form ?? null),
+    () => sanitizeRegisterForm(persistedDraft?.form ?? initialRegisterForm),
     [persistedDraft]
   );
-  const accountStepError = getRegisterAccountStepError(sanitizedDraft);
+  const authMethod = persistedDraft?.authMethod ?? "credentials";
+  const isGoogleRegister = authMethod === "google";
+  const accountStepError = getRegisterAccountStepError(
+    sanitizedDraft,
+    authMethod
+  );
   const profileStepError = getRegisterProfileStepError(
     sanitizedDraft,
     maxBirthDate
@@ -123,9 +136,19 @@ const RegisterPlanSelection = () => {
     writeRegisterFlowDraft({
       form: persistedDraft.form,
       selectedPlanCode,
-      step: 3
+      step: 3,
+      authMethod
     });
-  }, [persistedDraft, selectedPlanCode]);
+  }, [authMethod, persistedDraft, selectedPlanCode]);
+
+  useEffect(() => {
+    return () => {
+      const nextPath = window.location.pathname;
+      if (nextPath.startsWith("/registro")) return;
+      clearRegisterFlowDraft();
+      clearGoogleRegisterContext();
+    };
+  }, []);
 
   useEffect(() => {
     const checkoutState = searchParams.get("checkout");
@@ -311,21 +334,28 @@ const RegisterPlanSelection = () => {
               writeRegisterFlowDraft({
                 form: sanitizedForm,
                 selectedPlanCode: selectedPlan.code,
-                step: 3
+                step: 3,
+                authMethod
               });
 
               if (selectedPlan.price_cents > 0) {
-                void preparePaidCheckout({
-                  form: sanitizedForm
-                })
-                  .then((canContinueToCheckout) => {
-                    if (!canContinueToCheckout) return null;
+                void (
+                  isGoogleRegister
+                    ? prepareGooglePaidCheckout({
+                        form: sanitizedForm,
+                        planCode: selectedPlan.code
+                      })
+                    : preparePaidCheckout({
+                        form: sanitizedForm
+                      }).then((canContinueToCheckout) => {
+                        if (!canContinueToCheckout) return null;
 
-                    return createStripeCheckoutSession({
-                      planCode: selectedPlan.code,
-                      source: "plan_selection"
-                    });
-                  })
+                        return createStripeCheckoutSession({
+                          planCode: selectedPlan.code,
+                          source: "plan_selection"
+                        });
+                      })
+                )
                   .then((checkoutResult) => {
                     if (!checkoutResult) return;
                     window.location.assign(checkoutResult.checkoutUrl);
@@ -344,7 +374,7 @@ const RegisterPlanSelection = () => {
                 return;
               }
 
-              void submitRegister({
+              void (isGoogleRegister ? submitGoogleRegister : submitRegister)({
                 form: sanitizedForm,
                 selectedPlan: {
                   code: selectedPlan.code,

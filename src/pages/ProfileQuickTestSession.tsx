@@ -377,8 +377,8 @@ const ProfileQuickTestSession = () => {
         if (!dbPayload || isCancelled) return;
         setPayload(dbPayload);
         setQuickTestSessionPayload(dbPayload);
-      } catch (error) {
-        console.error("[quick-test] load payload failed", error);
+      } catch {
+        return;
       } finally {
         if (!isCancelled) setIsLoadingPayload(false);
       }
@@ -404,8 +404,7 @@ const ProfileQuickTestSession = () => {
       .then((config) => {
         if (!isCancelled) setTestExamConfig(config);
       })
-      .catch((error) => {
-        console.error("[quick-test] load test exam config failed", error);
+      .catch(() => {
         if (!isCancelled) setTestExamConfig(null);
       });
 
@@ -515,8 +514,8 @@ const ProfileQuickTestSession = () => {
           activeQuestionId: restoredActiveQuestionId,
           updatedAt: attempt?.updatedAt ?? new Date().toISOString()
         });
-      } catch (error) {
-        console.error("[quick-test] hydrate attempt failed", error);
+      } catch {
+        return;
       } finally {
         if (!isCancelled) {
           setIsHydratingAttempt(false);
@@ -615,9 +614,7 @@ const ProfileQuickTestSession = () => {
         .then(() => {
           lastSavedSignatureRef.current = signature;
         })
-        .catch((error) => {
-          console.error("[quick-test] save attempt failed", error);
-        });
+        .catch(() => {});
     }, 180);
 
     return () => {
@@ -733,8 +730,8 @@ const ProfileQuickTestSession = () => {
         });
         setAttemptStartedAt(resetAttempt?.startedAt ?? nowIso);
         setAttemptFinishedAt(resetAttempt?.finishedAt ?? null);
-      } catch (error) {
-        console.error("[quick-test] reset attempt failed", error);
+      } catch {
+        return;
       }
     };
 
@@ -769,8 +766,7 @@ const ProfileQuickTestSession = () => {
         replace: true,
         state: { quickTest: clonedPayload }
       });
-    } catch (error) {
-      console.error("[quick-test] clone retry failed", error);
+    } catch {
       await resetInPlace();
     } finally {
       setIsRetrying(false);
@@ -817,8 +813,8 @@ const ProfileQuickTestSession = () => {
           finishedAt: finishedAtIso
         });
         lastSavedSignatureRef.current = signature;
-      } catch (error) {
-        console.error("[quick-test] finalize attempt failed", error);
+      } catch {
+        return;
       }
     }
 

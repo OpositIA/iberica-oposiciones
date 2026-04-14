@@ -1,14 +1,17 @@
+import { useAuth } from "@/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  clearGoogleRegisterContext,
   clearRegisterFlowDraft,
   sanitizeRegisterForm,
   type RegisterForm
 } from "@/lib/registerFlow";
 import {
   changeUserSubscriptionPlan,
-  completeFreeSignup
+  completeFreeSignup,
+  createStripeCheckoutSession
 } from "@/queries/subscriptionQueries";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,7 +28,66 @@ export const useRegisterSubmit = (locale: AppLocale) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useTranslation(["auth"]);
+  const { refreshProfile } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const clearRegisterState = () => {
+    clearRegisterFlowDraft();
+    clearGoogleRegisterContext();
+  };
+
+  const updateGoogleSignupProfile = async ({
+    form
+  }: {
+    form: RegisterForm;
+  }) => {
+    const sanitizedForm = sanitizeRegisterForm(form);
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError) throw userError;
+    if (!user)
+      throw new Error("Debes iniciar sesion para continuar con Google.");
+
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const nextMetadata = {
+      ...metadata,
+      first_name: sanitizedForm.name,
+      last_name: sanitizedForm.lastName,
+      full_name: `${sanitizedForm.name} ${sanitizedForm.lastName}`.trim(),
+      date_of_birth: sanitizedForm.dateOfBirth || null,
+      preferred_opposition_id: sanitizedForm.preferredOpposition || null,
+      preferred_opposition: sanitizedForm.preferredOpposition || null,
+      locale
+    };
+
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: nextMetadata
+    });
+    if (metadataError) throw metadataError;
+
+    const { error: profileError } = await supabase.from("profiles").upsert(
+      {
+        user_id: user.id,
+        email: sanitizedForm.email,
+        first_name: sanitizedForm.name,
+        last_name: sanitizedForm.lastName,
+        date_of_birth: sanitizedForm.dateOfBirth || null,
+        preferred_opposition_id: sanitizedForm.preferredOpposition || null,
+        preferred_opposition: sanitizedForm.preferredOpposition || null,
+        locale
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (profileError) throw profileError;
+
+    await refreshProfile();
+
+    return sanitizedForm;
+  };
 
   const preparePaidCheckout = async ({ form }: { form: RegisterForm }) => {
     const sanitizedForm = sanitizeRegisterForm(form);
@@ -46,7 +108,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
           locale
         });
 
-      clearRegisterFlowDraft();
+      clearRegisterState();
 
       if (autoLogin && accessToken && refreshToken) {
         const { error: sessionError } = await supabase.auth.setSession({
@@ -81,6 +143,28 @@ export const useRegisterSubmit = (locale: AppLocale) => {
             : t("auth:register.toasts.planContinuationFailedDescription")
       });
       return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const prepareGooglePaidCheckout = async ({
+    form,
+    planCode
+  }: {
+    form: RegisterForm;
+    planCode: string;
+  }) => {
+    setIsSubmitting(true);
+
+    try {
+      await updateGoogleSignupProfile({ form });
+      clearRegisterState();
+
+      return await createStripeCheckoutSession({
+        planCode,
+        source: "plan_selection"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -126,7 +210,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
           if (selectedPlan?.code)
             await changeUserSubscriptionPlan(selectedPlan.code);
 
-          clearRegisterFlowDraft();
+          clearRegisterState();
           navigate("/dashboard", { replace: true });
           return true;
         } catch (planError) {
@@ -143,7 +227,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
         }
       }
 
-      clearRegisterFlowDraft();
+      clearRegisterState();
       if (sendEmail) {
         toast({
           title: t("auth:register.toasts.checkEmailTitle"),
@@ -167,5 +251,44 @@ export const useRegisterSubmit = (locale: AppLocale) => {
     }
   };
 
-  return { isSubmitting, preparePaidCheckout, submitRegister };
+  const submitGoogleRegister = async ({
+    form,
+    selectedPlan
+  }: {
+    form: RegisterForm;
+    selectedPlan: RegisterPlanSummary | null;
+  }) => {
+    setIsSubmitting(true);
+
+    try {
+      await updateGoogleSignupProfile({ form });
+
+      if (selectedPlan?.code)
+        await changeUserSubscriptionPlan(selectedPlan.code);
+
+      clearRegisterState();
+      navigate("/dashboard", { replace: true });
+      return true;
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: t("auth:register.toasts.createFailedTitle"),
+        description:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : t("auth:register.toasts.planContinuationFailedDescription")
+      });
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return {
+    isSubmitting,
+    preparePaidCheckout,
+    prepareGooglePaidCheckout,
+    submitGoogleRegister,
+    submitRegister
+  };
 };

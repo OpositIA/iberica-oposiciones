@@ -1,4 +1,6 @@
+import { useAuth } from "@/auth/AuthProvider";
 import BrandLogo from "@/components/BrandLogo";
+import GoogleIcon from "@/components/GoogleIcon";
 import CustomButton from "@/components/ui/custom-button";
 import CustomDateInput from "@/components/ui/custom-date-input";
 import CustomInput from "@/components/ui/custom-input";
@@ -16,12 +18,17 @@ import { formatPlanPriceFromCents, getPlanKey } from "@/lib/plans";
 import {
   buildRegisterPlanSelectionPath,
   clampRegisterStep,
+  clearGoogleRegisterContext,
+  clearRegisterFlowDraft,
   getRegisterAccountStepError,
   getRegisterProfileStepError,
   initialRegisterForm,
+  readGoogleRegisterContext,
   readRegisterFlowDraft,
   sanitizeRegisterForm,
+  writeGoogleRegisterContext,
   writeRegisterFlowDraft,
+  type RegisterAuthMethod,
   type RegisterForm
 } from "@/lib/registerFlow";
 import {
@@ -32,21 +39,50 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
+const readUserMetadataText = (
+  metadata: Record<string, unknown>,
+  ...keys: string[]
+) => {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim().length > 0)
+      return value.trim();
+  }
+
+  return "";
+};
+
 const Register = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation(["auth", "common", "plans"]);
   const { toast } = useToast();
+  const { isAuthenticated, profile, user } = useAuth();
   const persistedDraft = useMemo(() => readRegisterFlowDraft(), []);
+  const googleRegisterContext = useMemo(() => readGoogleRegisterContext(), []);
+  const shouldResumeGoogleRegister = Boolean(googleRegisterContext);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const requestedPlanCode = useMemo(() => {
-    return sanitizeCode(searchParams.get("plan"), 60);
-  }, [searchParams]);
-  const [form, setForm] = useState<RegisterForm>(
-    () => persistedDraft?.form ?? initialRegisterForm
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const requestedPlanCode = useMemo(
+    () => sanitizeCode(searchParams.get("plan"), 60),
+    [searchParams]
+  );
+  const [authMethod, setAuthMethod] = useState<RegisterAuthMethod>(() =>
+    persistedDraft?.authMethod === "google" && shouldResumeGoogleRegister
+      ? "google"
+      : "credentials"
+  );
+  const [form, setForm] = useState<RegisterForm>(() =>
+    persistedDraft?.authMethod === "google" && !shouldResumeGoogleRegister
+      ? initialRegisterForm
+      : (persistedDraft?.form ?? initialRegisterForm)
   );
   const [selectedPlanCode, setSelectedPlanCode] = useState(
-    () => requestedPlanCode || persistedDraft?.selectedPlanCode || ""
+    () =>
+      requestedPlanCode ||
+      (persistedDraft?.authMethod === "google" && !shouldResumeGoogleRegister
+        ? ""
+        : persistedDraft?.selectedPlanCode || "")
   );
   const [oppositionOptions, setOppositionOptions] = useState<
     OppositionOption[]
@@ -55,8 +91,13 @@ const Register = () => {
     usePublicSubscriptionPlansQuery();
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
-  const { isSubmitting, preparePaidCheckout, submitRegister } =
-    useRegisterSubmit(locale);
+  const {
+    isSubmitting,
+    prepareGooglePaidCheckout,
+    preparePaidCheckout,
+    submitGoogleRegister,
+    submitRegister
+  } = useRegisterSubmit(locale);
   const availablePlanCodes = useMemo(
     () => new Set(publicPlans.map((plan) => plan.code)),
     [publicPlans]
@@ -67,9 +108,14 @@ const Register = () => {
     return availablePlanCodes.has(requestedPlanCode);
   }, [availablePlanCodes, publicPlans.length, requestedPlanCode]);
   const totalSteps = hasRequestedPlan ? 2 : 3;
-  const step = clampRegisterStep(searchParams.get("step") ?? 1, totalSteps);
+  const minimumStep = authMethod === "google" ? 2 : 1;
+  const step = Math.max(
+    minimumStep,
+    clampRegisterStep(searchParams.get("step") ?? minimumStep, totalSteps)
+  );
   const maxBirthDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const isLoading = isCheckingEmail || isSubmitting;
+  const isGoogleRegister = authMethod === "google";
+  const isLoading = isCheckingEmail || isSubmitting || isGoogleLoading;
 
   const plans = useMemo(
     () =>
@@ -80,13 +126,7 @@ const Register = () => {
           ...plan,
           planKey,
           name: t(`plans:plans.${planKey}.name`),
-          eyebrow: t(`plans:plans.${planKey}.eyebrow`),
           description: t(`plans:plans.${planKey}.description`),
-          features: t(`plans:plans.${planKey}.features`, {
-            returnObjects: true,
-            aiLimit: plan.ai_daily_limit,
-            quickTestLimit: plan.quick_test_question_limit
-          }) as string[],
           priceLabel:
             plan.price_cents === 0
               ? t("plans:pricing.free")
@@ -122,6 +162,43 @@ const Register = () => {
   }, [availablePlanCodes, publicPlans, requestedPlanCode]);
 
   useEffect(() => {
+    if (persistedDraft?.authMethod !== "google" || shouldResumeGoogleRegister)
+      return;
+
+    clearRegisterFlowDraft();
+    setAuthMethod("credentials");
+    setForm(initialRegisterForm);
+    setSelectedPlanCode(requestedPlanCode || "");
+  }, [persistedDraft, requestedPlanCode, shouldResumeGoogleRegister]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !googleRegisterContext || !user) return;
+
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const fullName = readUserMetadataText(metadata, "full_name", "name");
+    const fullNameParts = fullName.split(" ").filter(Boolean);
+    const fallbackFirstName = fullNameParts[0] ?? "";
+    const fallbackLastName = fullNameParts.slice(1).join(" ");
+
+    setAuthMethod("google");
+    setForm((prev) => ({
+      ...prev,
+      name:
+        profile?.firstName ||
+        readUserMetadataText(metadata, "first_name", "given_name") ||
+        fallbackFirstName,
+      lastName:
+        profile?.lastName ||
+        readUserMetadataText(metadata, "last_name", "family_name") ||
+        fallbackLastName,
+      email: user.email?.trim() || prev.email,
+      password: "",
+      confirmPassword: ""
+    }));
+    clearGoogleRegisterContext();
+  }, [googleRegisterContext, isAuthenticated, profile, user]);
+
+  useEffect(() => {
     const nextParams = new URLSearchParams(searchParams);
     let hasChanges = false;
 
@@ -142,9 +219,10 @@ const Register = () => {
     writeRegisterFlowDraft({
       form,
       selectedPlanCode,
-      step
+      step,
+      authMethod
     });
-  }, [form, selectedPlanCode, step]);
+  }, [authMethod, form, selectedPlanCode, step]);
 
   useEffect(() => {
     if (hasRequestedPlan || step !== 3) return;
@@ -156,6 +234,7 @@ const Register = () => {
 
   useEffect(() => {
     let isMounted = true;
+
     const loadOppositions = async () => {
       const options = await fetchOppositionOptions(locale);
       if (!isMounted) return;
@@ -163,10 +242,21 @@ const Register = () => {
     };
 
     void loadOppositions();
+
     return () => {
       isMounted = false;
     };
   }, [locale]);
+
+  useEffect(() => {
+    return () => {
+      const nextPath = window.location.pathname;
+      if (nextPath.startsWith("/registro")) return;
+      if (nextPath === "/auth/callback") return;
+      clearRegisterFlowDraft();
+      clearGoogleRegisterContext();
+    };
+  }, []);
 
   const stepTitles = useMemo(
     () =>
@@ -202,9 +292,28 @@ const Register = () => {
     setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams, t, toast]);
 
+  useEffect(() => {
+    const googleError = searchParams.get("google_error");
+    if (googleError !== "emailAlreadyExists") return;
+
+    toast({
+      variant: "destructive",
+      title: t("auth:register.googleErrorDialog.emailAlreadyExistsTitle"),
+      description: t(
+        "auth:register.googleErrorDialog.emailAlreadyExistsDescription"
+      )
+    });
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("google_error");
+    nextParams.set("step", "1");
+    nextParams.delete("plan");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams, t, toast]);
+
   const validateStep = (targetStep: number): string | null => {
     if (targetStep === 1) {
-      const errorKey = getRegisterAccountStepError(form);
+      const errorKey = getRegisterAccountStepError(form, authMethod);
       if (errorKey) return t(`auth:register.validation.${errorKey}`);
     }
 
@@ -239,7 +348,7 @@ const Register = () => {
       return;
     }
 
-    if (step === 1) {
+    if (step === 1 && !isGoogleRegister) {
       setIsCheckingEmail(true);
       try {
         const isEmailAvailable = await validateEmailAvailability(
@@ -284,11 +393,45 @@ const Register = () => {
   };
 
   const previousStep = () => {
-    const previousStepValue = Math.max(1, step - 1);
+    const previousStepValue = Math.max(minimumStep, step - 1);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("step", String(previousStepValue));
     if (requestedPlanCode) nextParams.set("plan", requestedPlanCode);
     setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleGoogleRegister = async () => {
+    setIsGoogleLoading(true);
+
+    try {
+      writeGoogleRegisterContext(requestedPlanCode);
+
+      const redirectUrl = new URL("/auth/callback", window.location.origin);
+      redirectUrl.searchParams.set("intent", "register-google");
+      if (requestedPlanCode)
+        redirectUrl.searchParams.set("plan", requestedPlanCode);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl.toString()
+        }
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      clearGoogleRegisterContext();
+      toast({
+        variant: "destructive",
+        title: t("auth:login.errors.googleSignInFailedTitle"),
+        description:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : t("auth:register.toasts.createFailedTitle")
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -316,20 +459,34 @@ const Register = () => {
       writeRegisterFlowDraft({
         form: sanitizedForm,
         selectedPlanCode: activePlan.code,
-        step
+        step,
+        authMethod
       });
 
       try {
-        const canContinueToCheckout = await preparePaidCheckout({
-          form: sanitizedForm
-        });
+        const checkoutUrl = isGoogleRegister
+          ? (
+              await prepareGooglePaidCheckout({
+                form: sanitizedForm,
+                planCode: activePlan.code
+              })
+            ).checkoutUrl
+          : await (async () => {
+              const canContinueToCheckout = await preparePaidCheckout({
+                form: sanitizedForm
+              });
 
-        if (!canContinueToCheckout) return;
+              if (!canContinueToCheckout) return null;
 
-        const { checkoutUrl } = await createStripeCheckoutSession({
-          planCode: activePlan.code,
-          source: "plan_selection"
-        });
+              return (
+                await createStripeCheckoutSession({
+                  planCode: activePlan.code,
+                  source: "plan_selection"
+                })
+              ).checkoutUrl;
+            })();
+
+        if (!checkoutUrl) return;
 
         window.location.assign(checkoutUrl);
         return;
@@ -346,7 +503,7 @@ const Register = () => {
       }
     }
 
-    await submitRegister({
+    await (isGoogleRegister ? submitGoogleRegister : submitRegister)({
       form: sanitizedForm,
       selectedPlan: activePlan
         ? {
@@ -360,18 +517,18 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-charcoal flex">
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-16">
+    <div className="flex min-h-screen bg-charcoal">
+      <div className="relative hidden items-center justify-center p-16 lg:flex lg:w-1/2">
         <div className="max-w-md">
-          <Link to="/" className="flex items-center gap-2 mb-5">
+          <Link to="/" className="mb-5 flex items-center gap-2">
             <BrandLogo className="h-60 w-auto" />
           </Link>
-          <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
+          <h1 className="mb-6 text-5xl font-serif italic leading-tight text-slate-100">
             {t("auth:register.heroTitleLine1")}
             <br />
             {t("auth:register.heroTitleLine2")}
           </h1>
-          <p className="text-sm text-slate-300 leading-relaxed">
+          <p className="text-sm leading-relaxed text-slate-300">
             {t("auth:register.heroDescription")}
           </p>
           <div className="mt-12 space-y-3">
@@ -383,18 +540,22 @@ const Register = () => {
               return (
                 <div key={label} className="flex items-center gap-3">
                   <div
-                    className={`h-6 w-6 border text-xs inline-flex items-center justify-center ${
+                    className={`inline-flex h-6 w-6 items-center justify-center border text-xs ${
                       isDone
-                        ? "bg-primary text-primary-foreground border-primary"
+                        ? "border-primary bg-primary text-primary-foreground"
                         : isActive
-                          ? "border-primary text-primary bg-background/10"
+                          ? "border-primary bg-background/10 text-primary"
                           : "border-slate-200/25 text-slate-300/70"
                     }`}
                   >
                     {current}
                   </div>
                   <span
-                    className={`text-sm ${isActive || isDone ? "text-slate-100" : "text-slate-300/70"}`}
+                    className={`text-sm ${
+                      isActive || isDone
+                        ? "text-slate-100"
+                        : "text-slate-300/70"
+                    }`}
                   >
                     {label}
                   </span>
@@ -405,27 +566,27 @@ const Register = () => {
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background">
+      <div className="flex w-full items-center justify-center bg-background p-8 lg:w-1/2">
         <div className="w-full max-w-md">
-          <div className="lg:hidden mb-10">
-            <Link to="/" className="flex items-center gap-2 mb-8">
+          <div className="mb-10 lg:hidden">
+            <Link to="/" className="mb-8 flex items-center gap-2">
               <BrandLogo className="h-4 w-auto" />
             </Link>
           </div>
 
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <h2 className="text-2xl font-serif text-foreground">
                 {t("auth:register.title")}
               </h2>
-              <p className="text-xs tracking-widest uppercase text-muted-foreground">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">
                 {t("auth:register.stepCounter", { step, total: totalSteps })}
               </p>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="mb-4 text-sm text-muted-foreground">
               {t("auth:register.subtitle")}
             </p>
-            <div className="h-1.5 bg-secondary overflow-hidden">
+            <div className="h-1.5 overflow-hidden bg-secondary">
               <div
                 className="h-full bg-primary transition-all duration-300"
                 style={{ width: `${progress}%` }}
@@ -436,8 +597,32 @@ const Register = () => {
           <form className="space-y-5" onSubmit={handleSubmit}>
             {step === 1 && (
               <>
+                <CustomButton
+                  type="button"
+                  styleType="ghost"
+                  className="w-full py-3.5"
+                  disabled={isLoading}
+                  onClick={handleGoogleRegister}
+                >
+                  <GoogleIcon className="h-4 w-4" />
+                  {isGoogleLoading
+                    ? t("auth:login.googleSubmitting")
+                    : t("auth:register.actions.continueWithGoogle")}
+                </CustomButton>
+
+                <div className="relative py-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border/70" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-background px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      {t("auth:login.orContinueWith")}
+                    </span>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {t("auth:register.fields.name")}
                   </label>
                   <CustomInput
@@ -451,7 +636,7 @@ const Register = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {t("auth:register.fields.lastName")}
                   </label>
                   <CustomInput
@@ -465,7 +650,7 @@ const Register = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {t("auth:register.fields.email")}
                   </label>
                   <CustomInput
@@ -479,9 +664,9 @@ const Register = () => {
                     className="w-full"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                       {t("auth:register.fields.password")}
                     </label>
                     <CustomInput
@@ -499,7 +684,7 @@ const Register = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                       {t("auth:register.fields.confirmPassword")}
                     </label>
                     <CustomInput
@@ -525,7 +710,7 @@ const Register = () => {
             {step === 2 && (
               <>
                 <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {t("auth:register.fields.dateOfBirth")}
                   </label>
                   <CustomDateInput
@@ -541,7 +726,7 @@ const Register = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     {t("auth:register.fields.preferredOpposition")}
                   </label>
                   <CustomSelect
@@ -552,7 +737,7 @@ const Register = () => {
                         preferredOpposition: e.target.value
                       }))
                     }
-                    className="w-full border border-border bg-background text-foreground px-4 py-3 text-sm focus:outline-none focus:border-foreground transition-colors"
+                    className="w-full border border-border bg-background px-4 py-3 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none"
                   >
                     <option value="">
                       {t("auth:register.selectOpposition")}
@@ -598,12 +783,26 @@ const Register = () => {
                     }
                     className="mt-0.5"
                   />
-                  <span className="text-xs text-muted-foreground leading-relaxed">
+                  <span className="text-xs leading-relaxed text-muted-foreground">
                     <Trans
                       i18nKey="auth:register.fields.acceptedTerms"
                       components={{
-                        termsLink: <Link to="/" className="text-primary" />,
-                        privacyLink: <Link to="/" className="text-primary" />
+                        termsLink: (
+                          <Link
+                            to="/terminos"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary"
+                          />
+                        ),
+                        privacyLink: (
+                          <Link
+                            to="/privacidad"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary"
+                          />
+                        )
                       }}
                     />
                   </span>
@@ -615,7 +814,7 @@ const Register = () => {
               <CustomButton
                 type="button"
                 onClick={previousStep}
-                disabled={step === 1 || isLoading}
+                disabled={step === minimumStep || isLoading}
                 styleType="menu"
                 className="px-5 py-3 disabled:opacity-50"
               >
@@ -629,13 +828,11 @@ const Register = () => {
               >
                 {step < totalSteps
                   ? t("auth:register.actions.continue")
-                  : isLoading
+                  : isLoading || isLoadingPlans
                     ? t("auth:register.actions.creating")
-                    : isLoadingPlans
-                      ? t("auth:register.actions.creating")
-                      : activePlan?.price_cents && activePlan.price_cents > 0
-                        ? t("auth:register.actions.continueToPayment")
-                        : t("auth:register.actions.create")}
+                    : activePlan?.price_cents && activePlan.price_cents > 0
+                      ? t("auth:register.actions.continueToPayment")
+                      : t("auth:register.actions.create")}
               </CustomButton>
             </div>
           </form>
@@ -645,7 +842,7 @@ const Register = () => {
               {t("auth:register.hasAccount")}{" "}
               <Link
                 to="/login"
-                className="text-primary font-semibold hover:text-primary/80 transition-colors"
+                className="font-semibold text-primary transition-colors hover:text-primary/80"
               >
                 {t("auth:register.signIn")}
               </Link>

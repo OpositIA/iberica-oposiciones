@@ -1,4 +1,5 @@
 import BrandLogo from "@/components/BrandLogo";
+import GoogleIcon from "@/components/GoogleIcon";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import {
@@ -26,19 +27,58 @@ const EMAIL_REGEX = /\S+@\S+\.\S+/;
 const isNetworkError = (message: string) =>
   /network|failed to fetch|fetch failed|timeout/i.test(message);
 
-const GoogleIcon = ({ className }: { className?: string }) => (
-  <svg
-    aria-hidden="true"
-    className={className}
-    viewBox="0 0 24 24"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M21.35 11.1h-9.18v2.98h5.27c-.5 2.52-2.66 3.9-5.27 3.9-3.12 0-5.65-2.57-5.65-5.73s2.53-5.73 5.65-5.73c1.41 0 2.69.53 3.67 1.4l2.2-2.24a8.89 8.89 0 0 0-5.87-2.18c-4.92 0-8.91 4.04-8.91 9.01s3.99 9.01 8.91 9.01c5.14 0 8.52-3.62 8.52-8.73 0-.58-.06-1.14-.18-1.69z"
-      fill="currentColor"
-    />
-  </svg>
-);
+const mapSignInError = (
+  error: {
+    status?: number;
+    message?: string;
+    code?: string;
+  },
+  t: ReturnType<typeof useTranslation>["t"]
+) => {
+  const normalizedMessage = error.message?.toLowerCase().trim() ?? "";
+  const normalizedCode = error.code?.toLowerCase().trim() ?? "";
+
+  if (
+    normalizedCode === "email_not_confirmed" ||
+    normalizedMessage.includes("email not confirmed") ||
+    normalizedMessage.includes("email not verified") ||
+    normalizedMessage.includes("signup requires a verified email")
+  ) {
+    return {
+      title: t("auth:login.errors.emailNotVerifiedTitle"),
+      description: t("auth:login.errors.emailNotVerifiedDescription")
+    };
+  }
+
+  if (
+    normalizedCode === "invalid_credentials" ||
+    normalizedMessage.includes("invalid login credentials")
+  ) {
+    return {
+      title: t("auth:login.errors.signInFailedTitle"),
+      description: t("auth:login.errors.invalidCredentialsDescription")
+    };
+  }
+
+  if (error.status === 429) {
+    return {
+      title: t("auth:login.errors.signInFailedTitle"),
+      description: t("auth:login.errors.rateLimitDescription")
+    };
+  }
+
+  if (error.message && isNetworkError(error.message)) {
+    return {
+      title: t("auth:login.errors.signInFailedTitle"),
+      description: t("auth:login.errors.networkDescription")
+    };
+  }
+
+  return {
+    title: t("auth:login.errors.signInFailedTitle"),
+    description: t("auth:login.errors.genericDescription")
+  };
+};
 
 const Login = () => {
   const navigate = useNavigate();
@@ -207,10 +247,11 @@ const Login = () => {
     });
 
     if (error) {
+      const mappedError = mapSignInError(error, t);
       toast({
         variant: "destructive",
-        title: t("auth:login.errors.signInFailedTitle"),
-        description: error.message
+        title: mappedError.title,
+        description: mappedError.description
       });
       setIsLoading(false);
       return;

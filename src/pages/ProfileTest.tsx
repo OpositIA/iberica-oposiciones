@@ -220,8 +220,8 @@ const ProfileTest = () => {
           setIsInProgressDialogOpen(true);
           return;
         }
-      } catch (error) {
-        console.error("[quick-test] check in-progress failed", error);
+      } catch {
+        return;
       }
     }
 

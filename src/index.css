@@ -225,6 +225,12 @@
   .landing-stats-marquee:hover {
     animation-play-state: paused;
   }
+
+  @media (max-width: 768px) {
+    .landing-stats-marquee {
+      animation-duration: 18s;
+    }
+  }
 }
 
 @keyframes landingFadeUp {

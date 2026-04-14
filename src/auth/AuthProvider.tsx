@@ -44,7 +44,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const isDev = import.meta.env.DEV;
 
-const authLog = (...args: unknown[]) => {
+const authLog = (..._args: unknown[]) => {
   if (!isDev) return;
 };
 
@@ -358,6 +358,12 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           if (!isMounted) return;
           setLoggedOutState();
           clearSupabaseAuthStorage();
+          const pendingGoogleRegisterError =
+            typeof window !== "undefined" &&
+            window.sessionStorage.getItem("register-google-error-v1") ===
+              "emailAlreadyExists";
+          if (pendingGoogleRegisterError) return;
+          if (window.location.pathname === "/auth/callback") return;
           if (window.location.pathname !== "/login")
             navigate("/login", { replace: true });
 
