@@ -5,6 +5,7 @@ import CustomButton from "@/components/ui/custom-button";
 import CustomDateInput from "@/components/ui/custom-date-input";
 import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
+import Reveal from "@/components/ui/reveal";
 import {
   fetchOppositionOptions,
   type OppositionOption
@@ -519,7 +520,7 @@ const Register = () => {
   return (
     <div className="flex min-h-screen bg-charcoal">
       <div className="relative hidden items-center justify-center p-16 lg:flex lg:w-1/2">
-        <div className="max-w-md">
+        <Reveal className="max-w-md" duration={720} variant="gentle">
           <Link to="/" className="mb-5 flex items-center gap-2">
             <BrandLogo className="h-60 w-auto" />
           </Link>
@@ -563,18 +564,23 @@ const Register = () => {
               );
             })}
           </div>
-        </div>
+        </Reveal>
       </div>
 
       <div className="flex w-full items-center justify-center bg-background p-8 lg:w-1/2">
-        <div className="w-full max-w-md">
+        <Reveal
+          className="w-full max-w-md"
+          delay={80}
+          duration={680}
+          variant="gentle"
+        >
           <div className="mb-10 lg:hidden">
             <Link to="/" className="mb-8 flex items-center gap-2">
               <BrandLogo className="h-4 w-auto" />
             </Link>
           </div>
 
-          <div className="mb-8">
+          <Reveal as="div" className="mb-8" duration={620} variant="gentle">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-2xl font-serif text-foreground">
                 {t("auth:register.title")}
@@ -592,223 +598,232 @@ const Register = () => {
                 style={{ width: `${progress}%` }}
               />
             </div>
-          </div>
+          </Reveal>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
-            {step === 1 && (
-              <>
-                <CustomButton
-                  type="button"
-                  styleType="ghost"
-                  className="w-full py-3.5"
-                  disabled={isLoading}
-                  onClick={handleGoogleRegister}
-                >
-                  <GoogleIcon className="h-4 w-4" />
-                  {isGoogleLoading
-                    ? t("auth:login.googleSubmitting")
-                    : t("auth:register.actions.continueWithGoogle")}
-                </CustomButton>
-
-                <div className="relative py-1">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/70" />
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="bg-background px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      {t("auth:login.orContinueWith")}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    {t("auth:register.fields.name")}
-                  </label>
-                  <CustomInput
-                    type="text"
-                    value={form.name}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                    placeholder={t("auth:register.placeholders.name")}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    {t("auth:register.fields.lastName")}
-                  </label>
-                  <CustomInput
-                    type="text"
-                    value={form.lastName}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, lastName: e.target.value }))
-                    }
-                    placeholder={t("auth:register.placeholders.lastName")}
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    {t("auth:register.fields.email")}
-                  </label>
-                  <CustomInput
-                    type="email"
-                    value={form.email}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, email: e.target.value }))
-                    }
-                    placeholder={t("auth:register.placeholders.email")}
-                    autoComplete="email"
-                    className="w-full"
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                      {t("auth:register.fields.password")}
-                    </label>
-                    <CustomInput
-                      type="password"
-                      value={form.password}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          password: e.target.value
-                        }))
-                      }
-                      placeholder={t("auth:register.placeholders.password")}
-                      autoComplete="new-password"
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                      {t("auth:register.fields.confirmPassword")}
-                    </label>
-                    <CustomInput
-                      type="password"
-                      value={form.confirmPassword}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          confirmPassword: e.target.value
-                        }))
-                      }
-                      placeholder={t(
-                        "auth:register.placeholders.confirmPassword"
-                      )}
-                      autoComplete="new-password"
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    {t("auth:register.fields.dateOfBirth")}
-                  </label>
-                  <CustomDateInput
-                    max={maxBirthDate}
-                    value={form.dateOfBirth}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        dateOfBirth: e.target.value
-                      }))
-                    }
-                    className="w-full"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    {t("auth:register.fields.preferredOpposition")}
-                  </label>
-                  <CustomSelect
-                    value={form.preferredOpposition}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        preferredOpposition: e.target.value
-                      }))
-                    }
-                    className="w-full border border-border bg-background px-4 py-3 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none"
+            <Reveal
+              key={`register-step-${step}`}
+              duration={620}
+              variant="gentle"
+            >
+              {step === 1 && (
+                <>
+                  <CustomButton
+                    type="button"
+                    styleType="ghost"
+                    className="w-full py-3.5"
+                    disabled={isLoading}
+                    onClick={handleGoogleRegister}
                   >
-                    <option value="">
-                      {t("auth:register.selectOpposition")}
-                    </option>
-                    {oppositionOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </CustomSelect>
-                </div>
-                {hasRequestedPlan && activePlan ? (
-                  <div className="rounded-[1.25rem] border border-primary/15 bg-secondary/30 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                      {t("auth:register.plan.summaryLabel")}
-                    </p>
-                    <div className="mt-2 flex items-end justify-between gap-3">
-                      <div>
-                        <p className="text-xl font-serif text-foreground">
-                          {activePlan.name}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {activePlan.description}
-                        </p>
-                      </div>
-                      <span className="text-sm font-medium text-foreground">
-                        {activePlan.priceLabel}
-                        {t("plans:pricing.perMonth")}
+                    <GoogleIcon className="h-4 w-4" />
+                    {isGoogleLoading
+                      ? t("auth:login.googleSubmitting")
+                      : t("auth:register.actions.continueWithGoogle")}
+                  </CustomButton>
+
+                  <div className="relative py-1">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border/70" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-background px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        {t("auth:login.orContinueWith")}
                       </span>
                     </div>
                   </div>
-                ) : null}
 
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={form.acceptedTerms}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        acceptedTerms: e.target.checked
-                      }))
-                    }
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs leading-relaxed text-muted-foreground">
-                    <Trans
-                      i18nKey="auth:register.fields.acceptedTerms"
-                      components={{
-                        termsLink: (
-                          <Link
-                            to="/terminos"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary"
-                          />
-                        ),
-                        privacyLink: (
-                          <Link
-                            to="/privacidad"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary"
-                          />
-                        )
-                      }}
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {t("auth:register.fields.name")}
+                    </label>
+                    <CustomInput
+                      type="text"
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, name: e.target.value }))
+                      }
+                      placeholder={t("auth:register.placeholders.name")}
+                      className="w-full"
                     />
-                  </span>
-                </label>
-              </>
-            )}
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {t("auth:register.fields.lastName")}
+                    </label>
+                    <CustomInput
+                      type="text"
+                      value={form.lastName}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          lastName: e.target.value
+                        }))
+                      }
+                      placeholder={t("auth:register.placeholders.lastName")}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {t("auth:register.fields.email")}
+                    </label>
+                    <CustomInput
+                      type="email"
+                      value={form.email}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, email: e.target.value }))
+                      }
+                      placeholder={t("auth:register.placeholders.email")}
+                      autoComplete="email"
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {t("auth:register.fields.password")}
+                      </label>
+                      <CustomInput
+                        type="password"
+                        value={form.password}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            password: e.target.value
+                          }))
+                        }
+                        placeholder={t("auth:register.placeholders.password")}
+                        autoComplete="new-password"
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {t("auth:register.fields.confirmPassword")}
+                      </label>
+                      <CustomInput
+                        type="password"
+                        value={form.confirmPassword}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            confirmPassword: e.target.value
+                          }))
+                        }
+                        placeholder={t(
+                          "auth:register.placeholders.confirmPassword"
+                        )}
+                        autoComplete="new-password"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {t("auth:register.fields.dateOfBirth")}
+                    </label>
+                    <CustomDateInput
+                      max={maxBirthDate}
+                      value={form.dateOfBirth}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          dateOfBirth: e.target.value
+                        }))
+                      }
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {t("auth:register.fields.preferredOpposition")}
+                    </label>
+                    <CustomSelect
+                      value={form.preferredOpposition}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          preferredOpposition: e.target.value
+                        }))
+                      }
+                      className="w-full border border-border bg-background px-4 py-3 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none"
+                    >
+                      <option value="">
+                        {t("auth:register.selectOpposition")}
+                      </option>
+                      {oppositionOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </CustomSelect>
+                  </div>
+                  {hasRequestedPlan && activePlan ? (
+                    <div className="rounded-[1.25rem] border border-primary/15 bg-secondary/30 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        {t("auth:register.plan.summaryLabel")}
+                      </p>
+                      <div className="mt-2 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-xl font-serif text-foreground">
+                            {activePlan.name}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {activePlan.description}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium text-foreground">
+                          {activePlan.priceLabel}
+                          {t("plans:pricing.perMonth")}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={form.acceptedTerms}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          acceptedTerms: e.target.checked
+                        }))
+                      }
+                      className="mt-0.5"
+                    />
+                    <span className="text-xs leading-relaxed text-muted-foreground">
+                      <Trans
+                        i18nKey="auth:register.fields.acceptedTerms"
+                        components={{
+                          termsLink: (
+                            <Link
+                              to="/terminos"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary"
+                            />
+                          ),
+                          privacyLink: (
+                            <Link
+                              to="/privacidad"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary"
+                            />
+                          )
+                        }}
+                      />
+                    </span>
+                  </label>
+                </>
+              )}
+            </Reveal>
 
             <div className="flex items-center justify-between gap-3 pt-2">
               <CustomButton
@@ -837,7 +852,12 @@ const Register = () => {
             </div>
           </form>
 
-          <div className="mt-8 text-center">
+          <Reveal
+            className="mt-8 text-center"
+            delay={120}
+            duration={620}
+            variant="gentle"
+          >
             <p className="text-sm text-muted-foreground">
               {t("auth:register.hasAccount")}{" "}
               <Link
@@ -847,8 +867,8 @@ const Register = () => {
                 {t("auth:register.signIn")}
               </Link>
             </p>
-          </div>
-        </div>
+          </Reveal>
+        </Reveal>
       </div>
     </div>
   );

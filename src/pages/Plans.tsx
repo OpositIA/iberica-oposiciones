@@ -1,5 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import { PlansPageSkeleton } from "@/components/PageSkeletons";
+import Reveal from "@/components/ui/reveal";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale } from "@/i18n/locales";
 import { formatPlanPriceFromCents, getPlanKey, isPaidPlan } from "@/lib/plans";
@@ -221,7 +222,12 @@ const Plans = () => {
   return (
     <div className="max-w-7xl pb-4">
       {isAuthenticated && currentPlan && (
-        <section className="mb-8 rounded-3xl border border-border/70 bg-background/95 p-6 shadow-[0_24px_60px_-45px_rgba(0,0,0,0.42)]">
+        <Reveal
+          as="section"
+          className="mb-8 rounded-3xl border border-border/70 bg-background/95 p-6 shadow-[0_24px_60px_-45px_rgba(0,0,0,0.42)]"
+          duration={780}
+          variant="soft"
+        >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -297,20 +303,24 @@ const Plans = () => {
               })}
             </div>
           )}
-        </section>
+        </Reveal>
       )}
 
       {showPlansSkeleton ? (
         <PlansPageSkeleton />
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {plans.map((plan) => {
+          {plans.map((plan, index) => {
             const isCurrentPlan = currentPlan?.plan_code === plan.code;
             const isBusy = pendingPlanCode === plan.code;
 
             return (
-              <article
+              <Reveal
+                as="article"
                 key={plan.code}
+                delay={index * 90}
+                duration={760}
+                variant={plan.featured ? "up" : "soft"}
                 className={`relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border p-6 ${
                   plan.featured
                     ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_28px_70px_-42px_rgba(15,23,42,0.82)]"
@@ -432,7 +442,7 @@ const Plans = () => {
                     </Link>
                   </CustomButton>
                 )}
-              </article>
+              </Reveal>
             );
           })}
         </div>

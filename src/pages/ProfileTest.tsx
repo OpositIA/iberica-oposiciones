@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import Reveal from "@/components/ui/reveal";
 import { Slider } from "@/components/ui/slider";
 import { type Oposicion } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
@@ -400,7 +401,12 @@ const ProfileTest = () => {
   if (!isCurrentPlanPaid) {
     return (
       <div className="space-y-4">
-        <section className={sectionClassName}>
+        <Reveal
+          as="section"
+          className={sectionClassName}
+          duration={760}
+          variant="soft"
+        >
           <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("test.badge")}
           </p>
@@ -416,9 +422,15 @@ const ProfileTest = () => {
             </span>
             <span className="text-current/80">{t("test.planSummaryFree")}</span>
           </div>
-        </section>
+        </Reveal>
 
-        <section className={sectionClassName}>
+        <Reveal
+          as="section"
+          className={sectionClassName}
+          delay={90}
+          duration={760}
+          variant="soft"
+        >
           <div className="max-w-2xl space-y-3">
             <p className="text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
               {t("testSession.badge")}
@@ -433,14 +445,19 @@ const ProfileTest = () => {
               <Link to="/perfil/planes">{t("plans:upgradeDialog.cta")}</Link>
             </CustomButton>
           </div>
-        </section>
+        </Reveal>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <section className={sectionClassName}>
+      <Reveal
+        as="section"
+        className={sectionClassName}
+        duration={760}
+        variant="soft"
+      >
         <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
           {t("test.badge")}
         </p>
@@ -468,10 +485,15 @@ const ProfileTest = () => {
               : t("test.planSummaryFree")}
           </span>
         </div>
-      </section>
+      </Reveal>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className={`${optionPanelClassName} flex h-full flex-col`}>
+        <Reveal
+          className={`${optionPanelClassName} flex h-full flex-col`}
+          delay={80}
+          duration={760}
+          variant="left"
+        >
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
@@ -496,9 +518,14 @@ const ProfileTest = () => {
           >
             {t("test.startMock")}
           </CustomButton>
-        </div>
+        </Reveal>
 
-        <div className={`${optionPanelClassName} space-y-5`}>
+        <Reveal
+          className={`${optionPanelClassName} space-y-5`}
+          delay={150}
+          duration={760}
+          variant="right"
+        >
           <div className="flex items-center gap-3">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
               <ListChecks className="h-4 w-4" />
@@ -533,7 +560,7 @@ const ProfileTest = () => {
             {t("test.launchQuickTest")}
             <ArrowRight className="h-4 w-4" />
           </CustomButton>
-        </div>
+        </Reveal>
       </section>
 
       <Dialog

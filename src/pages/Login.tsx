@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import Reveal from "@/components/ui/reveal";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -289,7 +290,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-charcoal flex">
       <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-16">
-        <div className="max-w-md">
+        <Reveal className="max-w-md" duration={700} variant="gentle">
           <Link to="/" className="flex items-center gap-2 mb-16">
             <BrandLogo className="h-60 w-auto" />
           </Link>
@@ -299,25 +300,39 @@ const Login = () => {
           <p className="text-sm text-slate-300 leading-relaxed">
             {t("auth:login.heroDescription")}
           </p>
-        </div>
+        </Reveal>
       </div>
 
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background">
-        <div className="w-full max-w-sm">
+        <Reveal
+          className="w-full max-w-sm"
+          delay={80}
+          duration={680}
+          variant="gentle"
+        >
           <div className="lg:hidden mb-10">
             <Link to="/" className="flex items-center gap-2 mb-8">
               <BrandLogo className="h-4 w-auto" />
             </Link>
           </div>
 
-          <h2 className="text-2xl font-serif text-foreground mb-2">
-            {t("auth:login.title")}
-          </h2>
-          <p className="text-sm text-muted-foreground mb-10">
-            {t("auth:login.subtitle")}
-          </p>
+          <Reveal as="div" duration={620} variant="gentle">
+            <h2 className="text-2xl font-serif text-foreground mb-2">
+              {t("auth:login.title")}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-10">
+              {t("auth:login.subtitle")}
+            </p>
+          </Reveal>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <Reveal
+            as="form"
+            className="space-y-5"
+            onSubmit={handleSubmit}
+            delay={70}
+            duration={640}
+            variant="gentle"
+          >
             <div>
               <label className="text-xs font-semibold tracking-widest uppercase text-muted-foreground block mb-2">
                 {t("auth:login.email")}
@@ -390,9 +405,14 @@ const Login = () => {
                 ? t("auth:login.googleSubmitting")
                 : t("auth:login.googleSubmit")}
             </CustomButton>
-          </form>
+          </Reveal>
 
-          <div className="mt-8 text-center">
+          <Reveal
+            className="mt-8 text-center"
+            delay={120}
+            duration={620}
+            variant="gentle"
+          >
             <p className="text-sm text-muted-foreground">
               {t("auth:login.noAccount")}{" "}
               <Link
@@ -402,8 +422,8 @@ const Login = () => {
                 {t("auth:login.registerFree")}
               </Link>
             </p>
-          </div>
-        </div>
+          </Reveal>
+        </Reveal>
       </div>
 
       <Dialog

@@ -2,6 +2,7 @@ import heroImage from "@/assets/hero-image.jpg";
 import methodologyImage from "@/assets/methodology-image.jpg";
 import CookieConsentManager from "@/components/CookieConsentManager";
 import CustomButton from "@/components/ui/custom-button";
+import Reveal from "@/components/ui/reveal";
 import { ArrowRight, BarChart3, BookOpen, Scale, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -107,29 +108,55 @@ const Index = () => {
         <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-[1400px] flex-col justify-center px-6 md:px-12 lg:px-20">
           <div className="pb-16 pt-24 md:pb-20 md:pt-28">
             {/* Badge */}
-            <div className="landing-fade-up mb-6">
+            <Reveal
+              className="mb-6"
+              delay={40}
+              duration={860}
+              threshold={0}
+              variant="soft"
+            >
               <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70 backdrop-blur-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 {t("hero.badge")}
               </span>
-            </div>
+            </Reveal>
 
             {/* Title */}
-            <h1 className="landing-fade-up-delay-1 max-w-4xl text-4xl font-display leading-[0.98] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem]">
+            <Reveal
+              as="h1"
+              className="max-w-4xl text-4xl font-display leading-[0.98] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem]"
+              delay={120}
+              duration={940}
+              threshold={0}
+              variant="up"
+            >
               {t("hero.titleMain")}
               <br />
               <span className="italic text-primary">
                 {t("hero.titleAccent")}
               </span>
-            </h1>
+            </Reveal>
 
             {/* Description */}
-            <p className="landing-fade-up-delay-2 mt-6 max-w-md text-sm leading-7 text-white/52 md:text-[15px]">
+            <Reveal
+              as="p"
+              className="mt-6 max-w-md text-sm leading-7 text-white/52 md:text-[15px]"
+              delay={220}
+              duration={820}
+              threshold={0}
+              variant="soft"
+            >
               {t("hero.description")}
-            </p>
+            </Reveal>
 
             {/* CTAs */}
-            <div className="landing-fade-up-delay-3 mt-8 flex flex-wrap gap-3">
+            <Reveal
+              className="mt-8 flex flex-wrap gap-3"
+              delay={320}
+              duration={820}
+              threshold={0}
+              variant="soft"
+            >
               <CustomButton
                 asChild
                 styleType="primary"
@@ -149,10 +176,16 @@ const Index = () => {
               >
                 <Link to="/planes">{t("hero.ctaPlans")}</Link>
               </CustomButton>
-            </div>
+            </Reveal>
 
             {/* Inline stats */}
-            <div className="landing-fade-up-delay-4 mt-12 flex flex-wrap gap-x-8 gap-y-3">
+            <Reveal
+              className="mt-12 flex flex-wrap gap-x-8 gap-y-3"
+              delay={400}
+              duration={860}
+              threshold={0}
+              variant="soft"
+            >
               {stats.slice(0, 3).map((stat) => (
                 <div key={stat.label} className="flex items-baseline gap-2">
                   <span className="text-xl font-display text-white md:text-2xl">
@@ -163,7 +196,7 @@ const Index = () => {
                   </span>
                 </div>
               ))}
-            </div>
+            </Reveal>
           </div>
         </div>
 
@@ -172,7 +205,14 @@ const Index = () => {
       </section>
 
       {/* ── STATS MARQUEE ── */}
-      <section className="overflow-hidden border-y border-border bg-background py-4">
+      <Reveal
+        as="section"
+        className="overflow-hidden border-y border-border bg-background py-4"
+        delay={60}
+        duration={720}
+        rootMargin="0px 0px -8% 0px"
+        variant="soft"
+      >
         <div className="flex landing-stats-marquee">
           {[...stats, ...stats, ...stats, ...stats].map((stat, i) => (
             <div
@@ -189,12 +229,16 @@ const Index = () => {
             </div>
           ))}
         </div>
-      </section>
+      </Reveal>
 
       {/* ── SPECIALIZATIONS ── */}
       <section className="landing-gradient-bg py-20 md:py-24">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20">
-          <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <Reveal
+            className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between"
+            duration={780}
+            variant="soft"
+          >
             <div>
               <p className="text-xs font-semibold tracking-[0.3em] uppercase text-primary mb-3">
                 {t("specializations.sector", { num: "—" })
@@ -208,14 +252,17 @@ const Index = () => {
                 {t("specializations.description")}
               </p>
             </div>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {sectors.map((sector) => {
+            {sectors.map((sector, index) => {
               const Icon = sector.icon;
               return (
-                <div
+                <Reveal
                   key={sector.id}
+                  delay={index * 90}
+                  duration={760}
+                  variant="soft"
                   className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all duration-500 hover:border-primary/40 hover:shadow-[0_20px_60px_-20px_hsl(var(--primary)/0.15)]"
                 >
                   {/* Hover glow */}
@@ -241,7 +288,7 @@ const Index = () => {
                       <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
-                </div>
+                </Reveal>
               );
             })}
           </div>
@@ -252,7 +299,7 @@ const Index = () => {
       <section className="overflow-hidden bg-charcoal text-white">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20 py-20 md:py-24">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-18">
-            <div>
+            <Reveal variant="left" duration={820}>
               <p className="text-xs font-semibold tracking-[0.3em] uppercase text-primary mb-6">
                 {t("methodology.badge")}
               </p>
@@ -293,9 +340,14 @@ const Index = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </Reveal>
 
-            <div className="relative">
+            <Reveal
+              className="relative"
+              delay={120}
+              duration={860}
+              variant="right"
+            >
               <div className="relative rounded-2xl overflow-hidden">
                 <img
                   src={methodologyImage}
@@ -321,7 +373,7 @@ const Index = () => {
                   {t("methodology.quoteAuthor")}
                 </p>
               </div>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -329,16 +381,19 @@ const Index = () => {
       {/* ── TESTIMONIALS ── */}
       <section className="bg-background py-20 md:py-24">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20">
-          <div className="mb-12">
+          <Reveal as="div" className="mb-12" duration={760} variant="soft">
             <h2 className="text-3xl font-display leading-[1.08] text-foreground md:text-4xl lg:text-5xl">
               {t("testimonials.title")}
             </h2>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {testimonials.map((testimonial, i) => (
-              <div
+              <Reveal
                 key={testimonial.id}
+                delay={i * 110}
+                duration={760}
+                variant="soft"
                 className={`relative rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 md:p-7 ${
                   i === 1
                     ? "bg-charcoal text-white border-charcoal"
@@ -392,7 +447,7 @@ const Index = () => {
                     </p>
                   </div>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -403,7 +458,11 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-charcoal via-charcoal to-[hsl(var(--primary)/0.15)]" />
         <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-primary/10 blur-[150px] pointer-events-none" />
 
-        <div className="relative mx-auto max-w-[1400px] px-6 py-20 text-center md:px-12 md:py-24 lg:px-20">
+        <Reveal
+          className="relative mx-auto max-w-[1400px] px-6 py-20 text-center md:px-12 md:py-24 lg:px-20"
+          duration={860}
+          variant="soft"
+        >
           <h2 className="mx-auto mb-5 max-w-3xl text-3xl font-display italic leading-[1.08] text-white md:text-4xl lg:text-5xl">
             {t("cta.title")}
           </h2>
@@ -431,7 +490,7 @@ const Index = () => {
               <Link to="/planes">{t("cta.pricing")}</Link>
             </CustomButton>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <Footer

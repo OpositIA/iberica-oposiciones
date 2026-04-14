@@ -1,6 +1,8 @@
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import CustomButton from "@/components/ui/custom-button";
+import Reveal from "@/components/ui/reveal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeLocale } from "@/i18n/locales";
 import { formatPlanPriceFromCents, getPlanKey } from "@/lib/plans";
 import { usePublicSubscriptionPlansQuery } from "@/queries/subscriptionQueries";
@@ -8,6 +10,90 @@ import { ArrowRight, CheckCircle2, Crown } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+
+const PublicPlanCardSkeleton = ({ featured }: { featured?: boolean }) => (
+  <article
+    className={`relative flex min-h-[430px] flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
+      featured
+        ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
+        : "border-foreground/15 bg-background/88 shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
+    }`}
+  >
+    {featured ? (
+      <>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
+        <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute right-4 top-4">
+          <Skeleton className="h-6 w-24 rounded-full bg-primary-foreground/14" />
+        </div>
+      </>
+    ) : (
+      <div className="pointer-events-none absolute -left-8 top-0 h-24 w-24 rounded-full bg-primary/8 blur-3xl dark:bg-primary/10" />
+    )}
+
+    <div className="max-w-sm">
+      <Skeleton
+        className={`h-3 w-24 rounded-full ${
+          featured ? "bg-primary-foreground/16" : "bg-muted-foreground/16"
+        }`}
+      />
+      <Skeleton
+        className={`mt-3 h-9 w-40 rounded-2xl ${
+          featured ? "bg-primary-foreground/18" : "bg-muted-foreground/14"
+        }`}
+      />
+      <div className="mt-3 flex items-end gap-2">
+        <Skeleton
+          className={`h-10 w-28 rounded-2xl ${
+            featured ? "bg-primary-foreground/18" : "bg-muted-foreground/14"
+          }`}
+        />
+        <Skeleton
+          className={`mb-1 h-3 w-16 rounded-full ${
+            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+          }`}
+        />
+      </div>
+      <div className="mt-4 space-y-2.5">
+        <Skeleton
+          className={`h-4 w-full rounded-full ${
+            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+          }`}
+        />
+        <Skeleton
+          className={`h-4 w-10/12 rounded-full ${
+            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+          }`}
+        />
+      </div>
+    </div>
+
+    <div className="mt-6 flex-1 space-y-2.5 border-t border-current/12 pt-5">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="flex items-start gap-2.5">
+          <Skeleton
+            className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full ${
+              featured ? "bg-primary/40" : "bg-primary/18"
+            }`}
+          />
+          <Skeleton
+            className={`h-4 rounded-full ${
+              index === 3 ? "w-7/12" : index === 2 ? "w-9/12" : "w-11/12"
+            } ${
+              featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+            }`}
+          />
+        </div>
+      ))}
+    </div>
+
+    <Skeleton
+      className={`mt-6 h-10 w-full rounded-xl ${
+        featured ? "bg-primary/70" : "bg-muted-foreground/12"
+      }`}
+    />
+  </article>
+);
 
 const PublicPlans = () => {
   const { t, i18n } = useTranslation("plans");
@@ -56,7 +142,12 @@ const PublicPlans = () => {
         <Navbar />
 
         <div className="relative mx-auto max-w-6xl px-6 pb-8 pt-24 md:px-8">
-          <div className="max-w-2xl">
+          <Reveal
+            className="max-w-2xl"
+            duration={760}
+            threshold={0}
+            variant="gentle"
+          >
             <p className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
               {t("public.badge")}
             </p>
@@ -66,7 +157,7 @@ const PublicPlans = () => {
             <p className="mt-3 max-w-xl text-sm leading-7 text-primary-foreground/70">
               {t("public.description")}
             </p>
-          </div>
+          </Reveal>
         </div>
       </div>
 
@@ -74,16 +165,17 @@ const PublicPlans = () => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {isLoadingPublicPlans &&
             Array.from({ length: 2 }).map((_, index) => (
-              <div
-                key={index}
-                className="min-h-[280px] rounded-2xl border border-border/70 bg-background/80 p-6"
-              />
+              <PublicPlanCardSkeleton key={index} featured={index === 1} />
             ))}
 
           {!isLoadingPublicPlans &&
-            plans.map((plan) => (
-              <article
+            plans.map((plan, index) => (
+              <Reveal
+                as="article"
                 key={plan.code}
+                delay={index * 90}
+                duration={760}
+                variant={plan.featured ? "up" : "gentle"}
                 className={`relative flex flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
                   plan.featured
                     ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] text-primary-foreground shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
@@ -159,7 +251,7 @@ const PublicPlans = () => {
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </CustomButton>
-              </article>
+              </Reveal>
             ))}
         </div>
       </div>
