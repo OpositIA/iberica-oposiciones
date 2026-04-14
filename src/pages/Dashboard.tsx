@@ -215,7 +215,10 @@ const Dashboard = () => {
       : ["quick-tests", "dashboard-bundle", "guest"],
     queryFn: () => fetchQuickTestsDashboardBundle(user?.id as string),
     enabled: Boolean(user?.id),
-    staleTime: 30_000
+    staleTime: 30_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false
   });
   const quickTestStats = dashboardBundle?.stats;
   const inProgressQuickTest = dashboardBundle?.inProgress ?? null;

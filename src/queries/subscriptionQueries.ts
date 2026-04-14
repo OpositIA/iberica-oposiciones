@@ -30,7 +30,9 @@ const getAuthCallbackRedirectUrl = () => {
 export const subscriptionQueryConfig = {
   staleTime: SUBSCRIPTION_QUERY_STALE_MS,
   gcTime: SUBSCRIPTION_QUERY_GC_MS,
-  refetchOnMount: "always" as const
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false
 };
 
 export const subscriptionQueryKeys = {

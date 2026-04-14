@@ -573,6 +573,7 @@ const AssistantIA = () => {
   const bootstrappedUserIdRef = useRef<string | null>(null);
   const lastLoadedConversationIdRef = useRef<string | null>(null);
   const loadMessagesRequestIdRef = useRef(0);
+  const loadedDailyUsageUserIdRef = useRef<string | null>(null);
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const intlLocale = toIntlLocale(locale);
@@ -801,10 +802,10 @@ const AssistantIA = () => {
 
   const refreshDailyUsage = useCallback(
     async (userId: string) => {
+      if (loadedDailyUsageUserIdRef.current === userId) return;
+
+      loadedDailyUsageUserIdRef.current = userId;
       setIsLoadingDailyUsage(true);
-      await queryClient.invalidateQueries({
-        queryKey: assistantQueryKeys.dailyQuota(userId)
-      });
       try {
         const row = await queryClient.fetchQuery({
           queryKey: assistantQueryKeys.dailyQuota(userId),
@@ -827,6 +828,7 @@ const AssistantIA = () => {
         setDailyUsedRequests(normalizedQuota.used);
         setIsLoadingDailyUsage(false);
       } catch {
+        loadedDailyUsageUserIdRef.current = null;
         setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
         setIsLoadingDailyUsage(false);
         return;
@@ -1069,6 +1071,7 @@ const AssistantIA = () => {
       loadMessagesRequestIdRef.current += 1;
       bootstrappedUserIdRef.current = null;
       lastLoadedConversationIdRef.current = null;
+      loadedDailyUsageUserIdRef.current = null;
       setConversations([]);
       setActiveConversationId(null);
       setMensajes([]);
