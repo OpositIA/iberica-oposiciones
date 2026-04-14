@@ -7,6 +7,7 @@
       "freeTests": "Test gratis"
     },
     "account": "Mi cuenta",
+    "registerNow": "Registrate ahora",
     "login": "Iniciar sesión",
     "freeMonth": "Mes gratis"
   },
@@ -94,7 +95,7 @@
     "pricing": "Consultar Tarifas"
   },
   "footer": {
-    "description": "Referente europeo en tecnología aplicada al estudio opositor. Rigor, elegancia y resultados desde 2012.",
+    "description": "Referente europeo en tecnología aplicada al estudio opositor. Rigor, elegancia y resultados desde 2026.",
     "company": "Compañía",
     "companyLinks": {
       "about": "Nosotros",
@@ -164,5 +165,11 @@
       }
     }
   },
-  "heroImageAlt": "Hero"
+  "heroImageAlt": "Hero",
+  "seo": {
+    "home": {
+      "title": "Preparacion de oposiciones con IA y test online",
+      "description": "Prepara oposiciones con simuladores, test online y apoyo con IA. Accede a una plataforma pensada para estudiar con mas foco y continuidad."
+    }
+  }
 }

@@ -9,7 +9,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { isPaidPlan } from "@/lib/plans";
-import { applyTheme, getStoredTheme, type AppTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
@@ -19,10 +18,8 @@ import {
   LayoutDashboard,
   LifeBuoy,
   LogOut,
-  Moon,
   NotebookText,
   Sparkles,
-  Sun,
   TimerReset
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -46,7 +43,6 @@ const UserActionsDropdown = ({
   const { forceLogout, profile, user, isAuthenticated } = useAuth();
   const { data: planState } = useUserPlanStateQuery(user?.id);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [theme, setTheme] = useState<AppTheme>(() => getStoredTheme());
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const avatarUrl =
     profile?.avatarUrl ||
@@ -68,12 +64,6 @@ const UserActionsDropdown = ({
   }, [profile, t]);
 
   if (!isAuthenticated) return null;
-
-  const handleToggleTheme = () => {
-    const nextTheme: AppTheme = theme === "dark" ? "light" : "dark";
-    applyTheme(nextTheme);
-    setTheme(nextTheme);
-  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -198,21 +188,6 @@ const UserActionsDropdown = ({
             {t("profile:layout.accountMenu.reopenTour")}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem
-          className={dropdownActionClassName}
-          onClick={handleToggleTheme}
-        >
-          {theme === "dark" ? (
-            <Sun className="mr-2 h-4 w-4" />
-          ) : (
-            <Moon className="mr-2 h-4 w-4" />
-          )}
-          {theme === "dark"
-            ? t("profile:layout.theme.activateLight")
-            : t("profile:layout.theme.activateDark")}
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => void handleSignOut()}
           disabled={isSigningOut}

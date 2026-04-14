@@ -1,8 +1,10 @@
 export type AppTheme = "dark" | "light";
 
 const THEME_STORAGE_KEY = "study-theme";
+const FIRST_LOGIN_THEME_STORAGE_PREFIX = "study-theme-first-login";
 const ACCENT_COLOR_STORAGE_KEY = "study-accent-color";
 const DEFAULT_ACCENT_COLOR = "#ff7700";
+const FIRST_LOGIN_THEME_THRESHOLD_MS = 60_000;
 
 const HEX_COLOR_REGEX = /^#?[0-9a-f]{6}$/i;
 
@@ -94,6 +96,45 @@ export const applyTheme = (theme: AppTheme) => {
   root.classList.toggle("dark", theme === "dark");
   root.style.colorScheme = theme;
   window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+};
+
+const isFirstSignIn = (
+  createdAt?: string | null,
+  lastSignInAt?: string | null
+) => {
+  const createdAtMs = Date.parse(createdAt ?? "");
+  const lastSignInAtMs = Date.parse(lastSignInAt ?? "");
+
+  if (!Number.isFinite(createdAtMs) || !Number.isFinite(lastSignInAtMs))
+    return false;
+
+  return (
+    Math.abs(lastSignInAtMs - createdAtMs) <= FIRST_LOGIN_THEME_THRESHOLD_MS
+  );
+};
+
+export const applyLightThemeOnFirstLogin = ({
+  userId,
+  createdAt,
+  lastSignInAt
+}: {
+  userId?: string;
+  createdAt?: string | null;
+  lastSignInAt?: string | null;
+}) => {
+  if (typeof window === "undefined" || !userId) return;
+  if (!isFirstSignIn(createdAt, lastSignInAt)) return;
+
+  const storageKey = `${FIRST_LOGIN_THEME_STORAGE_PREFIX}:${userId}`;
+  if (window.localStorage.getItem(storageKey) === "1") return;
+
+  applyTheme("light");
+  window.localStorage.setItem(storageKey, "1");
+};
+
+export const applyDarkThemeForLoggedOutLanding = () => {
+  if (typeof window === "undefined") return;
+  applyTheme("dark");
 };
 
 export const initializeTheme = (): AppTheme => {

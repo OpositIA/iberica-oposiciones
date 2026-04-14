@@ -37,6 +37,20 @@
   "status": {
     "validatingSession": "Validating session..."
   },
+  "seo": {
+    "privateArea": {
+      "title": "Private area",
+      "description": "Private user area. This page is not intended for public indexing."
+    },
+    "secureAccess": {
+      "title": "Secure access",
+      "description": "Secure access and account verification flow."
+    },
+    "notFound": {
+      "title": "Page not found",
+      "description": "The requested page is not available."
+    }
+  },
   "meta": {
     "version": "Version"
   }

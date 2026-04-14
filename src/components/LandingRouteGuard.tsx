@@ -1,16 +1,32 @@
 import { useAuth } from "@/auth/AuthProvider";
 import AppLoading from "@/components/AppLoading";
-import { ReactNode } from "react";
+import { hasOngoingGoogleRegisterFlow } from "@/lib/registerFlow";
+import { applyDarkThemeForLoggedOutLanding } from "@/lib/theme";
+import { ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 type LandingRouteGuardProps = {
   children: ReactNode;
 };
 
 const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
+  const location = useLocation();
   const { t } = useTranslation("common");
   const { isAuthReady, isAuthenticated } = useAuth();
+  const allowsGoogleRegister =
+    location.pathname.startsWith("/registro") && hasOngoingGoogleRegisterFlow();
+  const allowsGoogleRegisterError =
+    location.pathname.startsWith("/registro") &&
+    new URLSearchParams(location.search).get("google_error") ===
+      "emailAlreadyExists";
+  const allowsRegisterAccess =
+    allowsGoogleRegister || allowsGoogleRegisterError;
+
+  useEffect(() => {
+    if (!isAuthReady || isAuthenticated) return;
+    applyDarkThemeForLoggedOutLanding();
+  }, [isAuthReady, isAuthenticated]);
 
   if (!isAuthReady) {
     return (
@@ -18,7 +34,8 @@ const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
     );
   }
 
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated && !allowsRegisterAccess)
+    return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 };

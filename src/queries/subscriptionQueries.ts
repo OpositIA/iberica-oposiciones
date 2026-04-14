@@ -22,10 +22,17 @@ const normalizeInt = (value: unknown, fallback = 0) =>
     ? Math.max(0, Math.floor(value))
     : fallback;
 
+const getAuthCallbackRedirectUrl = () => {
+  if (typeof window === "undefined") return "";
+  return new URL("/auth/callback", window.location.origin).toString();
+};
+
 export const subscriptionQueryConfig = {
   staleTime: SUBSCRIPTION_QUERY_STALE_MS,
   gcTime: SUBSCRIPTION_QUERY_GC_MS,
-  refetchOnMount: "always" as const
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false
 };
 
 export const subscriptionQueryKeys = {
@@ -229,8 +236,16 @@ export const fetchUserPlanState = async (
   userId: string,
   timezone = resolveTimezone()
 ): Promise<UserPlanStateRow | null> => {
+  const normalizedUserId = sanitizeCode(userId, 80);
+  if (!normalizedUserId) return null;
+
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+
   const { data, error } = await supabase.rpc("get_user_plan_state", {
-    p_user_id: userId,
+    p_user_id: normalizedUserId,
     p_tz: timezone
   });
 
@@ -449,7 +464,8 @@ export const createPublicStripeCheckoutSession = async ({
 export const completePaidSignupAfterCheckout = async ({
   sessionId,
   form,
-  locale
+  locale,
+  emailRedirectTo = getAuthCallbackRedirectUrl()
 }: {
   sessionId: string;
   form: {
@@ -461,6 +477,7 @@ export const completePaidSignupAfterCheckout = async ({
     preferredOpposition: string;
   };
   locale: string;
+  emailRedirectTo?: string;
 }) => {
   const { data, error } =
     await supabase.functions.invoke<CompletePaidSignupResponse>(
@@ -474,7 +491,8 @@ export const completePaidSignupAfterCheckout = async ({
           email: sanitizeSingleLineText(form.email, 180),
           password: typeof form.password === "string" ? form.password : "",
           date_of_birth: sanitizeSingleLineText(form.dateOfBirth, 20),
-          preferred_opposition_id: sanitizeCode(form.preferredOpposition, 120)
+          preferred_opposition_id: sanitizeCode(form.preferredOpposition, 120),
+          email_redirect_to: sanitizeSingleLineText(emailRedirectTo, 240)
         }
       }
     );
@@ -514,7 +532,8 @@ export const completePaidSignupAfterCheckout = async ({
 
 export const completeFreeSignup = async ({
   form,
-  locale
+  locale,
+  emailRedirectTo = getAuthCallbackRedirectUrl()
 }: {
   form: {
     name: string;
@@ -525,6 +544,7 @@ export const completeFreeSignup = async ({
     preferredOpposition: string;
   };
   locale: string;
+  emailRedirectTo?: string;
 }) => {
   const { data, error } =
     await supabase.functions.invoke<CompleteFreeSignupResponse>(
@@ -537,7 +557,8 @@ export const completeFreeSignup = async ({
           email: sanitizeSingleLineText(form.email, 180),
           password: typeof form.password === "string" ? form.password : "",
           date_of_birth: sanitizeSingleLineText(form.dateOfBirth, 20),
-          preferred_opposition_id: sanitizeCode(form.preferredOpposition, 120)
+          preferred_opposition_id: sanitizeCode(form.preferredOpposition, 120),
+          email_redirect_to: sanitizeSingleLineText(emailRedirectTo, 240)
         }
       }
     );

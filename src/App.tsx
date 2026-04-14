@@ -10,8 +10,13 @@ import LandingRouteGuard from "./components/LandingRouteGuard";
 import PlanRequiredRoute from "./components/PlanRequiredRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
+import SeoManager from "./components/SeoManager";
 import AssistantIA from "./pages/AssistantIA";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
+import FooterAbout from "./pages/FooterAbout";
+import FooterPrivacy from "./pages/FooterPrivacy";
+import FooterTerms from "./pages/FooterTerms";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import MiPerfil from "./pages/MiPerfil";
@@ -23,6 +28,7 @@ import ProfileQuickTestSession from "./pages/ProfileQuickTestSession";
 import ProfileStudy from "./pages/ProfileStudy";
 import ProfileTemario from "./pages/ProfileTemario";
 import ProfileTest from "./pages/ProfileTest";
+import PublicFaq from "./pages/PublicFaq";
 import PublicPlans from "./pages/PublicPlans";
 import Register from "./pages/Register";
 import RegisterCheckoutSuccess from "./pages/RegisterCheckoutSuccess";
@@ -59,6 +65,7 @@ const App = () => (
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
         <AuthProvider>
+          <SeoManager />
           <ScrollToTop />
           <Routes>
             <Route
@@ -78,6 +85,7 @@ const App = () => (
               }
             />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route
               path="/registro"
               element={
@@ -103,10 +111,46 @@ const App = () => (
               }
             />
             <Route
+              path="/preguntas-frecuentes"
+              element={
+                <LandingRouteGuard>
+                  <PublicFaq />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/faq"
+              element={<Navigate to="/preguntas-frecuentes" replace />}
+            />
+            <Route
               path="/planes"
               element={
                 <LandingRouteGuard>
                   <PublicPlans />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/terminos"
+              element={
+                <LandingRouteGuard>
+                  <FooterTerms />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/privacidad"
+              element={
+                <LandingRouteGuard>
+                  <FooterPrivacy />
+                </LandingRouteGuard>
+              }
+            />
+            <Route
+              path="/sobre-nosotros"
+              element={
+                <LandingRouteGuard>
+                  <FooterAbout />
                 </LandingRouteGuard>
               }
             />

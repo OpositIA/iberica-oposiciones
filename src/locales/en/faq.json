@@ -1,0 +1,35 @@
+{
+  "hero": {
+    "badge": "Frequently asked questions",
+    "title": "Clear answers to make better decisions about exam prep with AI",
+    "description": "We gathered the most common questions about access, billing, tests, progress, and AI into one public guide. This page is designed to answer real questions before you waste time hunting for scattered information.",
+    "stats": {
+      "categories": "Categories",
+      "questions": "Answers",
+      "updated": "Approach",
+      "updatedValue": "Continuously reviewed"
+    }
+  },
+  "intro": {
+    "eyebrow": "Public guide",
+    "title": "A useful, direct answer base built around real search intent",
+    "description": "This is not filler content. The FAQ explains how the platform works, what to expect from the study experience, and when it makes sense to contact support or review content more carefully."
+  },
+  "trust": {
+    "title": "Structured for both SEO and AI answer engines",
+    "description": "Each section answers a concrete intent, uses plain language, and keeps a format that is easy to parse for traditional search and AI-driven response systems."
+  },
+  "cta": {
+    "eyebrow": "Next step",
+    "title": "Once the basics are clear, the next step is to start practicing",
+    "description": "Explore the plans or create your account to access tests, progress tracking, and AI-assisted help inside the platform.",
+    "primary": "Create account",
+    "secondary": "View plans"
+  },
+  "seo": {
+    "page": {
+      "title": "Frequently asked questions about exam prep, AI, and online tests",
+      "description": "Read frequently asked questions about access, subscriptions, tests, progress, and AI in Iberica Oposiciones. A public guide built to answer real concerns."
+    }
+  }
+}

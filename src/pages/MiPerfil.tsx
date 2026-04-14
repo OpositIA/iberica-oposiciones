@@ -1,6 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
-import AppLoading from "@/components/AppLoading";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import { MyProfilePageSkeleton } from "@/components/PageSkeletons";
 import CustomButton from "@/components/ui/custom-button";
 import CustomDateInput from "@/components/ui/custom-date-input";
 import CustomInput from "@/components/ui/custom-input";
@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import Reveal from "@/components/ui/reveal";
 import { resolveOppositionNameById } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
@@ -582,12 +583,16 @@ const MiPerfil = () => {
     }
   };
 
-  if (isLoadingProfile)
-    return <AppLoading label={t("profile:myProfile.loading")} />;
+  if (isLoadingProfile) return <MyProfilePageSkeleton />;
 
   return (
     <div className="space-y-6">
-      <section className={sectionClassName}>
+      <Reveal
+        as="section"
+        className={sectionClassName}
+        duration={760}
+        variant="soft"
+      >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="flex items-start gap-4">
             <div className="shrink-0">
@@ -688,9 +693,15 @@ const MiPerfil = () => {
               : t("profile:myProfile.save")}
           </CustomButton>
         </div>
-      </section>
+      </Reveal>
 
-      <section className={sectionClassName}>
+      <Reveal
+        as="section"
+        className={sectionClassName}
+        delay={80}
+        duration={760}
+        variant="soft"
+      >
         <div className="mb-5">
           <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.dataSection.badge")}
@@ -769,9 +780,15 @@ const MiPerfil = () => {
             />
           </div>
         </div>
-      </section>
+      </Reveal>
 
-      <section className={sectionClassName}>
+      <Reveal
+        as="section"
+        className={sectionClassName}
+        delay={140}
+        duration={760}
+        variant="soft"
+      >
         <div className="mb-5">
           <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.oppositionSection.badge")}
@@ -830,9 +847,15 @@ const MiPerfil = () => {
               : t("profile:myProfile.oppositionSection.change")}
           </CustomButton>
         </div>
-      </section>
+      </Reveal>
 
-      <section className={sectionClassName}>
+      <Reveal
+        as="section"
+        className={sectionClassName}
+        delay={200}
+        duration={760}
+        variant="soft"
+      >
         <div className="mb-5">
           <p className="mb-1 text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
             {t("profile:myProfile.paymentSection.badge")}
@@ -882,7 +905,7 @@ const MiPerfil = () => {
             </CustomButton>
           )}
         </div>
-      </section>
+      </Reveal>
 
       <ConfirmActionDialog
         open={isOppositionDialogOpen}

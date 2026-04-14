@@ -1,14 +1,11 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /perfil/
+Disallow: /registro
+Disallow: /reset-password
+Disallow: /seleccion-plan
+
+Sitemap: https://ibericaoposiciones.com/sitemap.xml

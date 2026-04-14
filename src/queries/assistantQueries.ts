@@ -7,7 +7,9 @@ const ASSISTANT_QUERY_GC_MS = 15 * 60 * 1000;
 export const assistantQueryConfig = {
   staleTime: ASSISTANT_QUERY_STALE_MS,
   gcTime: ASSISTANT_QUERY_GC_MS,
-  refetchOnMount: "always" as const
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false
 };
 
 export const assistantQueryKeys = {

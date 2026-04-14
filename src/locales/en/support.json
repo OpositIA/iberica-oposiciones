@@ -270,12 +270,12 @@
         },
         "context": {
           "label": "Context",
-          "helper": "Example: test 8421, Premium payment, syllabus access, or a specific screen.",
+          "helper": "",
           "placeholder": "Short reference to locate the case"
         },
         "message": {
           "label": "Message",
-          "helper": "Describe the issue with enough detail to reproduce or review it.",
+          "helper": "",
           "placeholder": "Tell us what happened and what you need us to review."
         }
       },

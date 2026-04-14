@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import { DashboardPageSkeleton } from "@/components/PageSkeletons";
 import {
   ChartContainer,
   ChartTooltip,
@@ -6,6 +7,7 @@ import {
   type ChartConfig
 } from "@/components/ui/chart";
 import CustomButton from "@/components/ui/custom-button";
+import Reveal from "@/components/ui/reveal";
 import { isPaidPlan } from "@/lib/plans";
 import { WORKSPACE_TOUR_TARGETS } from "@/lib/workspaceTour";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
@@ -136,7 +138,8 @@ const DashboardKpiCard = ({
   toneClassName,
   value
 }: DashboardKpiCardProps) => (
-  <article
+  <Reveal
+    as="article"
     className={`${basePanelClassName} group relative h-full overflow-hidden px-5 py-4 md:px-6 md:py-5`}
   >
     <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
@@ -163,7 +166,7 @@ const DashboardKpiCard = ({
     </div>
 
     <p className="mt-4 text-xs leading-5 text-muted-foreground">{helper}</p>
-  </article>
+  </Reveal>
 );
 
 const DashboardEmptyState = ({
@@ -212,7 +215,10 @@ const Dashboard = () => {
       : ["quick-tests", "dashboard-bundle", "guest"],
     queryFn: () => fetchQuickTestsDashboardBundle(user?.id as string),
     enabled: Boolean(user?.id),
-    staleTime: 30_000
+    staleTime: 30_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false
   });
   const quickTestStats = dashboardBundle?.stats;
   const inProgressQuickTest = dashboardBundle?.inProgress ?? null;
@@ -403,11 +409,16 @@ const Dashboard = () => {
     }
   ];
 
+  if (isHistoryLoading && !dashboardBundle) return <DashboardPageSkeleton />;
+
   return (
     <div className="space-y-6">
-      <section
+      <Reveal
+        as="section"
         className={`${basePanelClassName} relative overflow-hidden bg-gradient-to-br from-primary/[0.08] via-background to-background p-6 md:p-8 dark:from-primary/[0.14] dark:via-card dark:to-card`}
         data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardHero}
+        duration={820}
+        variant="soft"
       >
         <div className="pointer-events-none absolute -left-12 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
         <div className="pointer-events-none absolute bottom-0 right-0 h-48 w-48 rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
@@ -451,21 +462,33 @@ const Dashboard = () => {
             )}
           </div>
         </div>
-      </section>
+      </Reveal>
 
-      <section
+      <Reveal
+        as="section"
         className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
         data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardMetrics}
+        delay={80}
+        duration={760}
+        variant="soft"
       >
         {kpiCards.map((card) => (
           <DashboardKpiCard key={card.title} {...card} />
         ))}
-      </section>
+      </Reveal>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 xl:items-start">
-        <article
+      <Reveal
+        as="section"
+        className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 xl:items-start"
+        delay={120}
+        duration={780}
+        variant="soft"
+      >
+        <Reveal
+          as="article"
           className={`${basePanelClassName} overflow-hidden p-5 md:p-6 xl:col-span-7`}
           data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardPerformance}
+          variant="left"
         >
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -600,10 +623,13 @@ const Dashboard = () => {
               title={t("charts.performance.emptyTitle")}
             />
           )}
-        </article>
+        </Reveal>
 
-        <article
+        <Reveal
+          as="article"
           className={`${basePanelClassName} overflow-hidden p-5 md:p-6 xl:col-span-5`}
+          delay={90}
+          variant="right"
         >
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -715,10 +741,13 @@ const Dashboard = () => {
               title={t("charts.accuracy.emptyTitle")}
             />
           )}
-        </article>
+        </Reveal>
 
-        <article
+        <Reveal
+          as="article"
           className={`${basePanelClassName} overflow-hidden p-5 md:p-6 md:col-span-2 xl:col-span-12`}
+          delay={160}
+          variant="soft"
         >
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -839,12 +868,16 @@ const Dashboard = () => {
               title={t("charts.distribution.emptyTitle")}
             />
           )}
-        </article>
-      </section>
+        </Reveal>
+      </Reveal>
 
-      <section
+      <Reveal
+        as="section"
         className={`${basePanelClassName} overflow-hidden p-5 md:p-6`}
         data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardHistory}
+        delay={180}
+        duration={780}
+        variant="soft"
       >
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -985,7 +1018,7 @@ const Dashboard = () => {
             {t("history.loadingMore")}
           </p>
         ) : null}
-      </section>
+      </Reveal>
     </div>
   );
 };

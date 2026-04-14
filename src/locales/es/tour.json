@@ -9,29 +9,25 @@
     "close": "Cerrar tour"
   },
   "steps": {
-    "navigation": {
-      "title": "Tu espacio principal siempre a mano",
-      "description": "Desde esta navegacion accedes rapidamente a dashboard, IA, test, temario y Pomodoro. En movil se concentra en el menu superior para mantener la interfaz limpia."
+    "menuDashboard": {
+      "title": "Empieza por tu dashboard",
+      "description": "Aqui vuelves a tu vision general: progreso, accesos rapidos y el punto de partida natural cada vez que entras en la app."
     },
-    "dashboardHero": {
-      "title": "Resumen inmediato de tu preparacion",
-      "description": "Este bloque centraliza el estado general de tu cuenta y los accesos directos mas utiles para retomar tu flujo sin perder tiempo."
+    "menuAssistant": {
+      "title": "Tu asistente IA a un clic",
+      "description": "Desde esta opcion abres la ayuda inteligente para resolver dudas, orientar estudio y avanzar sin salir de tu flujo."
     },
-    "dashboardMetrics": {
-      "title": "Metricas clave de un vistazo",
-      "description": "Aqui ves volumen, nota media, precision, mejor resultado, ritmo y sesiones en curso. Es la zona rapida para detectar si avanzas como esperas."
+    "menuTest": {
+      "title": "Zona de test y practica",
+      "description": "Este acceso te lleva a los test para entrenar preguntas, medir nivel y reforzar puntos debiles con rapidez."
     },
-    "dashboardPerformance": {
-      "title": "Evolucion reciente con contexto",
-      "description": "Los graficos convierten tus ultimos intentos en una lectura clara: progreso, consistencia y margen de mejora, todo sin salir del dashboard."
+    "menuSyllabus": {
+      "title": "Todo el temario en un solo sitio",
+      "description": "Aqui consultas el contenido de estudio, navegas por temas y vuelves a los materiales cuando necesitas profundizar."
     },
-    "dashboardHistory": {
-      "title": "Historial para volver al detalle",
-      "description": "Cada intento reciente queda accesible desde aqui para revisar fecha, nota, precision y reabrirlo exactamente donde lo dejaste."
-    },
-    "accountMenu": {
-      "title": "Preferencias y reapertura del tour",
-      "description": "En tu avatar concentras ajustes de cuenta, tema visual y la opcion para relanzar este recorrido cuando quieras volver a orientarte."
+    "menuStudy": {
+      "title": "Pomodoro para entrar en foco",
+      "description": "Desde este punto abres la zona de estudio para trabajar por sesiones y mantener ritmo de concentracion."
     }
   }
 }

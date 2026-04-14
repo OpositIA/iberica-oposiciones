@@ -1,0 +1,133 @@
+{
+  "common": {
+    "updatedAt": "April 13, 2026",
+    "lastUpdated": "Last updated:",
+    "legalEyebrow": "Legal information",
+    "privacyEyebrow": "Privacy and data"
+  },
+  "terms": {
+    "title": "Terms and Conditions",
+    "intro": "These terms govern access to and use of Iberica Oposiciones. By browsing the website or using our services, you accept these conditions and agree to use the platform responsibly, lawfully, and for its intended academic purpose.",
+    "sections": [
+      {
+        "id": "acceptance",
+        "title": "Acceptance",
+        "body": "Using this website implies full acceptance of these terms. If you do not agree with any provision, you must refrain from using the platform, creating an account, or purchasing any of our services."
+      },
+      {
+        "id": "use",
+        "title": "Use of the service",
+        "body": "The platform is intended for civil service exam preparation and access to digital learning resources. Users agree to use the content, tools, and features lawfully, without affecting the service or the experience of other users."
+      },
+      {
+        "id": "responsibility",
+        "title": "Responsibility",
+        "body": "We work to provide up-to-date information and a stable experience, but we do not guarantee uninterrupted service availability or the total absence of errors. Iberica Oposiciones will not be liable for indirect damages arising from the use of the website, except where required by law."
+      },
+      {
+        "id": "intellectualProperty",
+        "title": "Intellectual property",
+        "body": "All content, designs, texts, trademarks, visual resources, and technical developments on the platform are owned by Iberica Oposiciones or used with authorization. Reproduction, distribution, or exploitation without prior written consent is prohibited."
+      },
+      {
+        "id": "changes",
+        "title": "Changes",
+        "body": "We may update these terms whenever necessary to adapt the website to legal, operational, or product changes. The current version will be the one published on this page and will take effect from its update date."
+      },
+      {
+        "id": "contact",
+        "title": "Contact",
+        "body": "If you need clarification about these conditions or want to make a legal inquiry related to the platform, you can write to legal@ibericaoposiciones.com and we will review your request as soon as possible."
+      }
+    ],
+    "seo": {
+      "title": "Terms and conditions",
+      "description": "Read the terms of use of Iberica Oposiciones, the service scope, applicable liability, and our contact details."
+    }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "intro": "At Iberica Oposiciones, we process personal data under principles of minimization, security, and transparency. This policy explains what information we collect, why we use it, and what rights you can exercise over your data.",
+    "sections": [
+      {
+        "id": "collectedData",
+        "title": "Collected data",
+        "body": "We may collect identifying and contact data, technical browsing information, usage preferences, and data needed to manage platform access, billing, and support. We only request the information necessary for each purpose."
+      },
+      {
+        "id": "usage",
+        "title": "Data usage",
+        "body": "We use data to provide the service, manage accounts, process subscriptions, answer requests, improve the user experience, and comply with legal obligations. We may also use aggregated information for internal analysis and product improvement."
+      },
+      {
+        "id": "cookies",
+        "title": "Cookies",
+        "body": "We use technical cookies required for the website to function and, when you authorize them, additional cookies for preferences, analytics, or personalization. You can review and update your preferences at any time from the site's cookie manager."
+      },
+      {
+        "id": "security",
+        "title": "Security",
+        "body": "We apply reasonable technical and organizational measures to protect information against unauthorized access, loss, alteration, or improper disclosure. We review our processes regularly to maintain an appropriate level of protection."
+      },
+      {
+        "id": "rights",
+        "title": "Rights",
+        "body": "You may request access, rectification, deletion, objection, restriction of processing, and data portability where applicable. You may also withdraw your consent at any time for any processing based on it."
+      },
+      {
+        "id": "contact",
+        "title": "Contact",
+        "body": "For any privacy-related question or to exercise your rights, you can contact us at privacidad@ibericaoposiciones.com. We will review your request in accordance with applicable regulations and respond within the required deadlines."
+      }
+    ],
+    "seo": {
+      "title": "Privacy policy",
+      "description": "Read what data Iberica Oposiciones collects, how we use it, what security measures we apply, and how to exercise your rights."
+    }
+  },
+  "about": {
+    "eyebrow": "Who we are",
+    "title": "Technology, judgment, and product in service of study.",
+    "intro": "We are a small, specialized team building clear, fast, and useful digital products for people preparing civil service exams. We design every flow with real focus on study, continuity, and trust.",
+    "team": {
+      "members": [
+        {
+          "id": "eduardo",
+          "name": "Eduardo Ruiz García",
+          "role": "Full Stack Developer",
+          "bio": "Eduardo works with a strong product mindset, connecting user experience, frontend work, and business logic so every flow feels clear and useful from the first interaction. His approach prioritizes clean interfaces, practical technical decisions, and fast but thoughtful execution. In day-to-day work, he focuses on turning ideas into real features while balancing visual quality with the overall stability of the platform.",
+          "imageAlt": "Portrait of Eduardo Ruiz García"
+        },
+        {
+          "id": "oscar",
+          "name": "Óscar Alcalá Espigares",
+          "role": "Full Stack Developer",
+          "bio": "Óscar brings a Full Stack profile focused on turning complex needs into maintainable solutions, with close attention to technical robustness and long-term product continuity. He combines a versatile development background with an orderly way of working that simplifies implementation without lowering quality. His contribution shows in the consistency of the system, the reliability of the code, and the level of detail carried through each delivery.",
+          "imageAlt": "Portrait of Óscar Alcalá Espigares"
+        }
+      ]
+    },
+    "values": {
+      "eyebrow": "Our values",
+      "title": "The essentials, done well.",
+      "items": [
+        {
+          "title": "Clarity",
+          "description": "We prioritize interfaces that reduce mental load and support focused study."
+        },
+        {
+          "title": "Rigor",
+          "description": "We make product and engineering decisions with technical judgment and attention to detail."
+        },
+        {
+          "title": "Continuity",
+          "description": "We design tools that are useful long term, easy to maintain, and easy to use."
+        }
+      ]
+    },
+    "seo": {
+      "title": "About us",
+      "description": "Meet the team behind Iberica Oposiciones and the values that shape the platform."
+    }
+  }
+}

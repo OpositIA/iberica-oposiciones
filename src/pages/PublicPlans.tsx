@@ -1,6 +1,8 @@
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import CustomButton from "@/components/ui/custom-button";
+import Reveal from "@/components/ui/reveal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeLocale } from "@/i18n/locales";
 import { formatPlanPriceFromCents, getPlanKey } from "@/lib/plans";
 import { usePublicSubscriptionPlansQuery } from "@/queries/subscriptionQueries";
@@ -8,6 +10,90 @@ import { ArrowRight, CheckCircle2, Crown } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+
+const PublicPlanCardSkeleton = ({ featured }: { featured?: boolean }) => (
+  <article
+    className={`relative flex min-h-[430px] flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
+      featured
+        ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
+        : "border-foreground/15 bg-background/88 shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
+    }`}
+  >
+    {featured ? (
+      <>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
+        <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute right-4 top-4">
+          <Skeleton className="h-6 w-24 rounded-full bg-primary-foreground/14" />
+        </div>
+      </>
+    ) : (
+      <div className="pointer-events-none absolute -left-8 top-0 h-24 w-24 rounded-full bg-primary/8 blur-3xl dark:bg-primary/10" />
+    )}
+
+    <div className="max-w-sm">
+      <Skeleton
+        className={`h-3 w-24 rounded-full ${
+          featured ? "bg-primary-foreground/16" : "bg-muted-foreground/16"
+        }`}
+      />
+      <Skeleton
+        className={`mt-3 h-9 w-40 rounded-2xl ${
+          featured ? "bg-primary-foreground/18" : "bg-muted-foreground/14"
+        }`}
+      />
+      <div className="mt-3 flex items-end gap-2">
+        <Skeleton
+          className={`h-10 w-28 rounded-2xl ${
+            featured ? "bg-primary-foreground/18" : "bg-muted-foreground/14"
+          }`}
+        />
+        <Skeleton
+          className={`mb-1 h-3 w-16 rounded-full ${
+            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+          }`}
+        />
+      </div>
+      <div className="mt-4 space-y-2.5">
+        <Skeleton
+          className={`h-4 w-full rounded-full ${
+            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+          }`}
+        />
+        <Skeleton
+          className={`h-4 w-10/12 rounded-full ${
+            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+          }`}
+        />
+      </div>
+    </div>
+
+    <div className="mt-6 flex-1 space-y-2.5 border-t border-current/12 pt-5">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="flex items-start gap-2.5">
+          <Skeleton
+            className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full ${
+              featured ? "bg-primary/40" : "bg-primary/18"
+            }`}
+          />
+          <Skeleton
+            className={`h-4 rounded-full ${
+              index === 3 ? "w-7/12" : index === 2 ? "w-9/12" : "w-11/12"
+            } ${
+              featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+            }`}
+          />
+        </div>
+      ))}
+    </div>
+
+    <Skeleton
+      className={`mt-6 h-10 w-full rounded-xl ${
+        featured ? "bg-primary/70" : "bg-muted-foreground/12"
+      }`}
+    />
+  </article>
+);
 
 const PublicPlans = () => {
   const { t, i18n } = useTranslation("plans");
@@ -55,49 +141,62 @@ const PublicPlans = () => {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(214,138,69,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.06),transparent_28%)]" />
         <Navbar />
 
-        <div className="relative mx-auto max-w-6xl px-6 pb-10 pt-24 md:px-8">
-          <div className="max-w-3xl">
+        <div className="relative mx-auto max-w-6xl px-6 pb-8 pt-24 md:px-8">
+          <Reveal
+            className="max-w-2xl"
+            duration={760}
+            threshold={0}
+            variant="gentle"
+          >
             <p className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
               {t("public.badge")}
             </p>
-            <h1 className="mt-4 text-3xl font-serif text-primary-foreground md:text-5xl">
+            <h1 className="mt-4 text-2xl font-serif text-primary-foreground md:text-4xl">
               {t("public.title")}
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-primary-foreground/75 md:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-7 text-primary-foreground/70">
               {t("public.description")}
             </p>
-          </div>
+          </Reveal>
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 pb-16 pt-8 md:px-8">
+      <div className="mx-auto max-w-5xl px-6 pb-16 pt-8 md:px-8">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {isLoadingPublicPlans &&
             Array.from({ length: 2 }).map((_, index) => (
-              <div
-                key={index}
-                className="min-h-[340px] rounded-2xl border border-border/70 bg-background/80 p-6"
-              />
+              <PublicPlanCardSkeleton key={index} featured={index === 1} />
             ))}
 
           {!isLoadingPublicPlans &&
-            plans.map((plan) => (
-              <article
+            plans.map((plan, index) => (
+              <Reveal
+                as="article"
                 key={plan.code}
-                className={`relative flex flex-col overflow-hidden rounded-[1.5rem] border p-4 md:p-5 ${
+                delay={index * 90}
+                duration={760}
+                variant={plan.featured ? "up" : "gentle"}
+                className={`relative flex flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
                   plan.featured
-                    ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_22px_50px_-40px_rgba(15,23,42,0.82)]"
-                    : "border-foreground/20 bg-background/80 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.06),0_18px_44px_-36px_rgba(15,23,42,0.45)]"
+                    ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] text-primary-foreground shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
+                    : "border-foreground/15 bg-background/88 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
                 }`}
               >
                 {plan.featured && (
-                  <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
-                    <Crown className="h-3 w-3" />
+                  <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/16 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
+                    <Crown className="h-2.5 w-2.5" />
                     {t("featured")}
                   </div>
                 )}
 
                 <div className="max-w-sm">
+                  <p
+                    className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                      plan.featured
+                        ? "text-primary-foreground/58"
+                        : "text-muted-foreground"
+                    }`}
+                  ></p>
                   <h3 className="text-[1.7rem] font-serif leading-none">
                     {plan.name}
                   </h3>
@@ -110,77 +209,21 @@ const PublicPlans = () => {
                     </span>
                   </div>
                   <p
-                    className={`mt-3 text-sm leading-6 ${
+                    className={`mt-4 text-sm leading-6 ${
                       plan.featured
-                        ? "text-primary-foreground/72"
+                        ? "text-primary-foreground/70"
                         : "text-muted-foreground"
                     }`}
                   >
                     {plan.description}
                   </p>
-                  <p
-                    className={`mt-2.5 text-[11px] uppercase tracking-[0.16em] ${
-                      plan.featured
-                        ? "text-primary-foreground/65"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {t("public.bestForLabel")}
-                  </p>
-                  <p
-                    className={`mt-1 text-sm leading-6 ${
-                      plan.featured
-                        ? "text-primary-foreground/85"
-                        : "text-foreground/90"
-                    }`}
-                  >
-                    {plan.planKey === "pro"
-                      ? t("public.proBestFor")
-                      : t("public.freeBestFor")}
-                  </p>
                 </div>
 
-                <div className="mt-3.5 space-y-2 rounded-xl border border-current/15 bg-black/5 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                    {t("public.includesLabel")}
-                  </p>
-                  <ul className="space-y-1.5 text-sm">
-                    <li>{t(`public.planHighlights.ai.${plan.planKey}`)}</li>
-                    <li>
-                      {t(`public.planHighlights.quickTests.${plan.planKey}`)}
-                    </li>
-                    <li>
-                      {t(`public.planHighlights.syllabus.${plan.planKey}`)}
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-                  <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                      {t("comparison.aiLimit")}
-                    </p>
-                    <p className="mt-1.5 text-xl font-serif">
-                      {plan.ai_daily_limit}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                      {t("comparison.quickTestLimit")}
-                    </p>
-                    <p className="mt-1.5 text-xl font-serif">
-                      {plan.planKey === "pro"
-                        ? plan.quick_test_question_limit
-                        : t("comparison.quickTestUnavailable")}
-                    </p>
-                  </div>
-                </div>
-
-                <ul className="mt-4 flex-1 space-y-2">
+                <ul className="mt-6 flex-1 space-y-2.5 border-t border-current/12 pt-5">
                   {plan.features.map((feature) => (
                     <li
                       key={feature}
-                      className="flex items-start gap-2 text-sm"
+                      className="flex items-start gap-2.5 text-sm"
                     >
                       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                       <span
@@ -199,14 +242,14 @@ const PublicPlans = () => {
                 <CustomButton
                   asChild
                   styleType={plan.featured ? "primary" : "menu"}
-                  className="mt-4 w-full py-2.5"
+                  className="mt-6 w-full py-2.5"
                 >
                   <Link to={`/registro?plan=${encodeURIComponent(plan.code)}`}>
                     {plan.ctaGuest}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </CustomButton>
-              </article>
+              </Reveal>
             ))}
         </div>
       </div>

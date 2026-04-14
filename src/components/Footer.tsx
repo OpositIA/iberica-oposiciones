@@ -1,4 +1,4 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
+import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import CustomInput from "@/components/ui/custom-input";
 import { useTranslation } from "react-i18next";
@@ -9,31 +9,34 @@ type FooterProps = {
 };
 
 const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
-  const { t } = useTranslation(["landing", "common"]);
+  const { t } = useTranslation(["faq", "landing", "common"]);
 
   const companyLinks = [
-    t("landing:footer.companyLinks.about"),
-    t("landing:footer.companyLinks.methodology"),
-    t("landing:footer.companyLinks.careers"),
-    t("landing:footer.companyLinks.press")
+    {
+      id: "about",
+      label: t("landing:footer.companyLinks.about"),
+      to: "/sobre-nosotros"
+    }
   ];
 
   const resourceLinks = [
-    t("landing:footer.resourceLinks.blog"),
-    t("landing:footer.resourceLinks.guides"),
-    t("landing:footer.resourceLinks.laws")
+    {
+      id: "faq",
+      label: t("faq:hero.badge"),
+      to: "/preguntas-frecuentes"
+    }
   ];
 
   const legalLinks = [
     {
       id: "privacy",
       label: t("landing:footer.legalLinks.privacy"),
-      to: "/"
+      to: "/privacidad"
     },
     {
       id: "terms",
       label: t("landing:footer.legalLinks.terms"),
-      to: "/"
+      to: "/terminos"
     },
     {
       id: "cookies",
@@ -49,11 +52,7 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <img
-                src={ibericaOposicionesHorizontalLogo}
-                alt="Iberica Oposiciones"
-                className="h-20 w-auto"
-              />
+              <BrandLogo className="h-20 w-auto" />
             </div>
             <p className="text-sm text-white/50 leading-relaxed">
               {t("landing:footer.description")}
@@ -65,12 +64,12 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
             </h4>
             <ul className="space-y-3">
               {companyLinks.map((item) => (
-                <li key={item}>
+                <li key={item.id}>
                   <Link
-                    to="/"
+                    to={item.to}
                     className="text-sm text-white/50 hover:text-white transition-colors"
                   >
-                    {item}
+                    {item.label}
                   </Link>
                 </li>
               ))}
@@ -82,12 +81,12 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
             </h4>
             <ul className="space-y-3">
               {resourceLinks.map((item) => (
-                <li key={item}>
+                <li key={item.id}>
                   <Link
-                    to="/"
+                    to={item.to}
                     className="text-sm text-white/50 hover:text-white transition-colors"
                   >
-                    {item}
+                    {item.label}
                   </Link>
                 </li>
               ))}

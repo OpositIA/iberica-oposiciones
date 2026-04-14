@@ -12,6 +12,7 @@ type RequestPayload = {
   password?: string;
   date_of_birth?: string;
   preferred_opposition_id?: string;
+  email_redirect_to?: string;
 };
 
 type UserMetadataPayload = {
@@ -79,9 +80,6 @@ const toIso = (unixSeconds: number | null | undefined) =>
     ? new Date(unixSeconds * 1000).toISOString()
     : null;
 
-const isEmailRateLimitError = (message: string) =>
-  message.toLowerCase().includes("email rate limit exceeded");
-
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
@@ -125,6 +123,10 @@ serve(async (req) => {
     120
   );
   const locale = sanitizeCode(payload.locale, 12) || "es";
+  const emailRedirectTo = sanitizeSingleLineText(
+    payload.email_redirect_to,
+    240
+  );
   const userMetadata: UserMetadataPayload = {
     first_name: firstName,
     last_name: lastName,
@@ -200,85 +202,23 @@ serve(async (req) => {
     let accessToken = "";
     let refreshToken = "";
     let autoLogin = false;
-    let sendEmail = true;
+    let sendEmail = false;
 
     const { data: signUpData, error: signUpError } =
       await anonClient.auth.signUp({
         email,
         password,
         options: {
-          data: userMetadata
+          data: userMetadata,
+          ...(emailRedirectTo ? { emailRedirectTo } : {})
         }
       });
 
     if (signUpError) {
-      if (!isEmailRateLimitError(signUpError.message))
-        return json({ error: signUpError.message }, 400);
-
-      sendEmail = false;
-
-      const { data: existingSignInData, error: existingSignInError } =
-        await anonClient.auth.signInWithPassword({
-          email,
-          password
-        });
-
-      if (
-        !existingSignInError &&
-        existingSignInData.user &&
-        existingSignInData.session
-      ) {
-        userId = sanitizeCode(existingSignInData.user.id, 80);
-        accessToken = sanitizeSingleLineText(
-          existingSignInData.session.access_token,
-          4096
-        );
-        refreshToken = sanitizeSingleLineText(
-          existingSignInData.session.refresh_token,
-          4096
-        );
-        autoLogin = Boolean(userId && accessToken && refreshToken);
-      } else {
-        const { data: createdUserData, error: createdUserError } =
-          await serviceClient.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true,
-            user_metadata: userMetadata
-          });
-
-        if (createdUserError)
-          return json({ error: createdUserError.message }, 400);
-
-        userId = sanitizeCode(createdUserData.user?.id, 80);
-
-        const { data: signInData, error: signInError } =
-          await anonClient.auth.signInWithPassword({
-            email,
-            password
-          });
-
-        if (signInError || !signInData.user || !signInData.session)
-          return json(
-            {
-              error: signInError?.message || "auto_login_after_signup_failed"
-            },
-            400
-          );
-
-        userId = sanitizeCode(signInData.user.id, 80);
-        accessToken = sanitizeSingleLineText(
-          signInData.session.access_token,
-          4096
-        );
-        refreshToken = sanitizeSingleLineText(
-          signInData.session.refresh_token,
-          4096
-        );
-        autoLogin = Boolean(userId && accessToken && refreshToken);
-      }
+      return json({ error: signUpError.message }, 400);
     } else {
       userId = sanitizeCode(signUpData.user?.id, 80);
+      sendEmail = true;
     }
 
     if (!userId) return json({ error: "signup_user_id_missing" }, 500);

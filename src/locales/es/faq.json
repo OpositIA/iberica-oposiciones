@@ -1,0 +1,35 @@
+{
+  "hero": {
+    "badge": "Preguntas frecuentes",
+    "title": "Respuestas claras para decidir mejor como opositar con IA",
+    "description": "Hemos reunido las dudas mas comunes sobre acceso, pagos, tests, progreso e IA en una sola guia publica. Esta pagina esta pensada para resolver preguntas reales antes de que pierdas tiempo buscando respuestas dispersas.",
+    "stats": {
+      "categories": "Categorias",
+      "questions": "Respuestas",
+      "updated": "Enfoque",
+      "updatedValue": "Revision continua"
+    }
+  },
+  "intro": {
+    "eyebrow": "Guia publica",
+    "title": "Una base de respuestas util, directa y pensada para consultas reales",
+    "description": "No es una pagina de relleno. Esta FAQ resume como funciona la plataforma, que puedes esperar de la experiencia de estudio y cuando conviene usar soporte o revisar contenido con mas detalle."
+  },
+  "trust": {
+    "title": "Contenido preparado para SEO y GEO",
+    "description": "Cada bloque responde una intencion concreta, usa lenguaje claro y mantiene estructura legible para buscadores tradicionales y motores de respuesta con IA."
+  },
+  "cta": {
+    "eyebrow": "Siguiente paso",
+    "title": "Si ya tienes clara la base, el siguiente paso es empezar a practicar",
+    "description": "Explora los planes o crea tu cuenta para acceder a tests, seguimiento y ayuda asistida por IA desde la plataforma.",
+    "primary": "Crear cuenta",
+    "secondary": "Ver planes"
+  },
+  "seo": {
+    "page": {
+      "title": "Preguntas frecuentes",
+      "description": "Consulta preguntas frecuentes sobre acceso, suscripciones, tests, progreso e IA en Iberica Oposiciones. Una guia publica pensada para resolver dudas reales."
+    }
+  }
+}

@@ -17,6 +17,8 @@ export type RegisterForm = {
   acceptedTerms: boolean;
 };
 
+export type RegisterAuthMethod = "credentials" | "google";
+
 export const initialRegisterForm: RegisterForm = {
   name: "",
   lastName: "",
@@ -39,11 +41,15 @@ export const sanitizeRegisterForm = (form: RegisterForm): RegisterForm => ({
   confirmPassword: form.confirmPassword
 });
 
-export const getRegisterAccountStepError = (form: RegisterForm) => {
+export const getRegisterAccountStepError = (
+  form: RegisterForm,
+  authMethod: RegisterAuthMethod = "credentials"
+) => {
   const sanitizedForm = sanitizeRegisterForm(form);
 
   if (!sanitizedForm.name || !sanitizedForm.lastName) return "nameRequired";
   if (!/\S+@\S+\.\S+/.test(sanitizedForm.email)) return "invalidEmail";
+  if (authMethod === "google") return null;
   if (
     containsUnsafeControlChars(sanitizedForm.password) ||
     containsUnsafeControlChars(sanitizedForm.confirmPassword)
@@ -76,9 +82,12 @@ type RegisterFlowDraft = {
   form: RegisterForm;
   selectedPlanCode: string;
   step: number;
+  authMethod: RegisterAuthMethod;
 };
 
 const STORAGE_KEY = "register-flow-draft-v1";
+const GOOGLE_CONTEXT_STORAGE_KEY = "register-google-context-v1";
+const GOOGLE_REGISTER_ERROR_KEY = "register-google-error-v1";
 
 const getSessionStorage = () =>
   typeof window === "undefined" ? null : window.sessionStorage;
@@ -123,7 +132,8 @@ export const readRegisterFlowDraft = (): RegisterFlowDraft | null => {
         typeof parsed.selectedPlanCode === "string"
           ? sanitizeCode(parsed.selectedPlanCode, 60)
           : "",
-      step: clampRegisterStep(parsed.step, 3)
+      step: clampRegisterStep(parsed.step, 3),
+      authMethod: parsed.authMethod === "google" ? "google" : "credentials"
     };
   } catch {
     return null;
@@ -139,7 +149,8 @@ export const writeRegisterFlowDraft = (draft: RegisterFlowDraft) => {
     JSON.stringify({
       form: draft.form,
       selectedPlanCode: sanitizeCode(draft.selectedPlanCode, 60),
-      step: clampRegisterStep(draft.step, 3)
+      step: clampRegisterStep(draft.step, 3),
+      authMethod: draft.authMethod === "google" ? "google" : "credentials"
     })
   );
 };
@@ -149,6 +160,80 @@ export const clearRegisterFlowDraft = () => {
   if (!storage) return;
 
   storage.removeItem(STORAGE_KEY);
+};
+
+type GoogleRegisterContext = {
+  planCode: string;
+  initiatedAt: number;
+};
+
+export const writeGoogleRegisterContext = (planCode?: string) => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.setItem(
+    GOOGLE_CONTEXT_STORAGE_KEY,
+    JSON.stringify({
+      planCode: sanitizeCode(planCode, 60),
+      initiatedAt: Date.now()
+    })
+  );
+};
+
+export const readGoogleRegisterContext = (): GoogleRegisterContext | null => {
+  const storage = getSessionStorage();
+  if (!storage) return null;
+
+  try {
+    const rawValue = storage.getItem(GOOGLE_CONTEXT_STORAGE_KEY);
+    if (!rawValue) return null;
+
+    const parsed = JSON.parse(rawValue) as Partial<GoogleRegisterContext>;
+
+    return {
+      planCode:
+        typeof parsed.planCode === "string"
+          ? sanitizeCode(parsed.planCode, 60)
+          : "",
+      initiatedAt:
+        typeof parsed.initiatedAt === "number" &&
+        Number.isFinite(parsed.initiatedAt)
+          ? parsed.initiatedAt
+          : 0
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const clearGoogleRegisterContext = () => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.removeItem(GOOGLE_CONTEXT_STORAGE_KEY);
+};
+
+export const writeGoogleRegisterError = (errorCode: string) => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.setItem(GOOGLE_REGISTER_ERROR_KEY, sanitizeCode(errorCode, 80));
+};
+
+export const consumeGoogleRegisterError = () => {
+  const storage = getSessionStorage();
+  if (!storage) return "";
+
+  const errorCode = storage.getItem(GOOGLE_REGISTER_ERROR_KEY) ?? "";
+  storage.removeItem(GOOGLE_REGISTER_ERROR_KEY);
+  return sanitizeCode(errorCode, 80);
+};
+
+export const hasOngoingGoogleRegisterFlow = () => {
+  const draft = readRegisterFlowDraft();
+  if (draft?.authMethod === "google") return true;
+
+  return readGoogleRegisterContext() !== null;
 };
 
 export const clampRegisterStep = (

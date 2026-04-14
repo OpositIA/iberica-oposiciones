@@ -1,14 +1,9 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 
 const NotFound = () => {
   const location = useLocation();
   const { t } = useTranslation("notFound");
-
-  useEffect(() => {
-    console.error(t("consoleError"), location.pathname);
-  }, [location.pathname, t]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">

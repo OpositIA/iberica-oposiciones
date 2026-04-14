@@ -1,4 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
+import { PlansPageSkeleton } from "@/components/PageSkeletons";
+import Reveal from "@/components/ui/reveal";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale } from "@/i18n/locales";
 import { formatPlanPriceFromCents, getPlanKey, isPaidPlan } from "@/lib/plans";
@@ -41,10 +43,14 @@ const Plans = () => {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: publicPlans = [], isLoading: isLoadingPublicPlans } =
-    usePublicSubscriptionPlansQuery();
+  const {
+    data: publicPlans = [],
+    isFetching: isFetchingPublicPlans,
+    isLoading: isLoadingPublicPlans
+  } = usePublicSubscriptionPlansQuery();
   const { data: currentPlan } = useUserPlanStateQuery(user?.id);
   const [pendingPlanCode, setPendingPlanCode] = useState<string | null>(null);
+  const [showPlansSkeleton, setShowPlansSkeleton] = useState(true);
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const currentPlanKey = getPlanKey({
     code: currentPlan?.plan_code,
@@ -96,6 +102,22 @@ const Plans = () => {
       }),
     [locale, publicPlans, t]
   );
+
+  useEffect(() => {
+    if (
+      isLoadingPublicPlans ||
+      (isFetchingPublicPlans && publicPlans.length === 0)
+    ) {
+      setShowPlansSkeleton(true);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowPlansSkeleton(false);
+    }, 220);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isFetchingPublicPlans, isLoadingPublicPlans, publicPlans.length]);
 
   useEffect(() => {
     const checkoutState = searchParams.get("checkout");
@@ -200,7 +222,12 @@ const Plans = () => {
   return (
     <div className="max-w-7xl pb-4">
       {isAuthenticated && currentPlan && (
-        <section className="mb-8 rounded-3xl border border-border/70 bg-background/95 p-6 shadow-[0_24px_60px_-45px_rgba(0,0,0,0.42)]">
+        <Reveal
+          as="section"
+          className="mb-8 rounded-3xl border border-border/70 bg-background/95 p-6 shadow-[0_24px_60px_-45px_rgba(0,0,0,0.42)]"
+          duration={780}
+          variant="soft"
+        >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -276,43 +303,39 @@ const Plans = () => {
               })}
             </div>
           )}
-        </section>
+        </Reveal>
       )}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {isLoadingPublicPlans &&
-          Array.from({ length: 2 }).map((_, index) => (
-            <div
-              key={index}
-              className="min-h-[420px] rounded-3xl border border-border/70 bg-background/80 p-8"
-            />
-          ))}
-
-        {!isLoadingPublicPlans &&
-          plans.map((plan) => {
+      {showPlansSkeleton ? (
+        <PlansPageSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {plans.map((plan, index) => {
             const isCurrentPlan = currentPlan?.plan_code === plan.code;
             const isBusy = pendingPlanCode === plan.code;
 
             return (
-              <article
+              <Reveal
+                as="article"
                 key={plan.code}
-                className={`relative flex flex-col overflow-hidden rounded-[1.6rem] border p-5 ${
+                delay={index * 90}
+                duration={760}
+                variant={plan.featured ? "up" : "soft"}
+                className={`relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border p-6 ${
                   plan.featured
                     ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_28px_70px_-42px_rgba(15,23,42,0.82)]"
                     : "border-border/70 bg-background text-foreground"
                 }`}
               >
                 {plan.featured && (
-                  <div className="absolute right-6 top-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-foreground">
-                    <Crown className="h-3.5 w-3.5" />
+                  <div className="absolute right-6 top-6 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-foreground">
+                    <Crown className="h-3 w-3" />
                     {t("featured")}
                   </div>
                 )}
 
                 <div className="max-w-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-65">
-                    {plan.eyebrow}
-                  </p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-65"></p>
                   <h3 className="mt-2 text-[1.8rem] font-serif leading-none">
                     {plan.name}
                   </h3>
@@ -417,10 +440,11 @@ const Plans = () => {
                     </Link>
                   </CustomButton>
                 )}
-              </article>
+              </Reveal>
             );
           })}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

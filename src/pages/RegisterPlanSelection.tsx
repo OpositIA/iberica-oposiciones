@@ -1,3 +1,4 @@
+import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import { useRegisterSubmit } from "@/hooks/use-register-submit";
 import { useToast } from "@/hooks/use-toast";
@@ -5,20 +6,23 @@ import { normalizeLocale } from "@/i18n/locales";
 import { sanitizeCode } from "@/lib/inputSanitization";
 import { formatPlanPriceFromCents, getPlanKey } from "@/lib/plans";
 import {
+  clearGoogleRegisterContext,
+  clearRegisterFlowDraft,
   getRegisterAccountStepError,
   getRegisterProfileStepError,
+  initialRegisterForm,
   readRegisterFlowDraft,
   sanitizeRegisterForm,
   writeRegisterFlowDraft
 } from "@/lib/registerFlow";
 import {
-  createPublicStripeCheckoutSession,
+  createStripeCheckoutSession,
   usePublicSubscriptionPlansQuery
 } from "@/queries/subscriptionQueries";
 import { ArrowRight, CheckCircle2, Crown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
 const RegisterPlanSelection = () => {
   const navigate = useNavigate();
@@ -33,14 +37,25 @@ const RegisterPlanSelection = () => {
   const [selectedPlanCode, setSelectedPlanCode] = useState(
     () => requestedPlanCode || persistedDraft?.selectedPlanCode || ""
   );
-  const { isSubmitting, submitRegister } = useRegisterSubmit(locale);
+  const {
+    isSubmitting,
+    prepareGooglePaidCheckout,
+    preparePaidCheckout,
+    submitGoogleRegister,
+    submitRegister
+  } = useRegisterSubmit(locale);
   const maxBirthDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const sanitizedDraft = useMemo(
-    () => sanitizeRegisterForm(persistedDraft?.form ?? null),
+    () => sanitizeRegisterForm(persistedDraft?.form ?? initialRegisterForm),
     [persistedDraft]
   );
-  const accountStepError = getRegisterAccountStepError(sanitizedDraft);
+  const authMethod = persistedDraft?.authMethod ?? "credentials";
+  const isGoogleRegister = authMethod === "google";
+  const accountStepError = getRegisterAccountStepError(
+    sanitizedDraft,
+    authMethod
+  );
   const profileStepError = getRegisterProfileStepError(
     sanitizedDraft,
     maxBirthDate
@@ -122,9 +137,19 @@ const RegisterPlanSelection = () => {
     writeRegisterFlowDraft({
       form: persistedDraft.form,
       selectedPlanCode,
-      step: 3
+      step: 3,
+      authMethod
     });
-  }, [persistedDraft, selectedPlanCode]);
+  }, [authMethod, persistedDraft, selectedPlanCode]);
+
+  useEffect(() => {
+    return () => {
+      const nextPath = window.location.pathname;
+      if (nextPath.startsWith("/registro")) return;
+      clearRegisterFlowDraft();
+      clearGoogleRegisterContext();
+    };
+  }, []);
 
   useEffect(() => {
     const checkoutState = searchParams.get("checkout");
@@ -145,216 +170,261 @@ const RegisterPlanSelection = () => {
 
   if (profileStepError) return <Navigate replace to="/registro?step=2" />;
 
+  const stepTitles = [
+    t("auth:register.stepTitles.account"),
+    t("auth:register.stepTitles.profile"),
+    t("auth:register.stepTitles.plan")
+  ];
+  const currentStep = 3;
+
   return (
-    <div className="min-h-screen bg-background content-center">
-      <div className="mx-auto max-w-6xl px-6 pb-16 pt-8 md:px-8">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {isLoadingPublicPlans &&
-            Array.from({ length: 2 }).map((_, index) => (
-              <div
-                key={index}
-                className="min-h-[340px] rounded-2xl border border-border/70 bg-background/80 p-6"
-              />
-            ))}
-
-          {!isLoadingPublicPlans &&
-            plans.map((plan) => {
-              const isSelected = selectedPlanCode === plan.code;
-
+    <div className="min-h-screen bg-charcoal flex">
+      {/* Left sidebar */}
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-16">
+        <div className="max-w-md">
+          <Link to="/" className="flex items-center gap-2 mb-5">
+            <BrandLogo className="h-60 w-auto" />
+          </Link>
+          <h1 className="text-5xl font-serif italic text-slate-100 leading-tight mb-6">
+            {t("auth:register.heroTitleLine1")}
+            <br />
+            {t("auth:register.heroTitleLine2")}
+          </h1>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            {t("auth:register.heroDescription")}
+          </p>
+          <div className="mt-12 space-y-3">
+            {stepTitles.map((label, index) => {
+              const num = index + 1;
+              const isActive = num === currentStep;
+              const isDone = num < currentStep;
               return (
-                <article
-                  key={plan.code}
-                  className={`relative flex cursor-pointer flex-col overflow-hidden rounded-[1.5rem] border p-4 transition-all duration-200 md:p-5 ${
-                    isSelected
-                      ? "border-primary/45 bg-secondary/20 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.18)]"
-                      : plan.featured
-                        ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_22px_50px_-40px_rgba(15,23,42,0.82)]"
-                        : "border-foreground/20 bg-background/80 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.06),0_18px_44px_-36px_rgba(15,23,42,0.45)]"
-                  }`}
-                  onClick={() => setSelectedPlanCode(plan.code)}
-                >
-                  {plan.featured && (
-                    <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
-                      <Crown className="h-3 w-3" />
-                      {t("plans:featured")}
-                    </div>
-                  )}
-
-                  <div className="max-w-sm">
-                    <h3 className="text-[1.7rem] font-serif leading-none">
-                      {plan.name}
-                    </h3>
-                    <div className="mt-2.5 flex items-end gap-2">
-                      <span className="text-[2rem] font-serif leading-none">
-                        {plan.priceLabel}
-                      </span>
-                      <span className="pb-0.5 text-xs opacity-60">
-                        {t("plans:pricing.perMonth")}
-                      </span>
-                    </div>
-                    <p
-                      className={`mt-3 text-sm leading-6 ${
-                        plan.featured && !isSelected
-                          ? "text-primary-foreground/72"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {plan.description}
-                    </p>
-                    <p
-                      className={`mt-2.5 text-[11px] uppercase tracking-[0.16em] ${
-                        plan.featured && !isSelected
-                          ? "text-primary-foreground/65"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {t("plans:public.bestForLabel")}
-                    </p>
-                    <p
-                      className={`mt-1 text-sm leading-6 ${
-                        plan.featured && !isSelected
-                          ? "text-primary-foreground/85"
-                          : "text-foreground/90"
-                      }`}
-                    >
-                      {plan.planKey === "pro"
-                        ? t("plans:public.proBestFor")
-                        : t("plans:public.freeBestFor")}
-                    </p>
+                <div key={label} className="flex items-center gap-3">
+                  <div
+                    className={`h-6 w-6 border text-xs inline-flex items-center justify-center ${
+                      isDone
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : isActive
+                          ? "border-primary text-primary bg-background/10"
+                          : "border-slate-200/25 text-slate-300/70"
+                    }`}
+                  >
+                    {num}
                   </div>
-
-                  <div className="mt-3.5 space-y-2 rounded-xl border border-current/15 bg-black/5 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                      {t("plans:public.includesLabel")}
-                    </p>
-                    <ul className="space-y-1.5 text-sm">
-                      <li>
-                        {t(`plans:public.planHighlights.ai.${plan.planKey}`)}
-                      </li>
-                      <li>
-                        {t(
-                          `plans:public.planHighlights.quickTests.${plan.planKey}`
-                        )}
-                      </li>
-                      <li>
-                        {t(
-                          `plans:public.planHighlights.syllabus.${plan.planKey}`
-                        )}
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-                    <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                        {t("plans:comparison.aiLimit")}
-                      </p>
-                      <p className="mt-1.5 text-xl font-serif">
-                        {plan.ai_daily_limit}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-current/15 bg-black/5 px-3.5 py-2.5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
-                        {t("plans:comparison.quickTestLimit")}
-                      </p>
-                      <p className="mt-1.5 text-xl font-serif">
-                        {plan.planKey === "pro"
-                          ? plan.quick_test_question_limit
-                          : t("plans:comparison.quickTestUnavailable")}
-                      </p>
-                    </div>
-                  </div>
-
-                  <ul className="mt-4 flex-1 space-y-2">
-                    {plan.features.map((feature) => (
-                      <li
-                        key={feature}
-                        className="flex items-start gap-2 text-sm"
-                      >
-                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                        <span
-                          className={
-                            plan.featured && !isSelected
-                              ? "text-primary-foreground/84"
-                              : "text-muted-foreground"
-                          }
-                        >
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </article>
+                  <span
+                    className={`text-sm ${isActive || isDone ? "text-slate-100" : "text-slate-300/70"}`}
+                  >
+                    {label}
+                  </span>
+                </div>
               );
             })}
+          </div>
         </div>
+      </div>
 
-        <div className="mt-8 flex flex-col items-stretch justify-between gap-3 sm:flex-row">
-          <CustomButton
-            type="button"
-            styleType="menu"
-            className="px-6 py-3"
-            onClick={() => navigate("/registro?step=2", { replace: true })}
-          >
-            {t("auth:register.actions.back")}
-          </CustomButton>
-          <CustomButton
-            type="button"
-            styleType="primary"
-            className="px-6 py-3"
-            disabled={!selectedPlan || isSubmitting}
-            onClick={() => {
-              if (!selectedPlan) return;
+      {/* Right content */}
+      <div className="w-full lg:w-1/2 flex items-start justify-center p-8 bg-background overflow-y-auto">
+        <div className="w-full max-w-xl py-8">
+          {/* Mobile logo */}
+          <div className="lg:hidden mb-10">
+            <Link to="/" className="flex items-center gap-2 mb-8">
+              <BrandLogo className="h-4 w-auto" />
+            </Link>
+          </div>
 
-              const sanitizedForm = sanitizeRegisterForm(persistedDraft.form);
-              writeRegisterFlowDraft({
-                form: sanitizedForm,
-                selectedPlanCode: selectedPlan.code,
-                step: 3
-              });
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-2xl font-serif text-foreground">
+                {t("auth:register.title")}
+              </h2>
+              <p className="text-xs tracking-widest uppercase text-muted-foreground">
+                {t("auth:register.stepCounter", {
+                  step: currentStep,
+                  total: 3
+                })}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("auth:register.subtitle")}
+            </p>
+            <div className="h-1.5 bg-secondary overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-300 w-full" />
+            </div>
+          </div>
 
-              if (selectedPlan.price_cents > 0) {
-                void createPublicStripeCheckoutSession({
-                  planCode: selectedPlan.code,
-                  email: sanitizedForm.email,
-                  successPath: `/registro/pago-completado?session_id={CHECKOUT_SESSION_ID}&plan=${encodeURIComponent(selectedPlan.code)}`,
-                  cancelPath: `/registro/planes?step=3&plan=${encodeURIComponent(selectedPlan.code)}&checkout=cancel`
-                })
-                  .then(({ checkoutUrl }) => {
-                    window.location.assign(checkoutUrl);
-                  })
-                  .catch((error) => {
-                    toast({
-                      variant: "destructive",
-                      title: t("plans:toasts.checkoutStartErrorTitle"),
-                      description:
-                        error instanceof Error &&
-                        error.message.trim().length > 0
-                          ? error.message
-                          : t("plans:toasts.checkoutStartErrorDescription")
+          {/* Plan grid */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {isLoadingPublicPlans &&
+              Array.from({ length: 2 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="min-h-[280px] rounded-2xl border border-border/70 bg-background/80 p-6"
+                />
+              ))}
+
+            {!isLoadingPublicPlans &&
+              plans.map((plan) => {
+                const isSelected = selectedPlanCode === plan.code;
+
+                return (
+                  <article
+                    key={plan.code}
+                    className={`relative flex cursor-pointer flex-col overflow-hidden rounded-[1.5rem] border p-5 transition-all duration-200 md:p-6 ${
+                      isSelected
+                        ? "border-primary/45 bg-secondary/20 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.18)]"
+                        : plan.featured
+                          ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_22px_50px_-40px_rgba(15,23,42,0.82)]"
+                          : "border-foreground/20 bg-background/80 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.06),0_18px_44px_-36px_rgba(15,23,42,0.45)]"
+                    }`}
+                    onClick={() => setSelectedPlanCode(plan.code)}
+                  >
+                    {plan.featured && (
+                      <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
+                        <Crown className="h-2.5 w-2.5" />
+                        {t("plans:featured")}
+                      </div>
+                    )}
+
+                    <div className="max-w-sm">
+                      <p
+                        className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                          plan.featured && !isSelected
+                            ? "text-primary-foreground/58"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {plan.eyebrow}
+                      </p>
+                      <h3 className="text-[1.7rem] font-serif leading-none">
+                        {plan.name}
+                      </h3>
+                      <div className="mt-2.5 flex items-end gap-2">
+                        <span className="text-[2rem] font-serif leading-none">
+                          {plan.priceLabel}
+                        </span>
+                        <span className="pb-0.5 text-xs opacity-60">
+                          {t("plans:pricing.perMonth")}
+                        </span>
+                      </div>
+                      <p
+                        className={`mt-4 text-sm leading-6 ${
+                          plan.featured && !isSelected
+                            ? "text-primary-foreground/70"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {plan.description}
+                      </p>
+                    </div>
+
+                    <ul className="mt-6 flex-1 space-y-2.5 border-t border-current/12 pt-5">
+                      {plan.features.map((feature) => (
+                        <li
+                          key={feature}
+                          className="flex items-start gap-2.5 text-sm"
+                        >
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span
+                            className={
+                              plan.featured && !isSelected
+                                ? "text-primary-foreground/84"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {feature}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </article>
+                );
+              })}
+          </div>
+
+          <div className="mt-8 flex flex-col items-stretch justify-between gap-3 sm:flex-row">
+            <CustomButton
+              type="button"
+              styleType="menu"
+              className="px-6 py-3"
+              onClick={() => navigate("/registro?step=2", { replace: true })}
+            >
+              {t("auth:register.actions.back")}
+            </CustomButton>
+            <CustomButton
+              type="button"
+              styleType="primary"
+              className="px-6 py-3"
+              disabled={!selectedPlan || isSubmitting}
+              onClick={() => {
+                if (!selectedPlan) return;
+
+                const sanitizedForm = sanitizeRegisterForm(persistedDraft.form);
+                writeRegisterFlowDraft({
+                  form: sanitizedForm,
+                  selectedPlanCode: selectedPlan.code,
+                  step: 3,
+                  authMethod
+                });
+
+                if (selectedPlan.price_cents > 0) {
+                  void (
+                    isGoogleRegister
+                      ? prepareGooglePaidCheckout({
+                          form: sanitizedForm,
+                          planCode: selectedPlan.code
+                        })
+                      : preparePaidCheckout({
+                          form: sanitizedForm
+                        }).then((canContinueToCheckout) => {
+                          if (!canContinueToCheckout) return null;
+
+                          return createStripeCheckoutSession({
+                            planCode: selectedPlan.code,
+                            source: "plan_selection"
+                          });
+                        })
+                  )
+                    .then((checkoutResult) => {
+                      if (!checkoutResult) return;
+                      window.location.assign(checkoutResult.checkoutUrl);
+                    })
+                    .catch((error) => {
+                      toast({
+                        variant: "destructive",
+                        title: t("plans:toasts.checkoutStartErrorTitle"),
+                        description:
+                          error instanceof Error &&
+                          error.message.trim().length > 0
+                            ? error.message
+                            : t("plans:toasts.checkoutStartErrorDescription")
+                      });
                     });
-                  });
-                return;
-              }
-
-              void submitRegister({
-                form: sanitizedForm,
-                selectedPlan: {
-                  code: selectedPlan.code,
-                  name: selectedPlan.name,
-                  planKey: selectedPlan.planKey,
-                  price_cents: selectedPlan.price_cents
+                  return;
                 }
-              });
-            }}
-          >
-            {isSubmitting
-              ? t("auth:register.actions.creating")
-              : selectedPlan?.price_cents && selectedPlan.price_cents > 0
-                ? t("auth:register.actions.continueToPayment")
-                : t("auth:register.actions.create")}
-            {!isSubmitting ? <ArrowRight className="h-4 w-4" /> : null}
-          </CustomButton>
+
+                void (isGoogleRegister ? submitGoogleRegister : submitRegister)(
+                  {
+                    form: sanitizedForm,
+                    selectedPlan: {
+                      code: selectedPlan.code,
+                      name: selectedPlan.name,
+                      planKey: selectedPlan.planKey,
+                      price_cents: selectedPlan.price_cents
+                    }
+                  }
+                );
+              }}
+            >
+              {isSubmitting
+                ? t("auth:register.actions.creating")
+                : selectedPlan?.price_cents && selectedPlan.price_cents > 0
+                  ? t("auth:register.actions.continueToPayment")
+                  : t("auth:register.actions.create")}
+              {!isSubmitting ? <ArrowRight className="h-4 w-4" /> : null}
+            </CustomButton>
+          </div>
         </div>
       </div>
     </div>

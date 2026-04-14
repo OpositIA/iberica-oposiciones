@@ -98,30 +98,33 @@ const ProfileTest = () => {
   const isLoadingOpposition =
     !isAuthReady ||
     (shouldLoadOpposition && !preferredOpposition && isLoadingOppositionQuery);
+
   const quickBlocks = useMemo<QuickBlockOption[]>(
     () =>
       oposicionActiva.temasDetalle.map((block) => {
-        const topicLabels =
+        const topics =
           block.subtopics.length > 0
-            ? block.subtopics.map((subtopic) => subtopic.title)
-            : [block.title];
+            ? block.subtopics.map((subtopic) => ({
+                id: subtopic.code || `${block.code}:${subtopic.id}`,
+                label: subtopic.title
+              }))
+            : [{ id: block.code, label: block.title }];
 
         return {
           code: block.code,
           title: block.title,
           displayTitle: block.displayTitle,
-          topics: topicLabels.map((label, idx) => ({
-            id: `${block.code}:${idx}`,
-            label
-          }))
+          topics
         };
       }),
     [oposicionActiva.temasDetalle]
   );
+
   const allTopicIds = useMemo(
     () => quickBlocks.flatMap((block) => block.topics.map((topic) => topic.id)),
     [quickBlocks]
   );
+
   const topicLabelById = useMemo(() => {
     const lookup = new Map<string, string>();
     quickBlocks.forEach((block) => {
@@ -131,6 +134,7 @@ const ProfileTest = () => {
     });
     return lookup;
   }, [quickBlocks]);
+
   const [isQuickTestDialogOpen, setIsQuickTestDialogOpen] = useState(false);
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
   const [quickTestQuestionCount, setQuickTestQuestionCount] = useState(
@@ -142,9 +146,10 @@ const ProfileTest = () => {
     useState<InProgressQuickTestSummary | null>(null);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
 
-  useEffect(() => {
-    setQuickTestQuestionCount((prev) => Math.min(prev, quickTestQuestionLimit));
-  }, [quickTestQuestionLimit]);
+  const minimumQuestionCount = Math.max(
+    QUICK_TEST_MIN_QUESTIONS,
+    selectedTopicIds.length
+  );
 
   useEffect(() => {
     setSelectedTopicIds((prev) => {
@@ -156,6 +161,16 @@ const ProfileTest = () => {
       return allTopicIds.slice(0, 1);
     });
   }, [allTopicIds]);
+
+  useEffect(() => {
+    setQuickTestQuestionCount((prev) => {
+      const upperBound = Math.min(
+        QUICK_TEST_MAX_QUESTIONS,
+        quickTestQuestionLimit
+      );
+      return Math.min(upperBound, Math.max(minimumQuestionCount, prev));
+    });
+  }, [minimumQuestionCount, quickTestQuestionLimit]);
 
   const selectedTopicIdSet = useMemo(
     () => new Set(selectedTopicIds),
@@ -212,6 +227,22 @@ const ProfileTest = () => {
       return;
     }
 
+    if (quickTestQuestionCount < minimumQuestionCount) {
+      setQuickTestQuestionCount(minimumQuestionCount);
+      toast({
+        variant: "destructive",
+        title: t("test.quickDialogMinQuestionsTitle", {
+          defaultValue: "Mínimo de preguntas insuficiente"
+        }),
+        description: t("test.quickDialogMinQuestionsDescription", {
+          defaultValue:
+            "Debes pedir al menos {{count}} preguntas para cubrir los {{count}} temas seleccionados.",
+          count: minimumQuestionCount
+        })
+      });
+      return;
+    }
+
     if (!forceNew) {
       try {
         const existingAttempt = await fetchLatestInProgressQuickTest(user.id);
@@ -238,7 +269,7 @@ const ProfileTest = () => {
           acc.push({
             id: block.code,
             label: block.displayTitle || block.title,
-            scope: "block" as const
+            scope: "block"
           });
           return acc;
         }
@@ -246,11 +277,13 @@ const ProfileTest = () => {
         acc.push(
           ...block.topics
             .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
-            .map((topic) => ({
-              id: topic.id,
-              label: topic.label,
-              scope: "topic" as const
-            }))
+            .map(
+              (topic): QuickTestTopicSelection => ({
+                id: topic.id,
+                label: topic.label,
+                scope: "topic"
+              })
+            )
         );
 
         return acc;
@@ -470,7 +503,7 @@ const ProfileTest = () => {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className={`${optionPanelClassName} flex h-full flex-col`}>
           <div className="space-y-5">
             <div className="flex items-center gap-3">
@@ -516,6 +549,12 @@ const ProfileTest = () => {
               questionCount: quickTestQuestionCount
             })}
           </p>
+          {selectedTopicLabels.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {selectedTopicLabels.slice(0, 3).join(" · ")}
+              {selectedTopicLabels.length > 3 ? " · …" : ""}
+            </p>
+          )}
           <CustomButton
             type="button"
             onClick={() => {
@@ -563,34 +602,36 @@ const ProfileTest = () => {
                 </span>
               </div>
               <Slider
-                min={QUICK_TEST_MIN_QUESTIONS}
-                max={QUICK_TEST_MAX_QUESTIONS}
+                min={minimumQuestionCount}
+                max={Math.min(QUICK_TEST_MAX_QUESTIONS, quickTestQuestionLimit)}
                 step={1}
                 value={[quickTestQuestionCount]}
                 disabled={isGeneratingQuickTest}
                 onValueChange={(value) => {
-                  const nextCount = value[0] ?? QUICK_TEST_MIN_QUESTIONS;
+                  const nextCount = value[0] ?? minimumQuestionCount;
                   const normalizedCount = Math.min(
-                    QUICK_TEST_MAX_QUESTIONS,
-                    Math.max(QUICK_TEST_MIN_QUESTIONS, nextCount)
+                    Math.min(QUICK_TEST_MAX_QUESTIONS, quickTestQuestionLimit),
+                    Math.max(minimumQuestionCount, nextCount)
                   );
-
-                  if (normalizedCount > quickTestQuestionLimit) {
-                    setQuickTestQuestionCount(quickTestQuestionLimit);
-                    if (!isCurrentPlanPaid) setIsUpgradeDialogOpen(true);
-                    return;
-                  }
-
                   setQuickTestQuestionCount(normalizedCount);
                 }}
               />
               <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>{QUICK_TEST_MIN_QUESTIONS}</span>
-                <span>{QUICK_TEST_MAX_QUESTIONS}</span>
+                <span>{minimumQuestionCount}</span>
+                <span>
+                  {Math.min(QUICK_TEST_MAX_QUESTIONS, quickTestQuestionLimit)}
+                </span>
               </div>
               <p className="text-xs text-muted-foreground">
                 {t("test.quickDialogQuestionsHint", {
                   planLimit: quickTestQuestionLimit
+                })}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("test.quickDialogMinimumCoverageHint", {
+                  defaultValue:
+                    "El mínimo se ajusta automáticamente a {{count}} para asegurar al menos una pregunta por tema seleccionado.",
+                  count: minimumQuestionCount
                 })}
               </p>
             </section>

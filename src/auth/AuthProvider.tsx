@@ -8,6 +8,7 @@ import {
 } from "@/lib/secureFetch";
 import { isSessionExpired } from "@/lib/session";
 import { runSingleFlight } from "@/lib/singleFlight";
+import { applyLightThemeOnFirstLogin } from "@/lib/theme";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import {
   createContext,
@@ -43,9 +44,17 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const isDev = import.meta.env.DEV;
+const SIDEBAR_LOGIN_OPEN_STORAGE_KEY =
+  "iberica-oposiciones:sidebar-open-on-login";
 
-const authLog = (...args: unknown[]) => {
+const authLog = (..._args: unknown[]) => {
   if (!isDev) return;
+};
+
+const markSidebarShouldOpenOnLogin = (userId: string) => {
+  if (typeof window === "undefined") return;
+
+  window.sessionStorage.setItem(SIDEBAR_LOGIN_OPEN_STORAGE_KEY, userId);
 };
 
 const buildProfileSnapshot = (
@@ -261,6 +270,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         if (!isMounted) return;
         setSession(nextSession);
         setUser(nextSession.user ?? null);
+        applyLightThemeOnFirstLogin({
+          userId: nextSession.user.id,
+          createdAt: nextSession.user.created_at,
+          lastSignInAt: nextSession.user.last_sign_in_at
+        });
         resetAuthFailureGuard();
         setIsAuthReady(true);
         return;
@@ -272,6 +286,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           if (!isMounted) return;
           setSession(nextSession);
           setUser(nextSession.user ?? null);
+          applyLightThemeOnFirstLogin({
+            userId: nextSession.user.id,
+            createdAt: nextSession.user.created_at,
+            lastSignInAt: nextSession.user.last_sign_in_at
+          });
           setProfile(buildProfileSnapshot(null, nextSession.user));
           resetAuthFailureGuard();
           setIsAuthReady(true);
@@ -358,6 +377,13 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           if (!isMounted) return;
           setLoggedOutState();
           clearSupabaseAuthStorage();
+          window.sessionStorage.removeItem(SIDEBAR_LOGIN_OPEN_STORAGE_KEY);
+          const pendingGoogleRegisterError =
+            typeof window !== "undefined" &&
+            window.sessionStorage.getItem("register-google-error-v1") ===
+              "emailAlreadyExists";
+          if (pendingGoogleRegisterError) return;
+          if (window.location.pathname === "/auth/callback") return;
           if (window.location.pathname !== "/login")
             navigate("/login", { replace: true });
 
@@ -368,6 +394,9 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           onInvalidSession(`invalid_session_event:${event}`);
           return;
         }
+
+        if (event === "SIGNED_IN")
+          markSidebarShouldOpenOnLogin(nextSession.user.id);
 
         // Evita bloquear otras consultas de Supabase dentro del callback de auth.
         window.setTimeout(() => {

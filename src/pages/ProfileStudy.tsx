@@ -1,4 +1,5 @@
 import CustomButton from "@/components/ui/custom-button";
+import Reveal from "@/components/ui/reveal";
 import { cn } from "@/lib/utils";
 import { useStudyTimer } from "@/study/StudyTimerProvider";
 import { Pause, Sparkles, TimerReset } from "lucide-react";
@@ -66,7 +67,12 @@ const ProfileStudy = () => {
   };
 
   return (
-    <section className="relative overflow-hidden rounded-[2.5rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9))] shadow-[0_28px_80px_-58px_rgba(15,23,42,0.52)] dark:border-border/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.94))] dark:shadow-[0_34px_90px_-60px_rgba(0,0,0,0.84)]">
+    <Reveal
+      as="section"
+      className="relative overflow-hidden rounded-[2.5rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9))] shadow-[0_28px_80px_-58px_rgba(15,23,42,0.52)] dark:border-border/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.94))] dark:shadow-[0_34px_90px_-60px_rgba(0,0,0,0.84)]"
+      duration={620}
+      variant="gentle"
+    >
       <div
         className={cn(
           "pointer-events-none absolute inset-0 transition-opacity duration-500",
@@ -207,7 +213,7 @@ const ProfileStudy = () => {
           </div>
         </button>
       </div>
-    </section>
+    </Reveal>
   );
 };
 

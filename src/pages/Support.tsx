@@ -112,9 +112,9 @@ const VALID_SECTIONS = new Set<SupportSectionId>([
 ]);
 
 const pagePanelClassName =
-  "rounded-[1.75rem] border border-border/70 bg-background/95 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.28)] dark:shadow-[0_28px_56px_-46px_rgba(0,0,0,0.54)]";
+  "rounded-[1.9rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] bg-background/95 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.34)] dark:shadow-[0_30px_70px_-50px_rgba(0,0,0,0.6)]";
 const insetPanelClassName =
-  "rounded-[1.45rem] border border-border/70 bg-secondary/20";
+  "rounded-[1.55rem] bg-[linear-gradient(180deg,rgba(148,163,184,0.08),rgba(148,163,184,0.03))] bg-secondary/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]";
 const fieldClassName =
   "min-h-12 rounded-2xl border-border/70 bg-background/80 px-4 shadow-sm transition-all duration-200 focus-visible:ring-primary/25 focus-visible:ring-offset-2";
 
@@ -138,7 +138,7 @@ const buildSupportMetadata = (
 });
 
 const InfoBadge = ({ label }: { label: string }) => (
-  <span className="inline-flex w-fit items-center rounded-full border border-border/70 bg-secondary/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+  <span className="inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
     {label}
   </span>
 );
@@ -151,7 +151,7 @@ const SectionHeading = ({
   title: string;
 }) => (
   <div className="space-y-2">
-    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[2rem]">
+    <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl md:text-[2rem]">
       {title}
     </h2>
     <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
@@ -176,7 +176,7 @@ const FieldShell = ({
   meta?: string;
 }) => (
   <div className="space-y-2">
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
       <label
         htmlFor={htmlFor}
         className="text-sm font-semibold text-foreground"
@@ -462,12 +462,14 @@ const Support = () => {
 
   return (
     <div className="space-y-6 pb-2">
-      <section className={`${pagePanelClassName} overflow-hidden p-6 md:p-8`}>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] lg:items-start">
+      <section
+        className={`${pagePanelClassName} overflow-hidden p-4 sm:p-6 md:p-8`}
+      >
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] xl:items-start">
           <div className="space-y-4">
             <InfoBadge label={t("support:page.badge")} />
             <div className="space-y-3">
-              <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-[3.4rem] md:leading-[1.02]">
+              <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-4xl md:text-[3.4rem] md:leading-[1.02]">
                 {t("support:page.title")}
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
@@ -476,7 +478,7 @@ const Support = () => {
             </div>
           </div>
 
-          <div className={`${insetPanelClassName} p-4 md:p-5`}>
+          <div className={`${insetPanelClassName} p-3 sm:p-4 md:p-5`}>
             <div className="grid gap-3 sm:grid-cols-2">
               {quickLinks.slice(0, 4).map((item) => {
                 const Icon = iconMap[item.section] ?? LifeBuoy;
@@ -488,15 +490,15 @@ const Support = () => {
                     onClick={() =>
                       setSupportLocation(item.section, item.faqCategory)
                     }
-                    className="group rounded-[1.25rem] border border-border/70 bg-background/85 p-4 text-start transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_36px_-30px_rgba(15,23,42,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="group rounded-[1.35rem] bg-background/80 p-4 text-start shadow-[0_18px_36px_-34px_rgba(15,23,42,0.24)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-background/95 hover:shadow-[0_24px_44px_-32px_rgba(15,23,42,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
-                    <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-secondary/40 text-foreground transition-transform duration-200 group-hover:scale-[1.03]">
+                    <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary/55 text-foreground shadow-sm transition-transform duration-200 group-hover:scale-[1.03]">
                       <Icon className="h-4 w-4" />
                     </span>
                     <p className="text-sm font-semibold text-foreground">
                       {item.title}
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm sm:leading-6">
                       {item.description}
                     </p>
                   </button>
@@ -514,7 +516,7 @@ const Support = () => {
         }
         className="space-y-4"
       >
-        <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-[1.5rem] border border-border/70 bg-background/90 p-2 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.28)]">
+        <TabsList className="h-auto w-full snap-x snap-mandatory justify-start gap-2 overflow-x-auto rounded-[1.4rem] bg-secondary/18 p-2 pr-3 pb-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border/70 sm:rounded-[1.5rem]">
           {navigationItems.map((item) => {
             const Icon = iconMap[item.id] ?? LifeBuoy;
 
@@ -522,17 +524,17 @@ const Support = () => {
               <TabsTrigger
                 key={item.id}
                 value={item.id}
-                className="min-w-[11rem] flex-1 rounded-[1rem] border border-transparent px-4 py-3 data-[state=active]:border-border/70 data-[state=active]:shadow-none"
+                className="min-w-[12.5rem] snap-start flex-none rounded-[1.1rem] bg-transparent px-3 py-2.5 sm:min-w-[13.5rem] sm:px-4 sm:py-3 xl:min-w-[14.5rem] data-[state=active]:bg-background/90 data-[state=active]:shadow-[0_12px_30px_-24px_rgba(15,23,42,0.45)]"
               >
-                <span className="flex items-start gap-3 text-left">
-                  <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/35">
+                <span className="flex items-center gap-3 text-left">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-background/70 shadow-sm sm:h-9 sm:w-9">
                     <Icon className="h-4 w-4" />
                   </span>
                   <span className="space-y-1">
-                    <span className="block text-sm font-semibold text-foreground">
+                    <span className="block text-xs font-semibold text-foreground sm:text-sm">
                       {item.label}
                     </span>
-                    <span className="block text-xs leading-5 text-muted-foreground">
+                    <span className="hidden text-[11px] leading-4 text-muted-foreground xl:block sm:text-xs sm:leading-5">
                       {item.description}
                     </span>
                   </span>
@@ -543,7 +545,7 @@ const Support = () => {
         </TabsList>
 
         <TabsContent value="help-center" className="space-y-6">
-          <section className={`${pagePanelClassName} p-6 md:p-8`}>
+          <section className={`${pagePanelClassName} p-4 sm:p-6 md:p-8`}>
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
               <div className="space-y-6">
                 <SectionHeading
@@ -558,11 +560,11 @@ const Support = () => {
                     return (
                       <article
                         key={item.id}
-                        className={`${insetPanelClassName} group p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_36px_-30px_rgba(15,23,42,0.35)]`}
+                        className={`${insetPanelClassName} group p-5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary/24 hover:shadow-[0_20px_42px_-32px_rgba(15,23,42,0.28)]`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="space-y-2">
-                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-background/90">
+                            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-background/85 shadow-sm">
                               <Icon className="h-4 w-4" />
                             </span>
                             <div>
@@ -604,10 +606,10 @@ const Support = () => {
                       return (
                         <div
                           key={item.title}
-                          className="rounded-[1.1rem] border border-border/70 bg-background/85 p-4"
+                          className="rounded-[1.2rem] bg-background/72 p-4"
                         >
                           <div className="flex items-start gap-3">
-                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/40">
+                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-secondary/55 shadow-sm">
                               <Icon className="h-4 w-4" />
                             </span>
                             <div>
@@ -633,9 +635,9 @@ const Support = () => {
                     {helpSteps.map((item, index) => (
                       <div
                         key={item.title}
-                        className="flex items-start gap-3 rounded-[1.1rem] border border-border/70 bg-background/85 p-4"
+                        className="flex items-start gap-3 rounded-[1.2rem] bg-background/72 p-4"
                       >
-                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-secondary/45 text-xs font-semibold text-foreground">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary/60 text-xs font-semibold text-foreground shadow-sm">
                           {index + 1}
                         </span>
                         <div>
@@ -656,7 +658,7 @@ const Support = () => {
         </TabsContent>
 
         <TabsContent value="faq" className="space-y-6">
-          <section className={`${pagePanelClassName} p-6 md:p-8`}>
+          <section className={`${pagePanelClassName} p-4 sm:p-6 md:p-8`}>
             <div className="space-y-6">
               <SectionHeading
                 title={t("support:faq.title")}
@@ -706,7 +708,7 @@ const Support = () => {
 
                     <Accordion
                       type="multiple"
-                      className="rounded-2xl border border-border/70 bg-background/90 px-4 md:px-5"
+                      className="rounded-[1.4rem] bg-background/62 px-4 md:px-5"
                     >
                       {group.items.map((item) => (
                         <AccordionItem
@@ -714,7 +716,7 @@ const Support = () => {
                           value={`${group.id}-${item.id}`}
                           className="border-border/70"
                         >
-                          <AccordionTrigger className="gap-4 py-5 text-left text-sm font-semibold text-foreground hover:no-underline">
+                          <AccordionTrigger className="gap-3 py-4 text-left text-sm font-semibold text-foreground hover:no-underline sm:gap-4 sm:py-5">
                             {item.question}
                           </AccordionTrigger>
                           <AccordionContent className="pb-5 text-sm leading-7 text-muted-foreground">
@@ -911,7 +913,7 @@ const Support = () => {
                     type="submit"
                     styleType="primary"
                     radius="xl"
-                    className="min-w-[12rem]"
+                    className="w-full sm:min-w-[12rem] sm:w-auto"
                     disabled={contactForm.formState.isSubmitting}
                   >
                     {contactForm.formState.isSubmitting
@@ -925,10 +927,10 @@ const Support = () => {
               </form>
             </article>
 
-            <aside className="space-y-6">
-              <article className={`${pagePanelClassName} p-6`}>
+            <aside className="space-y-4">
+              <article className={`${insetPanelClassName} p-6`}>
                 <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/35">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-secondary/55 shadow-sm">
                     <CircleAlert className="h-4 w-4" />
                   </span>
                   <div>
@@ -946,7 +948,7 @@ const Support = () => {
                 </div>
               </article>
 
-              <article className={`${pagePanelClassName} p-6`}>
+              <article className={`${insetPanelClassName} p-6`}>
                 <h3 className="text-lg font-semibold text-foreground">
                   {t("support:contact.guidance.title")}
                 </h3>
@@ -954,9 +956,9 @@ const Support = () => {
                   {contactGuidance.map((item, index) => (
                     <div
                       key={item}
-                      className={`${insetPanelClassName} flex items-start gap-3 p-4`}
+                      className="flex items-start gap-3 rounded-[1.2rem] bg-background/70 p-4"
                     >
-                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/85 text-xs font-semibold">
+                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/90 text-xs font-semibold shadow-sm">
                         {index + 1}
                       </span>
                       <p className="text-sm leading-6 text-muted-foreground">
@@ -1118,7 +1120,7 @@ const Support = () => {
                     type="submit"
                     styleType="primary"
                     radius="xl"
-                    className="min-w-[12rem]"
+                    className="w-full sm:min-w-[12rem] sm:w-auto"
                     disabled={reportForm.formState.isSubmitting}
                   >
                     {reportForm.formState.isSubmitting
@@ -1132,10 +1134,10 @@ const Support = () => {
               </form>
             </article>
 
-            <aside className="space-y-6">
-              <article className={`${pagePanelClassName} p-6`}>
+            <aside className="space-y-4">
+              <article className={`${insetPanelClassName} p-6`}>
                 <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-secondary/35">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-secondary/55 shadow-sm">
                     <FileWarning className="h-4 w-4" />
                   </span>
                   <div>
@@ -1153,7 +1155,7 @@ const Support = () => {
                 </div>
               </article>
 
-              <article className={`${pagePanelClassName} p-6`}>
+              <article className={`${insetPanelClassName} p-6`}>
                 <h3 className="text-lg font-semibold text-foreground">
                   {t("support:report.guidance.title")}
                 </h3>
@@ -1161,9 +1163,9 @@ const Support = () => {
                   {reportGuidance.map((item, index) => (
                     <div
                       key={item}
-                      className={`${insetPanelClassName} flex items-start gap-3 p-4`}
+                      className="flex items-start gap-3 rounded-[1.2rem] bg-background/70 p-4"
                     >
-                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/85 text-xs font-semibold">
+                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/90 text-xs font-semibold shadow-sm">
                         {index + 1}
                       </span>
                       <p className="text-sm leading-6 text-muted-foreground">
@@ -1178,7 +1180,7 @@ const Support = () => {
         </TabsContent>
 
         <TabsContent value="about-ai" className="space-y-6">
-          <section className={`${pagePanelClassName} p-6 md:p-8`}>
+          <section className={`${pagePanelClassName} p-4 sm:p-6 md:p-8`}>
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(18rem,0.95fr)]">
               <div className="space-y-6">
                 <SectionHeading
@@ -1195,7 +1197,7 @@ const Support = () => {
                         key={item.title}
                         className={`${insetPanelClassName} p-5`}
                       >
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/70 bg-background/90">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-background/85 shadow-sm">
                           <Icon className="h-4 w-4" />
                         </span>
                         <h3 className="mt-4 text-lg font-semibold text-foreground">
@@ -1212,7 +1214,7 @@ const Support = () => {
 
               <aside className={`${insetPanelClassName} p-5 md:p-6`}>
                 <div className="flex items-start gap-3">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-background/90">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-background/90 shadow-sm">
                     <ShieldCheck className="h-4 w-4" />
                   </span>
                   <div>
@@ -1225,7 +1227,7 @@ const Support = () => {
                     <CustomButton
                       type="button"
                       radius="xl"
-                      className="mt-5"
+                      className="mt-5 w-full sm:w-auto"
                       onClick={() => setSupportLocation("report")}
                     >
                       {t("support:aboutAi.note.cta")}

@@ -207,6 +207,14 @@ const CustomDateInput = React.forwardRef<
     if (minDate) disabledDays.push({ before: minDate });
     if (maxDate) disabledDays.push({ after: maxDate });
 
+    // Disable outside days
+    disabledDays.push((day: Date) => {
+      return (
+        day.getMonth() !== month.getMonth() ||
+        day.getFullYear() !== currentViewYear
+      );
+    });
+
     const commitValue = (nextValue: string) => {
       if (!isControlled) setUncontrolledValue(nextValue);
       onChange?.(buildSyntheticChangeEvent(name, nextValue));
@@ -385,55 +393,7 @@ const CustomDateInput = React.forwardRef<
                 </CustomButton>
               </div>
             </div>
-            {!required || selectedDate ? (
-              <div className="flex items-center justify-between px-1">
-                {selectedDate ? (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {formatDisplayDate(selectedDate, localeKey, dateLocale)}
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {t("datePicker.noDate")}
-                  </span>
-                )}
-                <div className="flex items-center gap-1">
-                  {!required ? (
-                    <CustomButton
-                      onClick={() => {
-                        commitValue("");
-                        setMonth(clampMonthToBounds(today, minDate, maxDate));
-                      }}
-                      radius="full"
-                      size="sm"
-                      styleType="unstyled"
-                      type="button"
-                      className="px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                    >
-                      {t("actions.clear")}
-                    </CustomButton>
-                  ) : null}
-                  <CustomButton
-                    onClick={() => {
-                      const nextDate = clampDateToBounds(
-                        today,
-                        minDate,
-                        maxDate
-                      );
-                      commitValue(format(nextDate, ISO_DATE_FORMAT));
-                      setMonth(startOfMonth(nextDate));
-                      setOpen(false);
-                    }}
-                    radius="full"
-                    size="sm"
-                    styleType="unstyled"
-                    type="button"
-                    className="px-2 py-1 text-[11px] font-medium text-primary hover:text-primary/80"
-                  >
-                    {t("actions.today")}
-                  </CustomButton>
-                </div>
-              </div>
-            ) : null}
+
             <div className="overflow-hidden rounded-[1rem]">
               <DayPicker
                 className={cn(

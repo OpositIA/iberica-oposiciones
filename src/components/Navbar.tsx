@@ -1,5 +1,5 @@
-import ibericaOposicionesHorizontalLogo from "@/assets/iberica-oposiciones-horizontal.svg";
 import { useAuth } from "@/auth/AuthProvider";
+import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import UserActionsDropdown from "@/components/UserActionsDropdown";
 import { LogIn } from "lucide-react";
@@ -39,27 +39,8 @@ const Navbar = () => {
     >
       <div className="flex items-center gap-8">
         <Link to="/" className="flex items-center gap-2 mb-[-5px]">
-          <img
-            src={ibericaOposicionesHorizontalLogo}
-            alt="Iberica Oposiciones"
-            className="h-16 w-auto"
-          />
+          <BrandLogo className="h-16 w-auto" />
         </Link>
-        <div className="hidden md:flex items-center gap-6">
-          {navItems.map((item) => (
-            <Link
-              key={item}
-              to="/"
-              className={`text-xs font-medium tracking-widest uppercase transition-colors ${
-                isScrolled
-                  ? "text-muted-foreground hover:text-foreground"
-                  : "text-primary-foreground/70 hover:text-primary-foreground"
-              }`}
-            >
-              {item}
-            </Link>
-          ))}
-        </div>
       </div>
       <div className="flex items-center gap-4">
         {!isAuthReady ? (
@@ -78,17 +59,31 @@ const Navbar = () => {
             }
           />
         ) : (
-          <CustomButton
-            asChild
-            styleType="primary"
-            radius="lg"
-            className="h-10 px-5"
-          >
-            <Link to="/login">
-              <LogIn className="h-3.5 w-3.5" />
-              {t("landing:navbar.login")}
-            </Link>
-          </CustomButton>
+          <>
+            <CustomButton
+              asChild
+              styleType="menu"
+              radius="lg"
+              className={`h-10 px-5 ${
+                isScrolled
+                  ? "border-border/70 bg-background/70 text-foreground hover:bg-secondary"
+                  : "border-primary-foreground/15 bg-white/8 text-primary-foreground hover:bg-white/12"
+              }`}
+            >
+              <Link to="/registro">{t("landing:navbar.registerNow")}</Link>
+            </CustomButton>
+            <CustomButton
+              asChild
+              styleType="primary"
+              radius="lg"
+              className="h-10 px-5"
+            >
+              <Link to="/login">
+                <LogIn className="h-3.5 w-3.5" />
+                {t("landing:navbar.login")}
+              </Link>
+            </CustomButton>
+          </>
         )}
       </div>
     </nav>

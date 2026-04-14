@@ -72,9 +72,11 @@ const SUPABASE_FUNCTIONS_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functi
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const PROFILE_QUERY_CONFIG = {
-  staleTime: 0,
-  gcTime: 0,
-  refetchOnMount: "always" as const
+  staleTime: 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false
 };
 
 export const profileQueryKeys = {
