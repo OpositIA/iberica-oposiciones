@@ -1,6 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
-import AppLoading from "@/components/AppLoading";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import { ProfileTestPageSkeleton } from "@/components/PageSkeletons";
 import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import CustomButton from "@/components/ui/custom-button";
@@ -395,7 +395,7 @@ const ProfileTest = () => {
     setIsQuickTestDialogOpen(open);
   };
 
-  if (isLoadingOpposition) return <AppLoading label={t("test.loading")} />;
+  if (isLoadingOpposition) return <ProfileTestPageSkeleton />;
 
   if (!isCurrentPlanPaid) {
     return (

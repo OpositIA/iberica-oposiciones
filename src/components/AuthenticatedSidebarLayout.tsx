@@ -4,6 +4,7 @@ import BrandLogo from "@/components/BrandLogo";
 import WorkspaceTour, {
   type WorkspaceTourHandle
 } from "@/components/onboarding/WorkspaceTour";
+import ThemeToggleButton from "@/components/ThemeToggleButton";
 import CustomButton from "@/components/ui/custom-button";
 import {
   Tooltip,
@@ -446,6 +447,7 @@ const AuthenticatedSidebarLayout = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                <ThemeToggleButton />
                 <UserActionsDropdown
                   onOpenTour={() => workspaceTourRef.current?.start()}
                   triggerDataTourId={WORKSPACE_TOUR_TARGETS.accountMenu}

@@ -1,5 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
-import AppLoading from "@/components/AppLoading";
+import { ProfileSyllabusPageSkeleton } from "@/components/PageSkeletons";
 import {
   Accordion,
   AccordionContent,
@@ -99,7 +99,7 @@ const ProfileTemario = () => {
     return `/perfil/temario/pdf/${subtopicFileId}${query ? `?${query}` : ""}`;
   };
 
-  if (isLoadingOpposition) return <AppLoading label={t("syllabus.loading")} />;
+  if (isLoadingOpposition) return <ProfileSyllabusPageSkeleton />;
 
   return (
     <div className="space-y-4">

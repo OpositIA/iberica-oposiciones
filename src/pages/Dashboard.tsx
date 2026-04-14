@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import { DashboardPageSkeleton } from "@/components/PageSkeletons";
 import {
   ChartContainer,
   ChartTooltip,
@@ -402,6 +403,8 @@ const Dashboard = () => {
         : "0"
     }
   ];
+
+  if (isHistoryLoading && !dashboardBundle) return <DashboardPageSkeleton />;
 
   return (
     <div className="space-y-6">

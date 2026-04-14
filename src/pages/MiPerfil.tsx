@@ -1,6 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
-import AppLoading from "@/components/AppLoading";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import { MyProfilePageSkeleton } from "@/components/PageSkeletons";
 import CustomButton from "@/components/ui/custom-button";
 import CustomDateInput from "@/components/ui/custom-date-input";
 import CustomInput from "@/components/ui/custom-input";
@@ -582,8 +582,7 @@ const MiPerfil = () => {
     }
   };
 
-  if (isLoadingProfile)
-    return <AppLoading label={t("profile:myProfile.loading")} />;
+  if (isLoadingProfile) return <MyProfilePageSkeleton />;
 
   return (
     <div className="space-y-6">

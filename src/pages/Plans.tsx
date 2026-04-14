@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import { PlansPageSkeleton } from "@/components/PageSkeletons";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale } from "@/i18n/locales";
 import { formatPlanPriceFromCents, getPlanKey, isPaidPlan } from "@/lib/plans";
@@ -41,10 +42,14 @@ const Plans = () => {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: publicPlans = [], isLoading: isLoadingPublicPlans } =
-    usePublicSubscriptionPlansQuery();
+  const {
+    data: publicPlans = [],
+    isFetching: isFetchingPublicPlans,
+    isLoading: isLoadingPublicPlans
+  } = usePublicSubscriptionPlansQuery();
   const { data: currentPlan } = useUserPlanStateQuery(user?.id);
   const [pendingPlanCode, setPendingPlanCode] = useState<string | null>(null);
+  const [showPlansSkeleton, setShowPlansSkeleton] = useState(true);
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const currentPlanKey = getPlanKey({
     code: currentPlan?.plan_code,
@@ -96,6 +101,22 @@ const Plans = () => {
       }),
     [locale, publicPlans, t]
   );
+
+  useEffect(() => {
+    if (
+      isLoadingPublicPlans ||
+      (isFetchingPublicPlans && publicPlans.length === 0)
+    ) {
+      setShowPlansSkeleton(true);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowPlansSkeleton(false);
+    }, 220);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isFetchingPublicPlans, isLoadingPublicPlans, publicPlans.length]);
 
   useEffect(() => {
     const checkoutState = searchParams.get("checkout");
@@ -279,24 +300,18 @@ const Plans = () => {
         </section>
       )}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {isLoadingPublicPlans &&
-          Array.from({ length: 2 }).map((_, index) => (
-            <div
-              key={index}
-              className="min-h-[420px] rounded-3xl border border-border/70 bg-background/80 p-8"
-            />
-          ))}
-
-        {!isLoadingPublicPlans &&
-          plans.map((plan) => {
+      {showPlansSkeleton ? (
+        <PlansPageSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {plans.map((plan) => {
             const isCurrentPlan = currentPlan?.plan_code === plan.code;
             const isBusy = pendingPlanCode === plan.code;
 
             return (
               <article
                 key={plan.code}
-                className={`relative flex flex-col overflow-hidden rounded-[1.6rem] border p-5 ${
+                className={`relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border p-6 ${
                   plan.featured
                     ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_28px_70px_-42px_rgba(15,23,42,0.82)]"
                     : "border-border/70 bg-background text-foreground"
@@ -420,7 +435,8 @@ const Plans = () => {
               </article>
             );
           })}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
