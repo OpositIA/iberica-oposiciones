@@ -21,6 +21,7 @@ import {
   useUserPlanStateQuery
 } from "@/queries/subscriptionQueries";
 import { useStudyTimer } from "@/study/StudyTimerProvider";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   Brain,
@@ -49,6 +50,8 @@ import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "iberica-oposiciones:sidebar-collapsed";
+const SIDEBAR_LOGIN_OPEN_STORAGE_KEY =
+  "iberica-oposiciones:sidebar-open-on-login";
 const BILLING_ISSUE_DISMISS_PREFIX =
   "iberica-oposiciones:billing-issue-dismissed";
 const STUDY_TIMER_BADGE_POSITION_STORAGE_KEY =
@@ -61,6 +64,18 @@ const STUDY_TIMER_BADGE_DEFAULT_RIGHT_MARGIN = 80;
 type StudyTimerBadgePosition = {
   x: number;
   y: number;
+};
+
+type SidebarMenuItem = {
+  icon: LucideIcon;
+  label: string;
+  to: string;
+  tourTargetId: string;
+};
+
+type SidebarMenuGroup = {
+  items: SidebarMenuItem[];
+  title: string;
 };
 
 const formatPlanEndDate = (value: string | null, locale: string) => {
@@ -196,9 +211,10 @@ const AuthenticatedSidebarLayout = () => {
     offsetY: number;
     pointerId: number;
   } | null>(null);
+  const previousMobileSidebarStateBeforeTourRef = useRef<boolean | null>(null);
   const workspaceTourRef = useRef<WorkspaceTourHandle | null>(null);
 
-  const menuGroups = useMemo(
+  const menuGroups = useMemo<SidebarMenuGroup[]>(
     () => [
       {
         title: t("profile:layout.menuGroups.general"),
@@ -206,12 +222,14 @@ const AuthenticatedSidebarLayout = () => {
           {
             label: t("profile:layout.menuItems.dashboard"),
             to: "/dashboard",
-            icon: LayoutDashboard
+            icon: LayoutDashboard,
+            tourTargetId: WORKSPACE_TOUR_TARGETS.menuDashboard
           },
           {
             label: t("profile:layout.menuItems.ia"),
             to: "/perfil/asistente-ia",
-            icon: Brain
+            icon: Brain,
+            tourTargetId: WORKSPACE_TOUR_TARGETS.menuAssistant
           }
         ]
       },
@@ -221,17 +239,20 @@ const AuthenticatedSidebarLayout = () => {
           {
             label: t("profile:layout.menuItems.test"),
             to: "/perfil/test",
-            icon: FileText
+            icon: FileText,
+            tourTargetId: WORKSPACE_TOUR_TARGETS.menuTest
           },
           {
             label: t("profile:layout.menuItems.syllabus"),
             to: "/perfil/temario",
-            icon: NotebookText
+            icon: NotebookText,
+            tourTargetId: WORKSPACE_TOUR_TARGETS.menuSyllabus
           },
           {
             label: t("profile:layout.menuItems.study"),
             to: "/perfil/pomodoro",
-            icon: TimerReset
+            icon: TimerReset,
+            tourTargetId: WORKSPACE_TOUR_TARGETS.menuStudy
           }
         ]
       }
@@ -255,6 +276,23 @@ const AuthenticatedSidebarLayout = () => {
   const handleToggleSidebarCollapse = () => {
     setIsSidebarCollapsed((prev) => !prev);
   };
+  const handleWorkspaceTourOpenChange = useCallback(
+    (isTourOpen: boolean) => {
+      if (typeof window === "undefined" || window.innerWidth >= 1024) return;
+
+      if (isTourOpen) {
+        previousMobileSidebarStateBeforeTourRef.current = isMobileOpen;
+        setIsMobileOpen(true);
+        return;
+      }
+
+      if (previousMobileSidebarStateBeforeTourRef.current === false)
+        setIsMobileOpen(false);
+
+      previousMobileSidebarStateBeforeTourRef.current = null;
+    },
+    [isMobileOpen]
+  );
   const showHeaderTimer =
     location.pathname !== "/perfil/pomodoro" && status !== "idle";
 
@@ -275,6 +313,18 @@ const AuthenticatedSidebarLayout = () => {
       isSidebarCollapsed ? "1" : "0"
     );
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return;
+
+    const pendingOpenUserId = window.sessionStorage.getItem(
+      SIDEBAR_LOGIN_OPEN_STORAGE_KEY
+    );
+    if (pendingOpenUserId !== user.id) return;
+
+    setIsSidebarCollapsed(false);
+    window.sessionStorage.removeItem(SIDEBAR_LOGIN_OPEN_STORAGE_KEY);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isPdfViewerRoute) return;
@@ -591,6 +641,7 @@ const AuthenticatedSidebarLayout = () => {
                             <Link
                               to={item.to}
                               onClick={closeMobileSidebar}
+                              data-tour-id={item.tourTargetId}
                               className={cn(
                                 "w-full flex items-center overflow-hidden py-2.5 rounded-xl transition-all",
                                 "px-3 gap-3",
@@ -790,7 +841,11 @@ const AuthenticatedSidebarLayout = () => {
           )}
         </main>
 
-        <WorkspaceTour ref={workspaceTourRef} userId={user?.id ?? null} />
+        <WorkspaceTour
+          ref={workspaceTourRef}
+          userId={user?.id ?? null}
+          onOpenChange={handleWorkspaceTourOpenChange}
+        />
       </div>
     </TooltipProvider>
   );

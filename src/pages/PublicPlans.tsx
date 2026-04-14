@@ -183,8 +183,8 @@ const PublicPlans = () => {
                 }`}
               >
                 {plan.featured && (
-                  <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/16 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
-                    <Crown className="h-3 w-3" />
+                  <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/16 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
+                    <Crown className="h-2.5 w-2.5" />
                     {t("featured")}
                   </div>
                 )}
@@ -196,9 +196,7 @@ const PublicPlans = () => {
                         ? "text-primary-foreground/58"
                         : "text-muted-foreground"
                     }`}
-                  >
-                    {plan.eyebrow}
-                  </p>
+                  ></p>
                   <h3 className="text-[1.7rem] font-serif leading-none">
                     {plan.name}
                   </h3>

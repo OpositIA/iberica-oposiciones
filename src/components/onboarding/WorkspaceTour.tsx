@@ -42,6 +42,7 @@ type LayoutState = {
   targetRect: RectState;
 };
 type WorkspaceTourProps = {
+  onOpenChange?: (isOpen: boolean) => void;
   userId: string | null;
 };
 
@@ -61,34 +62,29 @@ const TARGET_VISIBILITY_MARGIN = 28;
 
 const TOUR_STEPS: TourStep[] = [
   {
-    id: "navigation",
+    id: "menuDashboard",
     placement: "right",
-    targetId: WORKSPACE_TOUR_TARGETS.navigation
+    targetId: WORKSPACE_TOUR_TARGETS.menuDashboard
   },
   {
-    id: "dashboardHero",
-    placement: "bottom",
-    targetId: WORKSPACE_TOUR_TARGETS.dashboardHero
+    id: "menuAssistant",
+    placement: "right",
+    targetId: WORKSPACE_TOUR_TARGETS.menuAssistant
   },
   {
-    id: "dashboardMetrics",
-    placement: "bottom",
-    targetId: WORKSPACE_TOUR_TARGETS.dashboardMetrics
+    id: "menuTest",
+    placement: "right",
+    targetId: WORKSPACE_TOUR_TARGETS.menuTest
   },
   {
-    id: "dashboardPerformance",
-    placement: "bottom",
-    targetId: WORKSPACE_TOUR_TARGETS.dashboardPerformance
+    id: "menuSyllabus",
+    placement: "right",
+    targetId: WORKSPACE_TOUR_TARGETS.menuSyllabus
   },
   {
-    id: "dashboardHistory",
-    placement: "top",
-    targetId: WORKSPACE_TOUR_TARGETS.dashboardHistory
-  },
-  {
-    id: "accountMenu",
-    placement: "left",
-    targetId: WORKSPACE_TOUR_TARGETS.accountMenu
+    id: "menuStudy",
+    placement: "right",
+    targetId: WORKSPACE_TOUR_TARGETS.menuStudy
   }
 ];
 
@@ -300,7 +296,7 @@ const usePrefersReducedMotion = () => {
 };
 
 const WorkspaceTour = forwardRef<WorkspaceTourHandle, WorkspaceTourProps>(
-  ({ userId }, ref) => {
+  ({ onOpenChange, userId }, ref) => {
     const { t } = useTranslation(["tour"]);
     const location = useLocation();
     const navigate = useNavigate();
@@ -419,6 +415,10 @@ const WorkspaceTour = forwardRef<WorkspaceTourHandle, WorkspaceTourProps>(
       }),
       [startTour]
     );
+
+    useEffect(() => {
+      onOpenChange?.(isOpen);
+    }, [isOpen, onOpenChange]);
 
     useEffect(() => {
       if (!userId) {

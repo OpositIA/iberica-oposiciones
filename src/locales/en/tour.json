@@ -9,29 +9,25 @@
     "close": "Close tour"
   },
   "steps": {
-    "navigation": {
-      "title": "Your main workspace, always within reach",
-      "description": "Use this navigation area to move quickly through dashboard, AI, tests, syllabus, and Pomodoro. On mobile it collapses into the top menu to keep the UI clean."
+    "menuDashboard": {
+      "title": "Start with your dashboard",
+      "description": "This is your main overview: progress, quick actions, and the natural starting point every time you enter the app."
     },
-    "dashboardHero": {
-      "title": "An instant view of your preparation",
-      "description": "This hero block concentrates your overall status and the most useful shortcuts so you can resume your study flow without friction."
+    "menuAssistant": {
+      "title": "Your AI assistant in one click",
+      "description": "Use this option to open smart guidance for questions, study direction, and faster progress without breaking your flow."
     },
-    "dashboardMetrics": {
-      "title": "Key metrics at a glance",
-      "description": "Here you track volume, average score, accuracy, best result, pace, and ongoing sessions. It is the quickest place to judge whether your rhythm is where it should be."
+    "menuTest": {
+      "title": "Your test practice area",
+      "description": "This section takes you to the test flow to train with questions, measure your level, and reinforce weak spots quickly."
     },
-    "dashboardPerformance": {
-      "title": "Recent progress with real context",
-      "description": "These charts turn your latest attempts into a clear reading of progress, consistency, and room for improvement without leaving the dashboard."
+    "menuSyllabus": {
+      "title": "All your syllabus in one place",
+      "description": "Here you review study content, move through topics, and return to the material whenever you need more depth."
     },
-    "dashboardHistory": {
-      "title": "History to return to the details",
-      "description": "Every recent attempt stays reachable here so you can review date, score, accuracy, and reopen the session exactly where you left it."
-    },
-    "accountMenu": {
-      "title": "Preferences and a quick way to replay the tour",
-      "description": "Your avatar menu groups account settings, theme controls, and the option to launch this walkthrough again whenever you need a fresh orientation."
+    "menuStudy": {
+      "title": "Pomodoro to enter focus mode",
+      "description": "Use this entry point to open your study area, work in sessions, and keep a steady concentration rhythm."
     }
   }
 }

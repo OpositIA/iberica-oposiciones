@@ -328,16 +328,14 @@ const Plans = () => {
                 }`}
               >
                 {plan.featured && (
-                  <div className="absolute right-6 top-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-foreground">
-                    <Crown className="h-3.5 w-3.5" />
+                  <div className="absolute right-6 top-6 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-foreground">
+                    <Crown className="h-3 w-3" />
                     {t("featured")}
                   </div>
                 )}
 
                 <div className="max-w-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-65">
-                    {plan.eyebrow}
-                  </p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-65"></p>
                   <h3 className="mt-2 text-[1.8rem] font-serif leading-none">
                     {plan.name}
                   </h3>
