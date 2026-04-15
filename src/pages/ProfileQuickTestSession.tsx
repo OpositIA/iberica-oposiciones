@@ -404,7 +404,6 @@ const ProfileQuickTestSession = () => {
   const [blockedTransition, setBlockedTransition] =
     useState<BrowserNavigationBlockTx | null>(null);
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now());
-  const [timerNowMs, setTimerNowMs] = useState(() => Date.now());
   const locationState = location.state as QuickTestLocationState | null;
 
   const initialPayload = useMemo(() => {
