@@ -333,6 +333,41 @@ const useBrowserNavigationBlocker = (
   }, [navigationContext, onBlock, when]);
 };
 
+const computeQuickTestDurationSeconds = (
+  questionCount: number,
+  config: OppositionTestExamConfig | null
+) => {
+  const officialQuestionCount = config?.questionCount ?? null;
+  const officialDurationMinutes = config?.durationMinutes ?? null;
+  if (
+    !officialQuestionCount ||
+    !officialDurationMinutes ||
+    officialQuestionCount <= 0 ||
+    officialDurationMinutes <= 0 ||
+    questionCount <= 0
+  )
+    return null;
+
+  return Math.max(
+    60,
+    Math.round(
+      (officialDurationMinutes * 60 * questionCount) / officialQuestionCount
+    )
+  );
+};
+
+const formatRemainingTime = (totalSeconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0)
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
 const ProfileQuickTestSession = () => {
   const { t } = useTranslation(["profile", "plans"]);
   const { user, isAuthReady } = useAuth();
@@ -368,6 +403,7 @@ const ProfileQuickTestSession = () => {
   const [isInternalNavigation, setIsInternalNavigation] = useState(false);
   const [blockedTransition, setBlockedTransition] =
     useState<BrowserNavigationBlockTx | null>(null);
+  const [timerNowMs, setTimerNowMs] = useState(() => Date.now());
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now());
   const locationState = location.state as QuickTestLocationState | null;
 
@@ -446,8 +482,8 @@ const ProfileQuickTestSession = () => {
         if (!dbPayload || isCancelled) return;
         setPayload(dbPayload);
         setQuickTestSessionPayload(dbPayload);
-      } catch {
-        return;
+      } catch (error) {
+        console.error("[quick-test] load payload failed", error);
       } finally {
         if (!isCancelled) setIsLoadingPayload(false);
       }
@@ -473,7 +509,8 @@ const ProfileQuickTestSession = () => {
       .then((config) => {
         if (!isCancelled) setTestExamConfig(config);
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("[quick-test] load test exam config failed", error);
         if (!isCancelled) setTestExamConfig(null);
       });
 
@@ -664,8 +701,8 @@ const ProfileQuickTestSession = () => {
           activeQuestionId: restoredActiveQuestionId,
           updatedAt: attempt?.updatedAt ?? new Date().toISOString()
         });
-      } catch {
-        return;
+      } catch (error) {
+        console.error("[quick-test] hydrate attempt failed", error);
       } finally {
         if (!isCancelled) {
           setIsHydratingAttempt(false);
@@ -689,6 +726,14 @@ const ProfileQuickTestSession = () => {
       updatedAt: new Date().toISOString()
     });
   }, [activeQuestionId, questions.length, routeTestId, selectedAnswers]);
+
+  useEffect(() => {
+    if (!hasQuickTestsAccess) return;
+    const intervalId = window.setInterval(() => {
+      setTimerNowMs(Date.now());
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [hasQuickTestsAccess]);
 
   const evaluatedAttempt = useMemo(
     () =>
@@ -717,6 +762,31 @@ const ProfileQuickTestSession = () => {
         : evaluatedAttempt.scoreScaleMax.toFixed(1),
     [evaluatedAttempt.scoreScaleMax]
   );
+
+  const totalDurationSeconds = useMemo(
+    () => computeQuickTestDurationSeconds(questions.length, testExamConfig),
+    [questions.length, testExamConfig]
+  );
+  const attemptStartedAtMs = useMemo(() => {
+    if (!attemptStartedAt) return null;
+    const parsed = new Date(attemptStartedAt).valueOf();
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [attemptStartedAt]);
+  const remainingSeconds = useMemo(() => {
+    if (!totalDurationSeconds || !attemptStartedAtMs) return null;
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((timerNowMs - attemptStartedAtMs) / 1000)
+    );
+    return Math.max(0, totalDurationSeconds - elapsedSeconds);
+  }, [attemptStartedAtMs, timerNowMs, totalDurationSeconds]);
+  const isTimedAttempt = totalDurationSeconds !== null;
+  const isTimeUp =
+    hasQuickTestsAccess &&
+    isTimedAttempt &&
+    remainingSeconds !== null &&
+    remainingSeconds <= 0;
+
   const isReadOnlyHistoryView =
     !hasQuickTestsAccess && Boolean(attemptFinishedAt);
   const isMidTest =
@@ -725,7 +795,8 @@ const ProfileQuickTestSession = () => {
     answeredCount > 0 &&
     answeredCount < activeQuestionCount &&
     !attemptFinishedAt &&
-    !isInternalNavigation;
+    !isInternalNavigation &&
+    !isTimeUp;
   const onBlockedNavigation = useCallback((tx: BrowserNavigationBlockTx) => {
     setBlockedTransition(tx);
     setIsLeaveDialogOpen(true);
@@ -774,7 +845,9 @@ const ProfileQuickTestSession = () => {
         .then(() => {
           lastSavedSignatureRef.current = signature;
         })
-        .catch(() => {});
+        .catch((error) => {
+          console.error("[quick-test] save attempt failed", error);
+        });
     }, 180);
 
     return () => {
@@ -972,6 +1045,74 @@ const ProfileQuickTestSession = () => {
       : extrapolatedScore.toFixed(1);
   }, [extrapolatedScore]);
 
+  const finalizeAttempt = useCallback(
+    async (finishedAtIso: string) => {
+      if (attemptFinishedAt || isReadOnlyHistoryView) return;
+
+      const normalizedSelectedAnswers = sanitizeSelectedAnswers(
+        selectedAnswers,
+        questionById
+      );
+      const signature = JSON.stringify({
+        selectedAnswers: normalizedSelectedAnswers,
+        activeQuestionId: activeQuestionId ?? null,
+        finishedAt: finishedAtIso
+      });
+
+      setAttemptFinishedAt(finishedAtIso);
+
+      if (routeTestId) {
+        setQuickTestProgress(routeTestId, {
+          selectedAnswers: normalizedSelectedAnswers,
+          activeQuestionId,
+          updatedAt: finishedAtIso
+        });
+      }
+
+      if (user?.id && routeTestId && isUuid(routeTestId)) {
+        try {
+          await saveQuickTestAttemptProgress({
+            testId: routeTestId,
+            userId: user.id,
+            selectedAnswers: normalizedSelectedAnswers,
+            activeQuestionId,
+            finishedAt: finishedAtIso
+          });
+          lastSavedSignatureRef.current = signature;
+        } catch (error) {
+          console.error("[quick-test] finalize attempt failed", error);
+        }
+      }
+
+      setIsResultDialogOpen(true);
+    },
+    [
+      activeQuestionId,
+      attemptFinishedAt,
+      isReadOnlyHistoryView,
+      questionById,
+      routeTestId,
+      selectedAnswers,
+      user?.id
+    ]
+  );
+
+  useEffect(() => {
+    if (!hasQuickTestsAccess) return;
+    if (!isAttemptHydrated) return;
+    if (questions.length === 0) return;
+    if (!isTimeUp) return;
+    if (attemptFinishedAt) return;
+    void finalizeAttempt(new Date().toISOString());
+  }, [
+    attemptFinishedAt,
+    finalizeAttempt,
+    hasQuickTestsAccess,
+    isAttemptHydrated,
+    isTimeUp,
+    questions.length
+  ]);
+
   const handleRetry = async () => {
     if (isReadOnlyHistoryView) return;
     const firstQuestionId = questions[0]?.id ?? null;
@@ -1017,7 +1158,6 @@ const ProfileQuickTestSession = () => {
     setIsRetrying(true);
 
     try {
-      // If user restarts mid-test, neutralize the current in-progress attempt.
       if (!attemptFinishedAt && answeredCount > 0) {
         await resetQuickTestAttempt({
           testId: routeTestId,
@@ -1040,7 +1180,8 @@ const ProfileQuickTestSession = () => {
         replace: true,
         state: { quickTest: clonedPayload }
       });
-    } catch {
+    } catch (error) {
+      console.error("[quick-test] clone retry failed", error);
       await resetInPlace();
     } finally {
       setIsRetrying(false);
@@ -1251,7 +1392,7 @@ const ProfileQuickTestSession = () => {
   if (isAuthReady && user?.id && !hasQuickTestsAccess && !attemptFinishedAt) {
     return (
       <div className="border border-border bg-background p-6">
-        <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
+        <p className="mb-2 text-xs font-semibold tracking-widest uppercase text-muted-foreground">
           {t("profile:testSession.badge")}
         </p>
         <h1 className="text-xl font-serif text-foreground">
@@ -1274,7 +1415,7 @@ const ProfileQuickTestSession = () => {
 
   if (!payload) {
     return (
-      <section className="border border-border bg-background p-6 space-y-4">
+      <section className="space-y-4 border border-border bg-background p-6">
         <h2 className="text-xl font-serif text-foreground">
           {t("testSession.missingDataTitle")}
         </h2>
@@ -1295,7 +1436,7 @@ const ProfileQuickTestSession = () => {
 
   if (questions.length === 0) {
     return (
-      <section className="border border-border bg-background p-6 space-y-4">
+      <section className="space-y-4 border border-border bg-background p-6">
         <h2 className="text-xl font-serif text-foreground">
           {t("testSession.emptyQuestionsTitle")}
         </h2>
@@ -1443,7 +1584,7 @@ const ProfileQuickTestSession = () => {
               key={question.id}
               id={`quick-test-question-${questionIdx + 1}`}
               className={cn(
-                "border bg-background p-5 space-y-3 scroll-mt-24",
+                "scroll-mt-24 space-y-3 border bg-background p-5",
                 questionStatus === "wrong" &&
                   "border-destructive/70 bg-destructive/5",
                 questionStatus === "correct" &&
@@ -1525,6 +1666,7 @@ const ProfileQuickTestSession = () => {
                         }));
                         setActiveQuestionId(question.id);
                       }}
+                      disabled={Boolean(attemptFinishedAt) || isTimeUp}
                       className={cn(
                         "w-full rounded-md border px-3 py-2 text-left text-sm transition-colors border-border bg-background text-foreground hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-65",
                         isSelectedWithoutKey &&
@@ -1537,7 +1679,7 @@ const ProfileQuickTestSession = () => {
                           "border-border/70 bg-muted/35 text-muted-foreground"
                       )}
                     >
-                      <span className="font-semibold mr-2">
+                      <span className="mr-2 font-semibold">
                         {String.fromCharCode(65 + optionIdx)}.
                       </span>
                       {option}
@@ -1599,7 +1741,7 @@ const ProfileQuickTestSession = () => {
         })}
       </section>
 
-      <section className="border border-border bg-background p-5 flex flex-wrap items-center gap-2">
+      <section className="flex flex-wrap items-center gap-2 border border-border bg-background p-5">
         <CustomButton
           type="button"
           styleType="menu"

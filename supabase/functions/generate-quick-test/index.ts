@@ -31,35 +31,40 @@ type NormalizedSelectedTopic = {
   scope: "topic" | "block";
 };
 
-type TopicCandidate = {
+type ResolvedSubtopicSelection = {
   topicId: string;
   topicLabel: string;
+  subtopicId: string;
+  subtopicLabel: string;
 };
 
-type ResolvedTopicSelection = {
-  requestedId: string;
-  requestedLabel: string;
-  topicId: string;
-  topicLabel: string;
-  scope: "topic" | "block";
-};
-
-type ClaimBankQuestionRow = {
-  bank_question_id: number;
+type QuestionBankRow = {
+  id: number;
   opposition_name: string | null;
   topic_id: string | null;
   topic_label: string | null;
-  difficulty: string | null;
-  locale: string | null;
+  subtopic_id: string | null;
+  subtopic_label: string | null;
   question: string | null;
   options: unknown;
   correct_option_id: string | null;
   explanation: string | null;
   citations: unknown;
-  model: string | null;
 };
 
 type NormalizedOption = { id: "A" | "B" | "C" | "D"; text: string };
+
+type OppositionTopicRow = {
+  id: number;
+  topic_code: string | null;
+  topic_title: string | null;
+};
+
+type OppositionSubtopicRow = {
+  opposition_topic_id: number;
+  subtopic_code: string | null;
+  subtopic_title: string | null;
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,6 +84,22 @@ const json = (body: unknown, status = 200) =>
 
 const clampQuestionCount = (value: unknown) =>
   sanitizeInteger(value, { min: 1, max: 100 });
+
+const normalizeKey = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const shuffleInPlace = <T>(items: T[]): T[] => {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [items[index], items[randomIndex]] = [items[randomIndex], items[index]];
+  }
+  return items;
+};
 
 const normalizeOptionText = (input: unknown): string => {
   if (typeof input === "string") return input.trim();
@@ -120,8 +141,9 @@ const normalizeOptions = (optionsRaw: unknown): NormalizedOption[] => {
         const text = normalizeOptionText(rec);
         if (id && text) byId.set(id, text);
       }
-      if (ids.every((id) => byId.has(id)))
+      if (ids.every((id) => byId.has(id))) {
         return ids.map((id) => ({ id, text: byId.get(id)! }));
+      }
     }
 
     const texts = arr.map((item) => {
@@ -159,8 +181,9 @@ const normalizeCorrectOptionId = (
       .replace(/[\u0300-\u036f]/g, "")
       .toUpperCase()
       .trim();
-    if (ids.includes(folded as "A" | "B" | "C" | "D"))
+    if (ids.includes(folded as "A" | "B" | "C" | "D")) {
       return folded as "A" | "B" | "C" | "D";
+    }
 
     const keywordMatch = folded.match(
       /(?:OPCION|RESPUESTA|CORRECTA|ALTERNATIVA)\s*[:-]?\s*([ABCD])(?:\b|[).])/
@@ -168,30 +191,34 @@ const normalizeCorrectOptionId = (
     if (
       keywordMatch?.[1] &&
       ids.includes(keywordMatch[1] as "A" | "B" | "C" | "D")
-    )
+    ) {
       return keywordMatch[1] as "A" | "B" | "C" | "D";
+    }
 
     const compactMatch = folded.match(/(?:^|[^A-Z])([ABCD])\s*[).:-]?\s*$/);
     if (
       compactMatch?.[1] &&
       ids.includes(compactMatch[1] as "A" | "B" | "C" | "D")
-    )
+    ) {
       return compactMatch[1] as "A" | "B" | "C" | "D";
+    }
 
     const isolatedMatch = folded.match(/\b([ABCD])\b/);
     if (
       isolatedMatch?.[1] &&
       ids.includes(isolatedMatch[1] as "A" | "B" | "C" | "D")
-    )
+    ) {
       return isolatedMatch[1] as "A" | "B" | "C" | "D";
+    }
 
     const asNum = Number.parseInt(folded, 10);
     if (Number.isFinite(asNum)) {
       if (asNum >= 0 && asNum <= 3) return ids[asNum];
       if (asNum >= 1 && asNum <= 4) return ids[asNum - 1];
     }
+
     const byTextIdx = options.findIndex(
-      (opt) => opt.text.toLowerCase() === folded.toLowerCase()
+      (option) => option.text.toLowerCase() === folded.toLowerCase()
     );
     if (byTextIdx >= 0) return ids[byTextIdx];
   }
@@ -205,89 +232,26 @@ const normalizeCorrectOptionId = (
   return "A";
 };
 
-const normalizeKey = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+const shuffleQuestionOptions = (
+  options: NormalizedOption[],
+  correctOptionId: "A" | "B" | "C" | "D"
+) => {
+  const shuffled = shuffleInPlace([...options]);
+  const remappedIds: ("A" | "B" | "C" | "D")[] = ["A", "B", "C", "D"];
+  const normalizedOptions = shuffled.map((option, idx) => ({
+    id: remappedIds[idx],
+    text: option.text
+  }));
+  const correctText = options.find(
+    (option) => option.id === correctOptionId
+  )?.text;
+  const normalizedCorrect =
+    normalizedOptions.find((option) => option.text === correctText)?.id ?? "A";
 
-const extractBlockCode = (value: string) => {
-  const safeValue = sanitizeCode(value, 120);
-  if (!safeValue) return "";
-  const [blockCode] = safeValue.split(":");
-  return sanitizeCode(blockCode, 120);
-};
-
-const tokenizeKey = (value: string) =>
-  normalizeKey(value)
-    .split(" ")
-    .map((token) => token.trim())
-    .filter((token) => token.length > 0);
-
-const scoreTopicMatch = (
-  selected: NormalizedSelectedTopic,
-  candidate: TopicCandidate
-): number => {
-  let score = 0;
-  const selectedId = sanitizeCode(selected.id, 120);
-  const selectedBlockCode = extractBlockCode(selected.id);
-  const candidateId = sanitizeCode(candidate.topicId, 120);
-
-  if (selectedId && candidateId && selectedId === candidateId) score = 1200;
-  else if (
-    selectedId &&
-    candidateId &&
-    normalizeKey(selectedId) === normalizeKey(candidateId)
-  )
-    score = 1100;
-
-  if (
-    selectedBlockCode &&
-    candidateId &&
-    normalizeKey(selectedBlockCode) === normalizeKey(candidateId)
-  )
-    score = Math.max(score, 250);
-
-  const selectedLabelKey = normalizeKey(selected.label);
-  const candidateLabelKey = normalizeKey(candidate.topicLabel);
-  if (!selectedLabelKey || !candidateLabelKey) return score;
-
-  if (selectedLabelKey === candidateLabelKey) return Math.max(score, 1000);
-
-  if (
-    candidateLabelKey.startsWith(selectedLabelKey) ||
-    selectedLabelKey.startsWith(candidateLabelKey)
-  ) {
-    const distance = Math.abs(
-      candidateLabelKey.length - selectedLabelKey.length
-    );
-    return Math.max(score, 900 - Math.min(250, distance));
-  }
-
-  const selectedTokens = tokenizeKey(selected.label);
-  const candidateTokens = new Set(tokenizeKey(candidate.topicLabel));
-  if (selectedTokens.length === 0 || candidateTokens.size === 0) return score;
-
-  const shared = selectedTokens.filter((token) => candidateTokens.has(token));
-  if (shared.length === 0) return score;
-
-  const overlapRatio = shared.length / selectedTokens.length;
-  let tokenScore = Math.round(overlapRatio * 700);
-  const selectedNumeric = selectedTokens.filter((token) => /^\d+$/.test(token));
-  if (selectedNumeric.some((token) => candidateTokens.has(token)))
-    tokenScore += 120;
-
-  return Math.max(score, tokenScore);
-};
-
-const shuffleInPlace = <T>(items: T[]): T[] => {
-  for (let index = items.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1));
-    [items[index], items[randomIndex]] = [items[randomIndex], items[index]];
-  }
-  return items;
+  return {
+    options: normalizedOptions,
+    correctOptionId: normalizedCorrect
+  };
 };
 
 const normalizeSelectedTopics = (raw: unknown): NormalizedSelectedTopic[] => {
@@ -298,7 +262,7 @@ const normalizeSelectedTopics = (raw: unknown): NormalizedSelectedTopic[] => {
   for (const item of raw) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const topic = item as SelectedTopicInput;
-    const id = sanitizeCode(topic.id, 120);
+    const id = sanitizeCode(topic.id, 160);
     const label = sanitizeSingleLineText(topic.label, 220);
     const scope = topic.scope === "block" ? "block" : "topic";
     if (!id && !label) continue;
@@ -306,114 +270,157 @@ const normalizeSelectedTopics = (raw: unknown): NormalizedSelectedTopic[] => {
     if (seen.has(key)) continue;
     seen.add(key);
     normalized.push({ id, label, scope });
-    if (normalized.length >= 100) break;
+    if (normalized.length >= 200) break;
   }
 
   return normalized;
 };
 
-const resolveRequestedTopics = (
+const loadOppositionSubtopics = async (
+  serviceClient: ReturnType<typeof createClient>,
+  oppositionId: string
+): Promise<{
+  blocksByCode: Map<string, ResolvedSubtopicSelection[]>;
+  subtopicsByCode: Map<string, ResolvedSubtopicSelection>;
+  subtopicsByLabelKey: Map<string, ResolvedSubtopicSelection>;
+}> => {
+  const { data: syllabusRow } = await serviceClient
+    .from("opposition_syllabi")
+    .select("id")
+    .eq("opposition_id", oppositionId)
+    .eq("is_current", true)
+    .maybeSingle();
+
+  let topicsQuery = serviceClient
+    .from("opposition_topics")
+    .select("id, topic_code, topic_title")
+    .order("order_index", { ascending: true })
+    .order("id", { ascending: true });
+
+  topicsQuery = syllabusRow?.id
+    ? topicsQuery.eq("syllabus_id", syllabusRow.id)
+    : topicsQuery.eq("opposition_id", oppositionId);
+
+  const { data: topicRows, error: topicError } = await topicsQuery;
+  if (topicError) throw topicError;
+
+  const normalizedTopicRows = (
+    Array.isArray(topicRows) ? topicRows : []
+  ) as OppositionTopicRow[];
+  const topicIds = normalizedTopicRows
+    .map((row) => Number(row.id))
+    .filter((value) => Number.isFinite(value));
+
+  const { data: subtopicRows, error: subtopicError } = topicIds.length
+    ? await serviceClient
+        .from("opposition_subtopics")
+        .select("opposition_topic_id, subtopic_code, subtopic_title")
+        .in("opposition_topic_id", topicIds)
+        .order("order_index", { ascending: true })
+        .order("id", { ascending: true })
+    : { data: [], error: null };
+
+  if (subtopicError) throw subtopicError;
+
+  const topicById = new Map<number, OppositionTopicRow>();
+  normalizedTopicRows.forEach((row) => {
+    const topicId = Number(row.id);
+    if (Number.isFinite(topicId)) topicById.set(topicId, row);
+  });
+
+  const blocksByCode = new Map<string, ResolvedSubtopicSelection[]>();
+  const subtopicsByCode = new Map<string, ResolvedSubtopicSelection>();
+  const subtopicsByLabelKey = new Map<string, ResolvedSubtopicSelection>();
+
+  (
+    (Array.isArray(subtopicRows) ? subtopicRows : []) as OppositionSubtopicRow[]
+  ).forEach((row) => {
+    const parentTopic = topicById.get(Number(row.opposition_topic_id));
+    const topicCode = sanitizeCode(parentTopic?.topic_code, 160);
+    const topicLabel = sanitizeSingleLineText(parentTopic?.topic_title, 220);
+    const subtopicCode = sanitizeCode(row.subtopic_code, 160);
+    const subtopicLabel = sanitizeSingleLineText(row.subtopic_title, 220);
+    if (!topicCode || !subtopicCode || !subtopicLabel) return;
+
+    const normalized: ResolvedSubtopicSelection = {
+      topicId: topicCode,
+      topicLabel: topicLabel || topicCode,
+      subtopicId: subtopicCode,
+      subtopicLabel
+    };
+
+    if (!blocksByCode.has(topicCode)) blocksByCode.set(topicCode, []);
+    blocksByCode.get(topicCode)?.push(normalized);
+    subtopicsByCode.set(subtopicCode, normalized);
+    const labelKey = normalizeKey(subtopicLabel);
+    if (labelKey && !subtopicsByLabelKey.has(labelKey)) {
+      subtopicsByLabelKey.set(labelKey, normalized);
+    }
+  });
+
+  return { blocksByCode, subtopicsByCode, subtopicsByLabelKey };
+};
+
+const resolveSelectedSubtopics = (
   requestedTopics: NormalizedSelectedTopic[],
-  candidates: TopicCandidate[]
-): {
-  resolved: ResolvedTopicSelection[];
-  unresolved: NormalizedSelectedTopic[];
-} => {
-  const resolvedByKey = new Map<string, ResolvedTopicSelection>();
+  structure: {
+    blocksByCode: Map<string, ResolvedSubtopicSelection[]>;
+    subtopicsByCode: Map<string, ResolvedSubtopicSelection>;
+    subtopicsByLabelKey: Map<string, ResolvedSubtopicSelection>;
+  }
+) => {
+  const resolved = new Map<string, ResolvedSubtopicSelection>();
   const unresolved: NormalizedSelectedTopic[] = [];
 
-  for (const requestedTopic of requestedTopics) {
+  requestedTopics.forEach((requestedTopic) => {
     if (requestedTopic.scope === "block") {
-      const requestedBlockCode = extractBlockCode(requestedTopic.id);
-      const blockCandidate = candidates.find((candidate) => {
-        const candidateId = sanitizeCode(candidate.topicId, 120);
-        return (
-          Boolean(requestedBlockCode) &&
-          normalizeKey(candidateId) === normalizeKey(requestedBlockCode)
-        );
+      const blockSubtopics =
+        structure.blocksByCode.get(requestedTopic.id) ?? [];
+      if (blockSubtopics.length === 0) {
+        unresolved.push(requestedTopic);
+        return;
+      }
+      blockSubtopics.forEach((subtopic) => {
+        resolved.set(subtopic.subtopicId, subtopic);
       });
-
-      if (blockCandidate) {
-        const resolvedKey = `block::${blockCandidate.topicId}`;
-        if (!resolvedByKey.has(resolvedKey)) {
-          resolvedByKey.set(resolvedKey, {
-            requestedId: requestedTopic.id,
-            requestedLabel: requestedTopic.label,
-            topicId: blockCandidate.topicId,
-            topicLabel: requestedTopic.label || blockCandidate.topicLabel,
-            scope: "block"
-          });
-        }
-        continue;
-      }
+      return;
     }
 
-    let bestCandidate: TopicCandidate | null = null;
-    let bestScore = 0;
-
-    for (const candidate of candidates) {
-      const score = scoreTopicMatch(requestedTopic, candidate);
-      if (score > bestScore) {
-        bestScore = score;
-        bestCandidate = candidate;
-      }
+    const byCode = structure.subtopicsByCode.get(requestedTopic.id);
+    if (byCode) {
+      resolved.set(byCode.subtopicId, byCode);
+      return;
     }
 
-    if (bestCandidate && bestScore >= 700) {
-      const resolvedKey = `${bestCandidate.topicId}::${normalizeKey(bestCandidate.topicLabel)}`;
-      if (!resolvedByKey.has(resolvedKey)) {
-        resolvedByKey.set(resolvedKey, {
-          requestedId: requestedTopic.id,
-          requestedLabel: requestedTopic.label,
-          topicId: bestCandidate.topicId,
-          topicLabel: bestCandidate.topicLabel,
-          scope: "topic"
-        });
-      }
-      continue;
+    const byLabel = structure.subtopicsByLabelKey.get(
+      normalizeKey(requestedTopic.label)
+    );
+    if (byLabel) {
+      resolved.set(byLabel.subtopicId, byLabel);
+      return;
     }
 
     unresolved.push(requestedTopic);
-  }
+  });
 
   return {
-    resolved: Array.from(resolvedByKey.values()),
+    resolved: Array.from(resolved.values()),
     unresolved
   };
 };
 
-const allocatePerTopic = (
-  selections: ResolvedTopicSelection[],
-  targetQuestionCount: number
-): Array<ResolvedTopicSelection & { questionCount: number }> => {
-  if (selections.length === 0 || targetQuestionCount <= 0) return [];
-
-  const shuffledSelections = shuffleInPlace([...selections]);
-  const base = Math.floor(targetQuestionCount / shuffledSelections.length);
-  let remainder = targetQuestionCount % shuffledSelections.length;
-
-  return shuffledSelections
-    .map((selection) => {
-      const plusOne = remainder > 0 ? 1 : 0;
-      if (remainder > 0) remainder -= 1;
-      return {
-        ...selection,
-        questionCount: base + plusOne
-      };
-    })
-    .filter((entry) => entry.questionCount > 0);
-};
-
 serve(async (req) => {
-  if (req.method === "OPTIONS")
+  if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey)
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
     return json({ error: "Missing Supabase environment variables" }, 500);
+  }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
@@ -422,9 +429,9 @@ serve(async (req) => {
   try {
     parsedBody = await parseJsonBody<GenerateQuickTestRequest>(req);
   } catch (error) {
-    if (error instanceof Error && error.message === "Invalid JSON body")
+    if (error instanceof Error && error.message === "Invalid JSON body") {
       return json({ error: error.message }, 400);
-
+    }
     throw error;
   }
 
@@ -468,6 +475,7 @@ serve(async (req) => {
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   });
+
   const { data: planRows, error: planError } = await serviceClient.rpc(
     "get_user_plan_state",
     {
@@ -496,52 +504,28 @@ serve(async (req) => {
     return json({ error: "quick_test_requires_paid_plan" }, 403);
   }
 
-  const { data: topicRows, error: topicRowsError } = await serviceClient
-    .from("question_bank_questions")
-    .select("topic_id, topic_label")
-    .eq("opposition_id", oppositionId)
-    .eq("locale", locale)
-    .in("status", ["validated", "published", "draft"])
-    .limit(5000);
-
-  if (topicRowsError) {
+  let structure;
+  try {
+    structure = await loadOppositionSubtopics(serviceClient, oppositionId);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "unknown structure error";
     return json(
-      {
-        error: `Could not load question bank topics: ${topicRowsError.message}`
-      },
+      { error: `Could not load opposition subtopics: ${message}` },
       500
     );
   }
 
-  const topicCandidatesMap = new Map<string, TopicCandidate>();
-  for (const row of Array.isArray(topicRows) ? topicRows : []) {
-    const topicId = sanitizeCode((row as { topic_id?: unknown }).topic_id, 120);
-    const topicLabel = sanitizeSingleLineText(
-      (row as { topic_label?: unknown }).topic_label,
-      220
-    );
-    if (!topicId || !topicLabel) continue;
-    const candidateKey = `${topicId}::${normalizeKey(topicLabel)}`;
-    if (!topicCandidatesMap.has(candidateKey))
-      topicCandidatesMap.set(candidateKey, { topicId, topicLabel });
-  }
-  const topicCandidates = Array.from(topicCandidatesMap.values());
-  if (topicCandidates.length === 0) {
-    return json(
-      { error: "No questions available in question bank for this opposition." },
-      409
-    );
-  }
-
-  const { resolved: resolvedTopics, unresolved } = resolveRequestedTopics(
+  const { resolved: resolvedSubtopics, unresolved } = resolveSelectedSubtopics(
     requestedTopics,
-    topicCandidates
+    structure
   );
-  if (resolvedTopics.length === 0) {
+
+  if (resolvedSubtopics.length === 0) {
     return json(
       {
         error:
-          "Selected topics did not match any topic in question bank for this opposition."
+          "Selected topics did not match any subtopic in the current syllabus for this opposition."
       },
       409
     );
@@ -555,164 +539,124 @@ serve(async (req) => {
     const suffix = unresolved.length > 5 ? ", ..." : "";
     return json(
       {
-        error: `No hay preguntas disponibles para los temas seleccionados: ${missingTopics.join(", ")}${suffix}.`
+        error: `No hay subtemas vÃĄlidos para la selecciÃģn actual: ${missingTopics.join(", ")}${suffix}.`
       },
       409
     );
   }
 
-  const selectedTopicIds = Array.from(
-    new Set(resolvedTopics.map((topic) => topic.topicId))
-  );
-  const { data: selectedQuestionRows, error: selectedQuestionRowsError } =
-    await serviceClient
-      .from("question_bank_questions")
-      .select("id, topic_id, topic_label")
-      .eq("opposition_id", oppositionId)
-      .eq("locale", locale)
-      .in("status", ["validated", "published", "draft"])
-      .in("topic_id", selectedTopicIds)
-      .limit(10000);
-
-  if (selectedQuestionRowsError) {
+  if (questionCount < resolvedSubtopics.length) {
     return json(
       {
-        error: `Could not load question counts for selected topics: ${selectedQuestionRowsError.message}`
+        error: `El nÃšmero mÃ­nimo de preguntas debe ser ${resolvedSubtopics.length}, porque has seleccionado ${resolvedSubtopics.length} temas.`
+      },
+      409
+    );
+  }
+
+  const selectedSubtopicIds = resolvedSubtopics.map(
+    (subtopic) => subtopic.subtopicId
+  );
+  const { data: questionRows, error: questionRowsError } = await serviceClient
+    .from("question_bank_questions")
+    .select(
+      "id, opposition_name, topic_id, topic_label, subtopic_id, subtopic_label, question, options, correct_option_id, explanation, citations"
+    )
+    .eq("opposition_id", oppositionId)
+    .eq("locale", locale)
+    .in("status", ["validated", "published", "draft"])
+    .in("subtopic_id", selectedSubtopicIds)
+    .limit(10000);
+
+  if (questionRowsError) {
+    return json(
+      {
+        error: `Could not load question bank rows: ${questionRowsError.message}`
       },
       500
     );
   }
 
-  const resolvedTopicKeys = new Set(
-    resolvedTopics.map((topic) =>
-      topic.scope === "block"
-        ? `block::${topic.topicId}`
-        : `${topic.topicId}::${normalizeKey(topic.topicLabel)}`
-    )
-  );
-  const availableQuestionIds = new Set<number>();
-  for (const row of Array.isArray(selectedQuestionRows)
-    ? selectedQuestionRows
-    : []) {
-    const topicId = sanitizeCode((row as { topic_id?: unknown }).topic_id, 120);
-    const topicLabel = sanitizeSingleLineText(
-      (row as { topic_label?: unknown }).topic_label,
-      220
-    );
-    const questionId = Number((row as { id?: unknown }).id);
-    const matchesBlock = resolvedTopicKeys.has(`block::${topicId}`);
-    const questionKey = `${topicId}::${normalizeKey(topicLabel)}`;
-    if (
-      (!matchesBlock && !resolvedTopicKeys.has(questionKey)) ||
-      !Number.isFinite(questionId)
-    )
-      continue;
-    availableQuestionIds.add(questionId);
-  }
+  const groupedBySubtopic = new Map<string, QuestionBankRow[]>();
+  (
+    (Array.isArray(questionRows) ? questionRows : []) as QuestionBankRow[]
+  ).forEach((row) => {
+    const subtopicId = sanitizeCode(row.subtopic_id, 160);
+    if (!subtopicId) return;
+    if (!groupedBySubtopic.has(subtopicId))
+      groupedBySubtopic.set(subtopicId, []);
+    groupedBySubtopic.get(subtopicId)?.push(row);
+  });
 
-  if (availableQuestionIds.size < questionCount) {
+  const missingCoverage = resolvedSubtopics
+    .filter(
+      (subtopic) =>
+        (groupedBySubtopic.get(subtopic.subtopicId)?.length ?? 0) === 0
+    )
+    .map((subtopic) => subtopic.subtopicLabel);
+
+  if (missingCoverage.length > 0) {
+    const preview = missingCoverage.slice(0, 6).join(", ");
+    const suffix = missingCoverage.length > 6 ? ", ..." : "";
     return json(
       {
-        error: `No hay suficientes preguntas para la seleccion actual. Disponibles: ${availableQuestionIds.size}. Solicitadas: ${questionCount}.`
+        error: `Faltan preguntas en la banca para estos temas: ${preview}${suffix}.`
       },
       409
     );
   }
 
-  const initialAllocation = allocatePerTopic(resolvedTopics, questionCount);
-
-  const seenQuestionIds = new Set<number>();
-  const claimedRows: ClaimBankQuestionRow[] = [];
-  const claimForTopic = async (
-    topicId: string,
-    topicLabel: string | null,
-    count: number
-  ) => {
-    if (count <= 0) return;
-    const { data, error } = await serviceClient.rpc(
-      "claim_question_bank_questions",
-      {
-        p_user_id: userId,
-        p_opposition_id: oppositionId,
-        p_topic_id: topicId,
-        p_topic_label:
-          typeof topicLabel === "string" && topicLabel.trim().length > 0
-            ? topicLabel
-            : null,
-        p_question_count: count,
-        p_locale: locale,
-        p_include_draft: true
-      }
-    );
-    if (error) throw new Error(error.message);
-
-    for (const row of Array.isArray(data)
-      ? (data as ClaimBankQuestionRow[])
-      : []) {
-      const questionId = Number(row.bank_question_id);
-      if (!Number.isFinite(questionId) || seenQuestionIds.has(questionId))
-        continue;
-      seenQuestionIds.add(questionId);
-      claimedRows.push(row);
-    }
-  };
-
-  try {
-    for (const slot of initialAllocation) {
-      await claimForTopic(
-        slot.topicId,
-        slot.scope === "block" ? null : slot.topicLabel,
-        slot.questionCount
-      );
-    }
-
-    let rounds = 0;
-    while (claimedRows.length < questionCount && rounds < 8) {
-      rounds += 1;
-      const beforeRound = claimedRows.length;
-      const shuffledTopics = shuffleInPlace([...resolvedTopics]);
-
-      for (const topic of shuffledTopics) {
-        if (claimedRows.length >= questionCount) break;
-        const remaining = questionCount - claimedRows.length;
-        await claimForTopic(
-          topic.topicId,
-          topic.scope === "block" ? null : topic.topicLabel,
-          remaining
-        );
-      }
-
-      if (claimedRows.length === beforeRound) break;
-    }
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown claim error";
-    return json(
-      { error: `RPC claim_question_bank_questions error: ${message}` },
-      500
-    );
-  }
-
-  if (claimedRows.length === 0)
-    return json(
-      { error: "No bank questions available for selected topics" },
-      409
-    );
-
-  if (claimedRows.length < questionCount) {
-    return json(
-      {
-        error: `No se pudieron obtener suficientes preguntas para la seleccion actual. Disponibles: ${claimedRows.length}. Solicitadas: ${questionCount}.`
-      },
-      409
-    );
-  }
-
-  const shuffledClaimedRows = shuffleInPlace([...claimedRows]).slice(
-    0,
-    questionCount
+  const totalAvailable = Array.from(groupedBySubtopic.values()).reduce(
+    (acc, rows) => acc + rows.length,
+    0
   );
-  const questions = shuffledClaimedRows
+  const effectiveQuestionCount = Math.max(
+    resolvedSubtopics.length,
+    Math.min(questionCount, totalAvailable)
+  );
+
+  const pools = new Map<string, QuestionBankRow[]>();
+  resolvedSubtopics.forEach((subtopic) => {
+    pools.set(
+      subtopic.subtopicId,
+      shuffleInPlace([...(groupedBySubtopic.get(subtopic.subtopicId) ?? [])])
+    );
+  });
+
+  const selectedRows: QuestionBankRow[] = [];
+  const seenIds = new Set<number>();
+
+  resolvedSubtopics.forEach((subtopic) => {
+    const pool = pools.get(subtopic.subtopicId) ?? [];
+    const next = pool.shift();
+    if (!next) return;
+    if (seenIds.has(next.id)) return;
+    seenIds.add(next.id);
+    selectedRows.push(next);
+  });
+
+  while (selectedRows.length < effectiveQuestionCount) {
+    const shuffledSubtopics = shuffleInPlace([...resolvedSubtopics]);
+    let progressed = false;
+
+    for (const subtopic of shuffledSubtopics) {
+      if (selectedRows.length >= effectiveQuestionCount) break;
+      const pool = pools.get(subtopic.subtopicId) ?? [];
+      while (pool.length > 0) {
+        const next = pool.shift()!;
+        if (seenIds.has(next.id)) continue;
+        seenIds.add(next.id);
+        selectedRows.push(next);
+        progressed = true;
+        break;
+      }
+    }
+
+    if (!progressed) break;
+  }
+
+  const questions = shuffleInPlace([...selectedRows])
+    .slice(0, effectiveQuestionCount)
     .map((row, idx) => {
       const statement = String(row.question ?? "").trim();
       if (!statement) return null;
@@ -722,6 +666,7 @@ serve(async (req) => {
         row.correct_option_id,
         options
       );
+      const shuffledQuestion = shuffleQuestionOptions(options, correctOptionId);
       const citations = Array.isArray(row.citations) ? row.citations : [];
 
       return {
@@ -729,9 +674,11 @@ serve(async (req) => {
         bankQuestionId: Number(row.bank_question_id),
         topicId: String(row.topic_id ?? "").trim(),
         topicLabel: sanitizeSingleLineText(row.topic_label, 220),
+        subtopicId: sanitizeCode(row.subtopic_id, 160),
+        subtopicLabel: sanitizeSingleLineText(row.subtopic_label, 220),
         question: statement,
-        options,
-        correctOptionId,
+        options: shuffledQuestion.options,
+        correctOptionId: shuffledQuestion.correctOptionId,
         explanation:
           String(row.explanation ?? "").trim() ||
           "Respuesta basada en el texto legal citado.",
@@ -742,22 +689,19 @@ serve(async (req) => {
       Boolean(question)
     );
 
-  if (questions.length === 0)
-    return json({ error: "Claimed questions could not be normalized" }, 409);
+  if (questions.length === 0) {
+    return json({ error: "Selected questions could not be normalized" }, 409);
+  }
 
   return json({
     testId: crypto.randomUUID(),
     oppositionId,
     oppositionName:
       oppositionName ||
-      sanitizeSingleLineText(shuffledClaimedRows[0]?.opposition_name, 160) ||
+      sanitizeSingleLineText(selectedRows[0]?.opposition_name, 160) ||
       oppositionId,
     questionCount: questions.length,
-    selectedTopics: resolvedTopics.map((topic) => ({
-      id: topic.topicId,
-      label: topic.topicLabel,
-      scope: topic.scope
-    })),
+    selectedTopics: requestedTopics,
     questions
   });
 });

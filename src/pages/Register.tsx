@@ -607,7 +607,7 @@ const Register = () => {
               variant="gentle"
             >
               {step === 1 && (
-                <>
+                <div className="space-y-5">
                   <CustomButton
                     type="button"
                     styleType="ghost"
@@ -718,11 +718,11 @@ const Register = () => {
                       />
                     </div>
                   </div>
-                </>
+                </div>
               )}
 
               {step === 2 && (
-                <>
+                <div className="space-y-5">
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                       {t("auth:register.fields.dateOfBirth")}
@@ -821,7 +821,7 @@ const Register = () => {
                       />
                     </span>
                   </label>
-                </>
+                </div>
               )}
             </Reveal>
 
