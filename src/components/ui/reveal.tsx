@@ -33,8 +33,8 @@ const Reveal = <T extends ElementType = "div">({
   delay = 0,
   duration = 720,
   once = true,
-  rootMargin = "0px 0px -12% 0px",
-  threshold = 0.16,
+  rootMargin = "0px 0px -6% 0px",
+  threshold = 0.08,
   variant = "up",
   ...props
 }: RevealProps<T>) => {

@@ -1,5 +1,6 @@
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import Reveal from "@/components/ui/reveal";
 import { useTranslation } from "react-i18next";
 
 type LegalSection = {
@@ -25,7 +26,12 @@ const FooterTerms = () => {
         <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.14),transparent_58%)]" />
 
         <div className="relative mx-auto max-w-5xl px-6 pb-20 pt-10 md:px-8 md:pb-24 md:pt-14">
-          <header className="max-w-3xl">
+          <Reveal
+            as="header"
+            className="max-w-3xl"
+            duration={760}
+            threshold={0}
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
               {t("common.legalEyebrow")}
             </p>
@@ -38,12 +44,16 @@ const FooterTerms = () => {
             <p className="mt-6 text-xs uppercase tracking-[0.18em] text-muted-foreground">
               {t("common.lastUpdated")} {t("common.updatedAt")}
             </p>
-          </header>
+          </Reveal>
 
           <section className="mt-14 space-y-12">
             {sections.map((section, index) => (
-              <article
+              <Reveal
+                as="article"
                 key={section.id}
+                delay={index * 70}
+                duration={760}
+                variant="gentle"
                 className="border-t border-border/70 pt-6 first:border-t-0 first:pt-0"
               >
                 <div className="grid gap-4 md:grid-cols-[96px_minmax(0,1fr)] md:gap-8">
@@ -59,7 +69,7 @@ const FooterTerms = () => {
                     </p>
                   </div>
                 </div>
-              </article>
+              </Reveal>
             ))}
           </section>
         </div>

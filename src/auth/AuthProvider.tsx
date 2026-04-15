@@ -3,6 +3,12 @@ import { AppLocale, DEFAULT_LOCALE, normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeSingleLineText, sanitizeUrl } from "@/lib/inputSanitization";
 import {
+  clearGoogleRegisterContext,
+  clearGoogleRegisterResolutionPending,
+  clearGoogleSignupSessionActive,
+  consumeGoogleRegisterSilentExit
+} from "@/lib/registerFlow";
+import {
   clearSupabaseAuthStorage,
   resetAuthFailureGuard
 } from "@/lib/secureFetch";
@@ -36,6 +42,7 @@ type AuthContextValue = {
   locale: AppLocale;
   isAuthReady: boolean;
   isAuthenticated: boolean;
+  applyLocale: (locale: AppLocale) => Promise<void>;
   setLocale: (locale: AppLocale) => Promise<boolean>;
   refreshProfile: () => Promise<void>;
   forceLogout: (reason?: string) => Promise<void>;
@@ -131,25 +138,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
             return DEFAULT_LOCALE;
           }
 
-          const nextLocale = normalizeLocale(data?.locale ?? DEFAULT_LOCALE);
-
-          if (!data) {
-            const { error: insertError } = await supabase
-              .from("profiles")
-              .upsert(
-                { user_id: userId, locale: nextLocale },
-                { onConflict: "user_id" }
-              );
-
-            if (insertError) {
-              authLog("No se pudo crear profile locale por defecto", {
-                userId,
-                error: insertError.message
-              });
-            }
-          }
-
-          return nextLocale;
+          return normalizeLocale(data?.locale ?? DEFAULT_LOCALE);
         },
         { reuseResultForMs: 1500 }
       ),
@@ -375,7 +364,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
         if (event === "SIGNED_OUT") {
           if (!isMounted) return;
+          const isSilentGoogleRegisterExit = consumeGoogleRegisterSilentExit();
           setLoggedOutState();
+          clearGoogleSignupSessionActive();
+          clearGoogleRegisterResolutionPending();
+          clearGoogleRegisterContext();
           clearSupabaseAuthStorage();
           window.sessionStorage.removeItem(SIDEBAR_LOGIN_OPEN_STORAGE_KEY);
           const pendingGoogleRegisterError =
@@ -383,6 +376,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
             window.sessionStorage.getItem("register-google-error-v1") ===
               "emailAlreadyExists";
           if (pendingGoogleRegisterError) return;
+          if (isSilentGoogleRegisterExit) return;
           if (window.location.pathname === "/auth/callback") return;
           if (window.location.pathname !== "/login")
             navigate("/login", { replace: true });
@@ -467,11 +461,13 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       locale,
       isAuthReady,
       isAuthenticated: Boolean(user && session && !isSessionExpired(session)),
+      applyLocale,
       setLocale,
       refreshProfile,
       forceLogout
     }),
     [
+      applyLocale,
       forceLogout,
       isAuthReady,
       locale,

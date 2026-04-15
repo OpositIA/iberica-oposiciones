@@ -17,6 +17,11 @@ import {
   containsUnsafeControlChars,
   sanitizeEmail
 } from "@/lib/inputSanitization";
+import {
+  consumeGoogleLoginError,
+  hasIncompleteGoogleRegisterFlow,
+  readGoogleLoginError
+} from "@/lib/registerFlow";
 import { isSessionExpired } from "@/lib/session";
 import { runSingleFlight } from "@/lib/singleFlight";
 import { FormEvent, useEffect, useState } from "react";
@@ -100,8 +105,19 @@ const Login = () => {
 
   useEffect(() => {
     let isMounted = true;
+    const locationState = location.state as {
+      googleError?: string;
+      passwordResetSuccess?: boolean;
+    } | null;
+    const hasGoogleNoAccountError =
+      readGoogleLoginError() === "noAccount" ||
+      new URLSearchParams(location.search).get("google_error") ===
+        "noAccount" ||
+      locationState?.googleError === "noAccount";
 
     const validateAndRedirectIfSessionActive = async () => {
+      if (hasGoogleNoAccountError || hasIncompleteGoogleRegisterFlow()) return;
+
       const { data, error } = await runSingleFlight(
         "login:active-session",
         () => supabase.auth.getSession(),
@@ -128,12 +144,27 @@ const Login = () => {
       isMounted = false;
       authListener.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [location.search, location.state, navigate]);
 
   useEffect(() => {
     const locationState = location.state as {
+      googleError?: string;
       passwordResetSuccess?: boolean;
     } | null;
+
+    if (
+      consumeGoogleLoginError() === "noAccount" ||
+      locationState?.googleError === "noAccount"
+    ) {
+      toast({
+        variant: "destructive",
+        title: t("auth:login.googleErrorDialog.noAccountTitle"),
+        description: t("auth:login.googleErrorDialog.noAccountDescription")
+      });
+      navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+
     if (!locationState?.passwordResetSuccess) return;
 
     toast({
@@ -142,6 +173,27 @@ const Login = () => {
     });
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate, t, toast]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hasGoogleError = params.get("google_error") === "noAccount";
+    if (!hasGoogleError) return;
+
+    toast({
+      variant: "destructive",
+      title: t("auth:login.googleErrorDialog.noAccountTitle"),
+      description: t("auth:login.googleErrorDialog.noAccountDescription")
+    });
+
+    params.delete("google_error");
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString() ? `?${params.toString()}` : ""
+      },
+      { replace: true }
+    );
+  }, [location.pathname, location.search, navigate, t, toast]);
 
   const mapForgotPasswordError = (error: {
     status?: number;
@@ -269,7 +321,7 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback?intent=login-google`
         }
       });
 

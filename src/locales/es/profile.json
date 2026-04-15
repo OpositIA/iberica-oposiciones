@@ -148,7 +148,7 @@
       "selectTopicTitle": "Selecciona temas",
       "selectTopicDescription": "Elige al menos un tema antes de lanzar el test rapido.",
       "quickTestReadyTitle": "Test rapido preparado",
-      "quickTestReadyDescription": "Test generado: {{topicCount}} temas - {{questionCount}} preguntas. ID: {{testId}}.",
+      "quickTestReadyDescription": "Test generado: {{topicCount}} temas - {{questionCount}} preguntas.",
       "selectTopicsDescription": "Marca al menos un tema o bloque para lanzar el test rapido.",
       "quickTestFailedTitle": "No se pudo generar el test rapido",
       "quickTestFailedDescription": "Ha fallado la generacion del test. Intentalo de nuevo en unos segundos.",

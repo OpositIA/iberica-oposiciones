@@ -148,7 +148,7 @@
       "selectTopicTitle": "Select topics",
       "selectTopicDescription": "Choose at least one topic before launching the quick test.",
       "quickTestReadyTitle": "Quick test ready",
-      "quickTestReadyDescription": "Test generated: {{topicCount}} topics - {{questionCount}} questions. ID: {{testId}}.",
+      "quickTestReadyDescription": "Test generated: {{topicCount}} topics - {{questionCount}} questions.",
       "selectTopicsDescription": "Select at least one topic or block before launching the quick test.",
       "quickTestFailedTitle": "Unable to generate quick test",
       "quickTestFailedDescription": "Quick test generation failed. Please try again in a few seconds.",

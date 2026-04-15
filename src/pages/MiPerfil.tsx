@@ -14,8 +14,11 @@ import {
 import Reveal from "@/components/ui/reveal";
 import { resolveOppositionNameById } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
-import type { AppLocale } from "@/i18n/locales";
-import { normalizeLocale } from "@/i18n/locales";
+import {
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  type AppLocale
+} from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import {
   sanitizeCode,
@@ -115,10 +118,22 @@ const sanitizeProfileForm = (profile: ProfileForm): ProfileForm => ({
   avatarUrl: sanitizeAvatarForMetadata(profile.avatarUrl)
 });
 
+const getProfileSaveComparable = (profile: ProfileForm) => {
+  const sanitizedProfile = sanitizeProfileForm(profile);
+
+  return {
+    firstName: sanitizedProfile.firstName,
+    lastName: sanitizedProfile.lastName,
+    email: sanitizedProfile.email,
+    dateOfBirth: sanitizedProfile.dateOfBirth,
+    avatarUrl: sanitizedProfile.avatarUrl
+  };
+};
+
 const MiPerfil = () => {
   const { t } = useTranslation(["profile", "common"]);
   const { toast } = useToast();
-  const { user, isAuthReady, locale, setLocale, refreshProfile } = useAuth();
+  const { user, isAuthReady, locale, applyLocale, refreshProfile } = useAuth();
   const shouldLoadProfile = isAuthReady && Boolean(user?.id);
   const queryClient = useQueryClient();
   const userMetadata = useMemo(
@@ -152,11 +167,13 @@ const MiPerfil = () => {
     shouldLoadProfile ? user?.id : null
   );
   const [profile, setProfile] = useState<ProfileForm>(initialProfile);
+  const [savedProfile, setSavedProfile] = useState<ProfileForm>(initialProfile);
+  const [draftLocale, setDraftLocale] = useState<AppLocale>(DEFAULT_LOCALE);
+  const [savedLocale, setSavedLocale] = useState<AppLocale>(DEFAULT_LOCALE);
   const [persistedAvatarUrl, setPersistedAvatarUrl] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingOpposition, setIsChangingOpposition] = useState(false);
-  const [isChangingLocale, setIsChangingLocale] = useState(false);
   const [isAvatarUpdating, setIsAvatarUpdating] = useState(false);
   const [isOpeningPaymentPortal, setIsOpeningPaymentPortal] = useState(false);
   const [activeOppositionId, setActiveOppositionId] = useState("");
@@ -173,6 +190,19 @@ const MiPerfil = () => {
   const hasPaymentMethodManagement =
     isPaidPlan(planState) || Boolean(billingIssue);
   const maxBirthDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const hasProfileChanges = useMemo(() => {
+    const comparableProfile = getProfileSaveComparable(profile);
+    const comparableSavedProfile = getProfileSaveComparable(savedProfile);
+
+    return (
+      comparableProfile.firstName !== comparableSavedProfile.firstName ||
+      comparableProfile.lastName !== comparableSavedProfile.lastName ||
+      comparableProfile.email !== comparableSavedProfile.email ||
+      comparableProfile.dateOfBirth !== comparableSavedProfile.dateOfBirth ||
+      comparableProfile.avatarUrl !== comparableSavedProfile.avatarUrl ||
+      draftLocale !== savedLocale
+    );
+  }, [draftLocale, profile, savedLocale, savedProfile]);
 
   const getOppositionName = (oppositionId: string | null | undefined) =>
     resolveOppositionNameById(oppositionId, oppositionOptions);
@@ -184,6 +214,9 @@ const MiPerfil = () => {
 
     if (!userId) {
       setProfile(initialProfile);
+      setSavedProfile(initialProfile);
+      setDraftLocale(DEFAULT_LOCALE);
+      setSavedLocale(DEFAULT_LOCALE);
       setPersistedAvatarUrl("");
       setActiveOppositionId("");
       setIsLoadingProfile(false);
@@ -205,22 +238,25 @@ const MiPerfil = () => {
       resolvedOpposition?.id ||
       String(userMetadata.preferred_opposition_id ?? "");
 
-    setProfile(
-      sanitizeProfileForm({
-        firstName: String(
-          profileDetails?.first_name ?? userMetadata.first_name ?? ""
-        ),
-        lastName: String(
-          profileDetails?.last_name ?? userMetadata.last_name ?? ""
-        ),
-        email: String(profileDetails?.email ?? userEmail),
-        dateOfBirth: String(
-          profileDetails?.date_of_birth ?? userMetadata.date_of_birth ?? ""
-        ),
-        preferredOppositionId: resolvedOppositionId,
-        avatarUrl: resolvedAvatar
-      })
-    );
+    const nextProfile = sanitizeProfileForm({
+      firstName: String(
+        profileDetails?.first_name ?? userMetadata.first_name ?? ""
+      ),
+      lastName: String(
+        profileDetails?.last_name ?? userMetadata.last_name ?? ""
+      ),
+      email: String(profileDetails?.email ?? userEmail),
+      dateOfBirth: String(
+        profileDetails?.date_of_birth ?? userMetadata.date_of_birth ?? ""
+      ),
+      preferredOppositionId: resolvedOppositionId,
+      avatarUrl: resolvedAvatar
+    });
+
+    setProfile(nextProfile);
+    setSavedProfile(nextProfile);
+    setDraftLocale(locale);
+    setSavedLocale(locale);
     setPersistedAvatarUrl(resolvedAvatar);
     setActiveOppositionId(resolvedOppositionId);
     setIsLoadingProfile(false);
@@ -228,6 +264,7 @@ const MiPerfil = () => {
     isAuthReady,
     isFetchingProfileDetails,
     isFetchingResolvedOpposition,
+    locale,
     profileDetails,
     resolvedOpposition,
     user?.id,
@@ -324,6 +361,7 @@ const MiPerfil = () => {
 
       setPersistedAvatarUrl(nextAvatarUrl);
       setProfile((prev) => ({ ...prev, avatarUrl: nextAvatarUrl }));
+      setSavedProfile((prev) => ({ ...prev, avatarUrl: nextAvatarUrl }));
       await refreshProfile();
     } catch {
       toast({
@@ -375,6 +413,7 @@ const MiPerfil = () => {
 
       setPersistedAvatarUrl("");
       setProfile((prev) => ({ ...prev, avatarUrl: "" }));
+      setSavedProfile((prev) => ({ ...prev, avatarUrl: "" }));
       await refreshProfile();
       if (avatarInputRef.current) avatarInputRef.current.value = "";
     } catch {
@@ -389,6 +428,8 @@ const MiPerfil = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (!hasProfileChanges) return;
+
     if (!user) {
       toast({
         variant: "destructive",
@@ -415,9 +456,6 @@ const MiPerfil = () => {
     const avatarUrlForProfile = sanitizeAvatarForMetadata(
       sanitizedProfile.avatarUrl
     );
-
-    const selectedOppositionCode =
-      sanitizedProfile.preferredOppositionId || null;
     const profilePayload = {
       user_id: user.id,
       email: sanitizedProfile.email || user.email || null,
@@ -426,10 +464,8 @@ const MiPerfil = () => {
       full_name:
         `${sanitizedProfile.firstName} ${sanitizedProfile.lastName}`.trim(),
       date_of_birth: sanitizedProfile.dateOfBirth || null,
-      preferred_opposition_id: sanitizedProfile.preferredOppositionId || null,
-      preferred_opposition: selectedOppositionCode,
       avatar_url: avatarUrlForProfile || null,
-      locale
+      locale: draftLocale
     };
 
     const { error } = await supabase
@@ -452,14 +488,28 @@ const MiPerfil = () => {
 
     setPersistedAvatarUrl(avatarUrlForProfile);
     setProfile((prev) => ({ ...prev, avatarUrl: avatarUrlForProfile }));
+    setSavedProfile((prev) => ({
+      ...prev,
+      firstName: sanitizedProfile.firstName,
+      lastName: sanitizedProfile.lastName,
+      email: sanitizedProfile.email,
+      dateOfBirth: sanitizedProfile.dateOfBirth,
+      avatarUrl: avatarUrlForProfile
+    }));
+    setSavedLocale(draftLocale);
 
-    toast({
-      title: t("profile:myProfile.toasts.updatedTitle"),
-      description: t("profile:myProfile.toasts.updatedDescription")
-    });
-    await queryClient.invalidateQueries({ queryKey: ["profiles"] });
-    await refreshProfile();
-    setIsSavingProfile(false);
+    try {
+      if (draftLocale !== locale) await applyLocale(draftLocale);
+
+      toast({
+        title: t("profile:myProfile.toasts.updatedTitle"),
+        description: t("profile:myProfile.toasts.updatedDescription")
+      });
+      await queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      await refreshProfile();
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleOpenOppositionDialog = () => {
@@ -527,27 +577,9 @@ const MiPerfil = () => {
     setIsChangingOpposition(false);
   };
 
-  const handleLocaleChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+  const handleLocaleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const nextLocale = normalizeLocale(event.target.value) as AppLocale;
-    if (nextLocale === locale) return;
-
-    setIsChangingLocale(true);
-    const success = await setLocale(nextLocale);
-    setIsChangingLocale(false);
-
-    if (!success) {
-      toast({
-        variant: "destructive",
-        title: t("profile:myProfile.toasts.localeUpdateFailedTitle"),
-        description: t("profile:myProfile.toasts.localeUpdateFailedDescription")
-      });
-      return;
-    }
-
-    toast({
-      title: t("profile:myProfile.toasts.localeUpdatedTitle"),
-      description: t("profile:myProfile.toasts.localeUpdatedDescription")
-    });
+    setDraftLocale(nextLocale);
   };
 
   const handleOpenPaymentMethodPortal = async () => {
@@ -682,7 +714,7 @@ const MiPerfil = () => {
           <CustomButton
             type="button"
             onClick={handleSaveProfile}
-            disabled={isSavingProfile || isAvatarUpdating}
+            disabled={isSavingProfile || isAvatarUpdating || !hasProfileChanges}
             styleType="primary"
             radius="full"
             className="min-w-[12rem]"
@@ -754,9 +786,9 @@ const MiPerfil = () => {
               {t("profile:myProfile.fields.locale")}
             </label>
             <CustomSelect
-              value={locale}
+              value={draftLocale}
               onChange={handleLocaleChange}
-              disabled={isChangingLocale}
+              disabled={isSavingProfile || isAvatarUpdating}
               className={`w-full ${fieldClassName} disabled:opacity-70`}
             >
               <option value="es">{t("common:locale.es")}</option>

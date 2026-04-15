@@ -1,5 +1,6 @@
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import Reveal from "@/components/ui/reveal";
 import { useTranslation } from "react-i18next";
 
 type PrivacySection = {
@@ -25,7 +26,12 @@ const FooterPrivacy = () => {
         <div className="absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top_right,hsl(var(--accent)/0.12),transparent_60%)]" />
 
         <div className="relative mx-auto max-w-5xl px-6 pb-20 pt-10 md:px-8 md:pb-24 md:pt-14">
-          <header className="max-w-3xl">
+          <Reveal
+            as="header"
+            className="max-w-3xl"
+            duration={760}
+            threshold={0}
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
               {t("common.privacyEyebrow")}
             </p>
@@ -38,12 +44,16 @@ const FooterPrivacy = () => {
             <p className="mt-6 text-xs uppercase tracking-[0.18em] text-muted-foreground">
               {t("common.lastUpdated")} {t("common.updatedAt")}
             </p>
-          </header>
+          </Reveal>
 
           <section className="mt-14 grid gap-12">
-            {sections.map((section) => (
-              <article
+            {sections.map((section, index) => (
+              <Reveal
+                as="article"
                 key={section.id}
+                delay={index * 70}
+                duration={760}
+                variant="gentle"
                 className="grid gap-4 border-t border-border/70 pt-6 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)] md:gap-8"
               >
                 <h2 className="text-lg font-semibold tracking-tight md:text-xl">
@@ -52,7 +62,7 @@ const FooterPrivacy = () => {
                 <p className="max-w-3xl text-sm leading-7 text-muted-foreground md:text-base">
                   {section.body}
                 </p>
-              </article>
+              </Reveal>
             ))}
           </section>
         </div>

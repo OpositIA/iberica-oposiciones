@@ -588,6 +588,9 @@ serve(async (req) => {
     groupedBySubtopic.get(subtopicId)?.push(row);
   });
 
+  const coveredSubtopics = resolvedSubtopics.filter(
+    (subtopic) => (groupedBySubtopic.get(subtopic.subtopicId)?.length ?? 0) > 0
+  );
   const missingCoverage = resolvedSubtopics
     .filter(
       (subtopic) =>
@@ -595,7 +598,7 @@ serve(async (req) => {
     )
     .map((subtopic) => subtopic.subtopicLabel);
 
-  if (missingCoverage.length > 0) {
+  if (coveredSubtopics.length === 0) {
     const preview = missingCoverage.slice(0, 6).join(", ");
     const suffix = missingCoverage.length > 6 ? ", ..." : "";
     return json(
@@ -611,12 +614,12 @@ serve(async (req) => {
     0
   );
   const effectiveQuestionCount = Math.max(
-    resolvedSubtopics.length,
+    coveredSubtopics.length,
     Math.min(questionCount, totalAvailable)
   );
 
   const pools = new Map<string, QuestionBankRow[]>();
-  resolvedSubtopics.forEach((subtopic) => {
+  coveredSubtopics.forEach((subtopic) => {
     pools.set(
       subtopic.subtopicId,
       shuffleInPlace([...(groupedBySubtopic.get(subtopic.subtopicId) ?? [])])
@@ -626,7 +629,7 @@ serve(async (req) => {
   const selectedRows: QuestionBankRow[] = [];
   const seenIds = new Set<number>();
 
-  resolvedSubtopics.forEach((subtopic) => {
+  coveredSubtopics.forEach((subtopic) => {
     const pool = pools.get(subtopic.subtopicId) ?? [];
     const next = pool.shift();
     if (!next) return;
@@ -636,7 +639,7 @@ serve(async (req) => {
   });
 
   while (selectedRows.length < effectiveQuestionCount) {
-    const shuffledSubtopics = shuffleInPlace([...resolvedSubtopics]);
+    const shuffledSubtopics = shuffleInPlace([...coveredSubtopics]);
     let progressed = false;
 
     for (const subtopic of shuffledSubtopics) {

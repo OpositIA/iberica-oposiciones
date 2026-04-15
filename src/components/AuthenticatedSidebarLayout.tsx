@@ -160,6 +160,9 @@ const AuthenticatedSidebarLayout = () => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSE_STORAGE_KEY) === "1";
   });
+  const [openCollapsedTooltipItem, setOpenCollapsedTooltipItem] = useState<
+    string | null
+  >(null);
   const avatarUrl =
     profile?.avatarUrl ||
     (typeof user?.user_metadata?.avatar_url === "string"
@@ -274,6 +277,7 @@ const AuthenticatedSidebarLayout = () => {
       ? "lg:pl-[6.75rem] xl:pl-[6.75rem]"
       : "lg:pl-[19rem] xl:pl-[19.5rem]";
   const handleToggleSidebarCollapse = () => {
+    setOpenCollapsedTooltipItem(null);
     setIsSidebarCollapsed((prev) => !prev);
   };
   const handleWorkspaceTourOpenChange = useCallback(
@@ -312,6 +316,10 @@ const AuthenticatedSidebarLayout = () => {
       SIDEBAR_COLLAPSE_STORAGE_KEY,
       isSidebarCollapsed ? "1" : "0"
     );
+  }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!isSidebarCollapsed) setOpenCollapsedTooltipItem(null);
   }, [isSidebarCollapsed]);
 
   useEffect(() => {
@@ -450,17 +458,22 @@ const AuthenticatedSidebarLayout = () => {
     <TooltipProvider delayDuration={120}>
       <div
         className={cn(
-          "min-h-screen bg-background relative overflow-hidden",
+          "relative min-h-screen bg-background",
           isAssistantRoute && "h-screen max-h-screen flex flex-col"
         )}
       >
-        <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-charcoal/10 blur-3xl" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+        >
+          <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-charcoal/10 blur-3xl" />
+        </div>
 
         {showTopHeader ? (
           <header
             className={cn(
-              "sticky top-0 relative z-30 transition-all duration-300",
+              "sticky top-0 z-30 shrink-0 transition-all duration-300",
               isHeaderScrolled
                 ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
                 : "border-b border-transparent bg-transparent",
@@ -633,52 +646,76 @@ const AuthenticatedSidebarLayout = () => {
                   {sidebarMenuItems.map((item) => {
                     const active = location.pathname === item.to;
                     const Icon = item.icon;
+                    const isCollapsedTooltipOpen =
+                      isSidebarCollapsed &&
+                      openCollapsedTooltipItem === item.to;
 
                     return (
-                      <li key={item.to}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Link
-                              to={item.to}
-                              onClick={closeMobileSidebar}
-                              data-tour-id={item.tourTargetId}
+                      <li
+                        key={item.to}
+                        onPointerEnter={() => {
+                          if (!isSidebarCollapsed) return;
+                          setOpenCollapsedTooltipItem(item.to);
+                        }}
+                        onPointerLeave={() => {
+                          if (!isSidebarCollapsed) return;
+                          setOpenCollapsedTooltipItem((current) =>
+                            current === item.to ? null : current
+                          );
+                        }}
+                        onPointerCancel={() => {
+                          if (!isSidebarCollapsed) return;
+                          setOpenCollapsedTooltipItem((current) =>
+                            current === item.to ? null : current
+                          );
+                        }}
+                      >
+                        <Tooltip open={isCollapsedTooltipOpen}>
+                          <Link
+                            to={item.to}
+                            onClick={closeMobileSidebar}
+                            data-tour-id={item.tourTargetId}
+                            className={cn(
+                              "w-full flex items-center overflow-hidden py-2.5 rounded-xl transition-all",
+                              "px-3 gap-3",
+                              active
+                                ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.6)]"
+                                : "text-foreground hover:bg-secondary"
+                            )}
+                            aria-label={
+                              isSidebarCollapsed ? item.label : undefined
+                            }
+                          >
+                            <TooltipTrigger asChild>
+                              <span className="shrink-0">
+                                <Icon className="h-4 w-4 shrink-0" />
+                              </span>
+                            </TooltipTrigger>
+                            <span
                               className={cn(
-                                "w-full flex items-center overflow-hidden py-2.5 rounded-xl transition-all",
-                                "px-3 gap-3",
-                                active
-                                  ? "bg-primary text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--primary)/0.6)]"
-                                  : "text-foreground hover:bg-secondary"
+                                "min-w-0 overflow-hidden truncate whitespace-nowrap font-medium text-sm transition-all duration-200",
+                                isSidebarCollapsed
+                                  ? "lg:max-w-0 lg:opacity-0"
+                                  : "max-w-[14rem] opacity-100"
                               )}
-                              aria-label={
-                                isSidebarCollapsed ? item.label : undefined
-                              }
                             >
-                              <Icon className="h-4 w-4 shrink-0" />
+                              {item.label}
+                            </span>
+                            {active ? (
                               <span
                                 className={cn(
-                                  "min-w-0 overflow-hidden truncate whitespace-nowrap font-medium text-sm transition-all duration-200",
+                                  "ml-auto h-2 w-2 rounded-full bg-primary-foreground/80 transition-opacity duration-200",
                                   isSidebarCollapsed
-                                    ? "lg:max-w-0 lg:opacity-0"
-                                    : "max-w-[14rem] opacity-100"
+                                    ? "lg:opacity-0"
+                                    : "opacity-100"
                                 )}
-                              >
-                                {item.label}
-                              </span>
-                              {active ? (
-                                <span
-                                  className={cn(
-                                    "ml-auto h-2 w-2 rounded-full bg-primary-foreground/80 transition-opacity duration-200",
-                                    isSidebarCollapsed
-                                      ? "lg:opacity-0"
-                                      : "opacity-100"
-                                  )}
-                                />
-                              ) : null}
-                            </Link>
-                          </TooltipTrigger>
+                              />
+                            ) : null}
+                          </Link>
                           {isSidebarCollapsed ? (
                             <TooltipContent
                               side="right"
+                              sideOffset={18}
                               className="hidden lg:block"
                             >
                               {item.label}
@@ -771,7 +808,7 @@ const AuthenticatedSidebarLayout = () => {
               onClick={handleToggleSidebarCollapse}
               styleType="menu"
               radius="full"
-              className="absolute right-0 top-[37%] z-20 hidden h-7 w-7 -translate-y-1/2 translate-x-1/2 border-border/80 p-0 shadow-sm lg:inline-flex"
+              className="absolute right-0 top-[40%] z-20 hidden h-7 w-7 -translate-y-1/2 translate-x-1/2 border-border/80 p-0 shadow-sm lg:inline-flex"
               aria-label={t(
                 isSidebarCollapsed
                   ? "profile:layout.expandSidebar"

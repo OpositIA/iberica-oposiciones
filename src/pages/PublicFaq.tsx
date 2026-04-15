@@ -7,6 +7,7 @@ import {
   AccordionTrigger
 } from "@/components/ui/accordion";
 import CustomButton from "@/components/ui/custom-button";
+import Reveal from "@/components/ui/reveal";
 import { ArrowRight, BadgeCheck, BookOpenText } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -84,16 +85,21 @@ const PublicFaq = () => {
       />
 
       <main className="mx-auto max-w-6xl px-6 pb-16 pt-8 md:px-8 md:pt-12">
-        <header className="max-w-3xl pb-8">
+        <Reveal
+          as="header"
+          className="max-w-3xl pb-8"
+          duration={760}
+          threshold={0}
+        >
           <h1 className="mt-3 text-3xl font-serif md:text-5xl">
             {t("faq:seo.page.title")}
           </h1>
           <p className="mt-4 text-sm leading-7 text-muted-foreground md:text-base">
             {t("faq:seo.page.description")}
           </p>
-        </header>
+        </Reveal>
 
-        <section>
+        <Reveal as="section" duration={780} variant="gentle">
           <Accordion
             type="multiple"
             className="rounded-[1.7rem] bg-secondary/14 px-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
@@ -113,9 +119,14 @@ const PublicFaq = () => {
               </AccordionItem>
             ))}
           </Accordion>
-        </section>
+        </Reveal>
 
-        <section className="mt-14 rounded-[2rem] bg-[linear-gradient(135deg,rgba(214,138,69,0.12),rgba(15,23,42,0.04))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] md:p-8">
+        <Reveal
+          as="section"
+          className="mt-14 rounded-[2rem] bg-[linear-gradient(135deg,rgba(214,138,69,0.12),rgba(15,23,42,0.04))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] md:p-8"
+          duration={820}
+          variant="soft"
+        >
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full bg-background/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
@@ -145,7 +156,7 @@ const PublicFaq = () => {
               </CustomButton>
             </div>
           </div>
-        </section>
+        </Reveal>
       </main>
 
       <Footer />

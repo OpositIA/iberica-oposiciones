@@ -1652,6 +1652,8 @@ const ProfileQuickTestSession = () => {
                       disabled={
                         isQuestionDisabled ||
                         isReadOnlyHistoryView ||
+                        Boolean(attemptFinishedAt) ||
+                        isTimeUp ||
                         typeof selectedAnswers[question.id] === "number"
                       }
                       onClick={() => {
@@ -1665,7 +1667,6 @@ const ProfileQuickTestSession = () => {
                         }));
                         setActiveQuestionId(question.id);
                       }}
-                      disabled={Boolean(attemptFinishedAt) || isTimeUp}
                       className={cn(
                         "w-full rounded-md border px-3 py-2 text-left text-sm transition-colors border-border bg-background text-foreground hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-65",
                         isSelectedWithoutKey &&

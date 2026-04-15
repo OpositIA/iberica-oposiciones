@@ -88,7 +88,7 @@ export const PlansPageSkeleton = () => (
               <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
               <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/20 blur-3xl" />
               <div className="absolute right-6 top-6">
-                <SkeletonPill className="w-32 bg-primary-foreground/14" />
+                <SkeletonPill className="app-skeleton-inverse w-32" />
               </div>
             </>
           ) : (
@@ -97,51 +97,27 @@ export const PlansPageSkeleton = () => (
 
           <div className="max-w-sm">
             <Skeleton
-              className={`h-3 w-24 rounded-full ${
-                isFeatured
-                  ? "bg-primary-foreground/16"
-                  : "bg-muted-foreground/18"
-              }`}
+              className={`h-3 w-24 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
             />
             <Skeleton
-              className={`mt-2.5 h-10 w-40 rounded-2xl ${
-                isFeatured
-                  ? "bg-primary-foreground/18"
-                  : "bg-muted-foreground/14"
-              }`}
+              className={`mt-2.5 h-10 w-40 rounded-2xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
             />
 
             <div className="mt-3 flex items-end gap-2">
               <Skeleton
-                className={`h-11 w-32 rounded-2xl ${
-                  isFeatured
-                    ? "bg-primary-foreground/20"
-                    : "bg-muted-foreground/14"
-                }`}
+                className={`h-11 w-32 rounded-2xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
               />
               <Skeleton
-                className={`mb-1 h-3 w-16 rounded-full ${
-                  isFeatured
-                    ? "bg-primary-foreground/12"
-                    : "bg-muted-foreground/12"
-                }`}
+                className={`mb-1 h-3 w-16 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
               />
             </div>
 
             <div className="mt-4 space-y-2.5">
               <Skeleton
-                className={`h-4 w-full rounded-full ${
-                  isFeatured
-                    ? "bg-primary-foreground/12"
-                    : "bg-muted-foreground/12"
-                }`}
+                className={`h-4 w-full rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
               />
               <Skeleton
-                className={`h-4 w-10/12 rounded-full ${
-                  isFeatured
-                    ? "bg-primary-foreground/12"
-                    : "bg-muted-foreground/12"
-                }`}
+                className={`h-4 w-10/12 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
               />
             </div>
           </div>
@@ -157,18 +133,10 @@ export const PlansPageSkeleton = () => (
                 key={statIndex}
               >
                 <Skeleton
-                  className={`h-3 w-20 rounded-full ${
-                    isFeatured
-                      ? "bg-primary-foreground/12"
-                      : "bg-muted-foreground/12"
-                  }`}
+                  className={`h-3 w-20 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
                 />
                 <Skeleton
-                  className={`mt-2 h-7 w-14 rounded-xl ${
-                    isFeatured
-                      ? "bg-primary-foreground/16"
-                      : "bg-muted-foreground/14"
-                  }`}
+                  className={`mt-2 h-7 w-14 rounded-xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
                 />
               </div>
             ))}
@@ -179,7 +147,7 @@ export const PlansPageSkeleton = () => (
               <div className="flex items-start gap-2.5" key={featureIndex}>
                 <Skeleton
                   className={`mt-0.5 h-4 w-4 rounded-full ${
-                    isFeatured ? "bg-primary/40" : "bg-primary/18"
+                    isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
                   }`}
                 />
                 <Skeleton
@@ -189,20 +157,14 @@ export const PlansPageSkeleton = () => (
                       : featureIndex === 2
                         ? "w-9/12"
                         : "w-10/12"
-                  } ${
-                    isFeatured
-                      ? "bg-primary-foreground/12"
-                      : "bg-muted-foreground/12"
-                  }`}
+                  } ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
                 />
               </div>
             ))}
           </div>
 
           <Skeleton
-            className={`mt-5 h-11 w-full rounded-xl ${
-              isFeatured ? "bg-primary/70" : "bg-muted-foreground/12"
-            }`}
+            className={`mt-5 h-11 w-full rounded-xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
           />
         </article>
       );
