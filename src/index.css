@@ -51,6 +51,12 @@
     --scrollbar-track: 214 28% 96%;
     --scrollbar-thumb: 215 16% 74%;
     --scrollbar-thumb-hover: 215 18% 60%;
+    --skeleton-base: 214 28% 88%;
+    --skeleton-highlight: 0 0% 97%;
+    --skeleton-soft: 214 24% 92%;
+    --skeleton-strong: 214 22% 82%;
+    --skeleton-inverse-base: 210 20% 28%;
+    --skeleton-inverse-highlight: 210 20% 38%;
   }
 
   .dark {
@@ -94,6 +100,12 @@
     --scrollbar-track: 214 20% 12%;
     --scrollbar-thumb: 215 14% 34%;
     --scrollbar-thumb-hover: 215 18% 44%;
+    --skeleton-base: 215 18% 20%;
+    --skeleton-highlight: 215 18% 30%;
+    --skeleton-soft: 215 16% 17%;
+    --skeleton-strong: 215 18% 26%;
+    --skeleton-inverse-base: 210 30% 74%;
+    --skeleton-inverse-highlight: 210 30% 86%;
   }
 }
 
@@ -268,6 +280,86 @@
     filter: blur(8px);
   }
 
+  .app-skeleton,
+  .app-skeleton-soft,
+  .app-skeleton-strong,
+  .app-skeleton-inverse {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .app-skeleton {
+    background-color: hsl(var(--skeleton-base));
+  }
+
+  .app-skeleton-soft {
+    background-color: hsl(var(--skeleton-soft));
+  }
+
+  .app-skeleton-strong {
+    background-color: hsl(var(--skeleton-strong));
+  }
+
+  .app-skeleton-inverse {
+    background-color: hsl(var(--skeleton-inverse-base));
+  }
+
+  .app-skeleton::after,
+  .app-skeleton-soft::after,
+  .app-skeleton-strong::after,
+  .app-skeleton-inverse::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    animation: skeletonShimmer 1.45s ease-in-out infinite;
+  }
+
+  .app-skeleton::after {
+    background-image: linear-gradient(
+      110deg,
+      transparent 0%,
+      hsl(var(--skeleton-highlight) / 0.1) 38%,
+      hsl(var(--skeleton-highlight) / 0.72) 50%,
+      hsl(var(--skeleton-highlight) / 0.1) 62%,
+      transparent 100%
+    );
+  }
+
+  .app-skeleton-soft::after {
+    background-image: linear-gradient(
+      110deg,
+      transparent 0%,
+      hsl(var(--skeleton-highlight) / 0.08) 38%,
+      hsl(var(--skeleton-highlight) / 0.48) 50%,
+      hsl(var(--skeleton-highlight) / 0.08) 62%,
+      transparent 100%
+    );
+  }
+
+  .app-skeleton-strong::after {
+    background-image: linear-gradient(
+      110deg,
+      transparent 0%,
+      hsl(var(--skeleton-highlight) / 0.12) 36%,
+      hsl(var(--skeleton-highlight) / 0.82) 50%,
+      hsl(var(--skeleton-highlight) / 0.12) 64%,
+      transparent 100%
+    );
+  }
+
+  .app-skeleton-inverse::after {
+    background-image: linear-gradient(
+      110deg,
+      transparent 0%,
+      hsl(var(--skeleton-inverse-highlight) / 0.12) 36%,
+      hsl(var(--skeleton-inverse-highlight) / 0.85) 50%,
+      hsl(var(--skeleton-inverse-highlight) / 0.12) 64%,
+      transparent 100%
+    );
+  }
+
   @media (max-width: 768px) {
     .landing-stats-marquee {
       animation-duration: 18s;
@@ -316,6 +408,12 @@
   }
   to {
     transform: translateX(-50%);
+  }
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
 
@@ -374,6 +472,13 @@
   }
 
   .app-loader-spinner {
+    animation: none !important;
+  }
+
+  .app-skeleton::after,
+  .app-skeleton-soft::after,
+  .app-skeleton-strong::after,
+  .app-skeleton-inverse::after {
     animation: none !important;
   }
 }

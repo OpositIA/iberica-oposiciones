@@ -1,6 +1,10 @@
 import { useAuth } from "@/auth/AuthProvider";
 import AppLoading from "@/components/AppLoading";
-import { hasOngoingGoogleRegisterFlow } from "@/lib/registerFlow";
+import {
+  hasGoogleSignupSessionActive,
+  hasIncompleteGoogleRegisterFlow,
+  hasOngoingGoogleRegisterFlow
+} from "@/lib/registerFlow";
 import { applyDarkThemeForLoggedOutLanding } from "@/lib/theme";
 import { ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,6 +26,8 @@ const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
       "emailAlreadyExists";
   const allowsRegisterAccess =
     allowsGoogleRegister || allowsGoogleRegisterError;
+  const hasIncompleteGoogleRegister = hasIncompleteGoogleRegisterFlow();
+  const isTemporaryGoogleSignupSession = hasGoogleSignupSessionActive();
 
   useEffect(() => {
     if (!isAuthReady || isAuthenticated) return;
@@ -34,7 +40,12 @@ const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
     );
   }
 
-  if (isAuthenticated && !allowsRegisterAccess)
+  if (
+    isAuthenticated &&
+    !allowsRegisterAccess &&
+    !hasIncompleteGoogleRegister &&
+    !isTemporaryGoogleSignupSession
+  )
     return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;

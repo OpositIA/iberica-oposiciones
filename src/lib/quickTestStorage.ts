@@ -159,6 +159,12 @@ export const getQuickTestSessionPayload = (
   );
 };
 
+export const clearQuickTestSessionPayload = (testId: string) => {
+  const key = getSessionKey(testId);
+  safeRemoveStorageItem(getSessionStorage(), key);
+  safeRemoveStorageItem(getLocalStorage(), key);
+};
+
 export const setQuickTestProgress = (
   testId: string,
   progress: QuickTestProgress

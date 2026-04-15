@@ -88,6 +88,10 @@ type RegisterFlowDraft = {
 const STORAGE_KEY = "register-flow-draft-v1";
 const GOOGLE_CONTEXT_STORAGE_KEY = "register-google-context-v1";
 const GOOGLE_REGISTER_ERROR_KEY = "register-google-error-v1";
+const GOOGLE_REGISTER_PENDING_KEY = "register-google-pending-v1";
+const GOOGLE_SIGNUP_SESSION_KEY = "register-google-signup-session-v1";
+const GOOGLE_LOGIN_ERROR_KEY = "login-google-error-v1";
+const GOOGLE_REGISTER_SILENT_EXIT_KEY = "register-google-silent-exit-v1";
 
 const getSessionStorage = () =>
   typeof window === "undefined" ? null : window.sessionStorage;
@@ -226,6 +230,93 @@ export const consumeGoogleRegisterError = () => {
 
   const errorCode = storage.getItem(GOOGLE_REGISTER_ERROR_KEY) ?? "";
   storage.removeItem(GOOGLE_REGISTER_ERROR_KEY);
+  return sanitizeCode(errorCode, 80);
+};
+
+export const markGoogleRegisterResolutionPending = () => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.setItem(GOOGLE_REGISTER_PENDING_KEY, "1");
+};
+
+export const clearGoogleRegisterResolutionPending = () => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.removeItem(GOOGLE_REGISTER_PENDING_KEY);
+};
+
+export const hasPendingGoogleRegisterResolution = () => {
+  const storage = getSessionStorage();
+  if (!storage) return false;
+
+  return storage.getItem(GOOGLE_REGISTER_PENDING_KEY) === "1";
+};
+
+export const markGoogleSignupSessionActive = () => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.setItem(GOOGLE_SIGNUP_SESSION_KEY, "1");
+};
+
+export const clearGoogleSignupSessionActive = () => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.removeItem(GOOGLE_SIGNUP_SESSION_KEY);
+};
+
+export const markGoogleRegisterSilentExit = () => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.setItem(GOOGLE_REGISTER_SILENT_EXIT_KEY, "1");
+};
+
+export const consumeGoogleRegisterSilentExit = () => {
+  const storage = getSessionStorage();
+  if (!storage) return false;
+
+  const hasSilentExit =
+    storage.getItem(GOOGLE_REGISTER_SILENT_EXIT_KEY) === "1";
+  storage.removeItem(GOOGLE_REGISTER_SILENT_EXIT_KEY);
+  return hasSilentExit;
+};
+
+export const hasGoogleSignupSessionActive = () => {
+  const storage = getSessionStorage();
+  if (!storage) return false;
+
+  return storage.getItem(GOOGLE_SIGNUP_SESSION_KEY) === "1";
+};
+
+export const hasIncompleteGoogleRegisterFlow = () =>
+  hasPendingGoogleRegisterResolution() ||
+  readGoogleRegisterContext() !== null ||
+  hasGoogleSignupSessionActive();
+
+export const writeGoogleLoginError = (errorCode: string) => {
+  const storage = getSessionStorage();
+  if (!storage) return;
+
+  storage.setItem(GOOGLE_LOGIN_ERROR_KEY, sanitizeCode(errorCode, 80));
+};
+
+export const readGoogleLoginError = () => {
+  const storage = getSessionStorage();
+  if (!storage) return "";
+
+  return sanitizeCode(storage.getItem(GOOGLE_LOGIN_ERROR_KEY) ?? "", 80);
+};
+
+export const consumeGoogleLoginError = () => {
+  const storage = getSessionStorage();
+  if (!storage) return "";
+
+  const errorCode = storage.getItem(GOOGLE_LOGIN_ERROR_KEY) ?? "";
+  storage.removeItem(GOOGLE_LOGIN_ERROR_KEY);
   return sanitizeCode(errorCode, 80);
 };
 

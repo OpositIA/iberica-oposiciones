@@ -20,10 +20,15 @@ import {
   buildRegisterPlanSelectionPath,
   clampRegisterStep,
   clearGoogleRegisterContext,
+  clearGoogleRegisterResolutionPending,
+  clearGoogleSignupSessionActive,
   clearRegisterFlowDraft,
   getRegisterAccountStepError,
   getRegisterProfileStepError,
+  hasGoogleSignupSessionActive,
   initialRegisterForm,
+  markGoogleRegisterResolutionPending,
+  markGoogleRegisterSilentExit,
   readGoogleRegisterContext,
   readRegisterFlowDraft,
   sanitizeRegisterForm,
@@ -196,6 +201,7 @@ const Register = () => {
       password: "",
       confirmPassword: ""
     }));
+    clearGoogleRegisterResolutionPending();
     clearGoogleRegisterContext();
   }, [googleRegisterContext, isAuthenticated, profile, user]);
 
@@ -254,10 +260,23 @@ const Register = () => {
       const nextPath = window.location.pathname;
       if (nextPath.startsWith("/registro")) return;
       if (nextPath === "/auth/callback") return;
+      if (isAuthenticated && hasGoogleSignupSessionActive()) {
+        markGoogleRegisterSilentExit();
+        void supabase.auth.signOut().finally(() => {
+          clearGoogleSignupSessionActive();
+          clearRegisterFlowDraft();
+          clearGoogleRegisterResolutionPending();
+          clearGoogleRegisterContext();
+        });
+        return;
+      }
+
+      clearGoogleSignupSessionActive();
       clearRegisterFlowDraft();
+      clearGoogleRegisterResolutionPending();
       clearGoogleRegisterContext();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const stepTitles = useMemo(
     () =>
@@ -405,6 +424,7 @@ const Register = () => {
     setIsGoogleLoading(true);
 
     try {
+      markGoogleRegisterResolutionPending();
       writeGoogleRegisterContext(requestedPlanCode);
 
       const redirectUrl = new URL("/auth/callback", window.location.origin);
@@ -421,6 +441,7 @@ const Register = () => {
 
       if (error) throw error;
     } catch (error) {
+      clearGoogleRegisterResolutionPending();
       clearGoogleRegisterContext();
       toast({
         variant: "destructive",

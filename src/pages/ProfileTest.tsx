@@ -1,6 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
-import AppLoading from "@/components/AppLoading";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import { ProfileTestPageSkeleton } from "@/components/PageSkeletons";
 import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import CustomButton from "@/components/ui/custom-button";
@@ -16,10 +16,15 @@ import { Slider } from "@/components/ui/slider";
 import { type Oposicion } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import { getPlanKey, isPaidPlan } from "@/lib/plans";
-import { setQuickTestSessionPayload } from "@/lib/quickTestStorage";
+import {
+  clearQuickTestProgress,
+  clearQuickTestSessionPayload,
+  setQuickTestSessionPayload
+} from "@/lib/quickTestStorage";
 import { usePreferredOppositionQuery } from "@/queries/profileQueries";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
+  discardInProgressQuickTests,
   fetchLatestInProgressQuickTest,
   fetchReusableQuickTestSession,
   generateQuickTest,
@@ -294,6 +299,15 @@ const ProfileTest = () => {
     setIsGeneratingQuickTest(true);
 
     try {
+      if (forceNew) {
+        const discardedTestIds = await discardInProgressQuickTests(user.id);
+        discardedTestIds.forEach((testId) => {
+          clearQuickTestProgress(testId);
+          clearQuickTestSessionPayload(testId);
+        });
+        setInProgressTest(null);
+      }
+
       const reusableQuickTest = await fetchReusableQuickTestSession({
         userId: user.id,
         oppositionId: oposicionActiva.id,
@@ -307,8 +321,7 @@ const ProfileTest = () => {
           title: t("test.toasts.quickTestReadyTitle"),
           description: t("test.toasts.quickTestReadyDescription", {
             topicCount: reusableQuickTest.selectedTopics.length,
-            questionCount: reusableQuickTest.questionCount,
-            testId: reusableQuickTest.testId
+            questionCount: reusableQuickTest.questionCount
           })
         });
         setIsQuickTestDialogOpen(false);
@@ -370,8 +383,7 @@ const ProfileTest = () => {
         title: t("test.toasts.quickTestReadyTitle"),
         description: t("test.toasts.quickTestReadyDescription", {
           topicCount: resolvedSelectedTopics.length,
-          questionCount: generatedQuestionCount,
-          testId: resolvedTestId
+          questionCount: generatedQuestionCount
         })
       });
       setIsQuickTestDialogOpen(false);
@@ -428,7 +440,7 @@ const ProfileTest = () => {
     setIsQuickTestDialogOpen(open);
   };
 
-  if (isLoadingOpposition) return <AppLoading label={t("test.loading")} />;
+  if (isLoadingOpposition) return <ProfileTestPageSkeleton />;
 
   if (!isCurrentPlanPaid) {
     return (

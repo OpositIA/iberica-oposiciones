@@ -321,7 +321,7 @@ const Plans = () => {
                 delay={index * 90}
                 duration={760}
                 variant={plan.featured ? "up" : "soft"}
-                className={`relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border p-6 ${
+                className={`relative flex flex-col overflow-hidden rounded-[1.6rem] border p-6 ${
                   plan.featured
                     ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_28px_70px_-42px_rgba(15,23,42,0.82)]"
                     : "border-border/70 bg-background text-foreground"

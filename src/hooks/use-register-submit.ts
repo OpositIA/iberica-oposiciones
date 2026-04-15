@@ -4,6 +4,7 @@ import type { AppLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
 import {
   clearGoogleRegisterContext,
+  clearGoogleSignupSessionActive,
   clearRegisterFlowDraft,
   sanitizeRegisterForm,
   type RegisterForm
@@ -32,6 +33,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const clearRegisterState = () => {
+    clearGoogleSignupSessionActive();
     clearRegisterFlowDraft();
     clearGoogleRegisterContext();
   };

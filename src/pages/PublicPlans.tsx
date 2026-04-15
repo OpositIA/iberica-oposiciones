@@ -11,58 +11,76 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-const PublicPlanCardSkeleton = ({ featured }: { featured?: boolean }) => (
+type PublicPlanSkeletonSpec = {
+  featured: boolean;
+  id: string;
+};
+
+const PublicPlanCardSkeleton = ({
+  featured,
+  index
+}: {
+  featured?: boolean;
+  index: number;
+}) => (
   <article
     className={`relative flex min-h-[430px] flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
       featured
         ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
-        : "border-foreground/15 bg-background/88 shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
+        : "border-border/70 bg-background shadow-[0_0_0_1px_hsl(var(--foreground)/0.05),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
     }`}
   >
     {featured ? (
       <>
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
         <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/20 blur-3xl" />
-        <div className="absolute right-4 top-4">
-          <Skeleton className="h-6 w-24 rounded-full bg-primary-foreground/14" />
-        </div>
       </>
     ) : (
-      <div className="pointer-events-none absolute -left-8 top-0 h-24 w-24 rounded-full bg-primary/8 blur-3xl dark:bg-primary/10" />
+      <div className="pointer-events-none absolute -left-8 top-0 h-24 w-24 rounded-full bg-primary/10 blur-3xl dark:bg-primary/12" />
     )}
+
+    <div className="absolute right-4 top-4">
+      <Skeleton
+        className={`h-6 rounded-full ${
+          featured ? "app-skeleton-inverse w-24" : "app-skeleton-strong w-16"
+        }`}
+      />
+    </div>
 
     <div className="max-w-sm">
       <Skeleton
         className={`h-3 w-24 rounded-full ${
-          featured ? "bg-primary-foreground/16" : "bg-muted-foreground/16"
+          featured ? "app-skeleton-inverse" : "app-skeleton-strong"
         }`}
       />
       <Skeleton
         className={`mt-3 h-9 w-40 rounded-2xl ${
-          featured ? "bg-primary-foreground/18" : "bg-muted-foreground/14"
+          featured ? "app-skeleton-inverse" : "app-skeleton-strong"
         }`}
       />
       <div className="mt-3 flex items-end gap-2">
         <Skeleton
-          className={`h-10 w-28 rounded-2xl ${
-            featured ? "bg-primary-foreground/18" : "bg-muted-foreground/14"
-          }`}
+          className={`h-10 rounded-2xl ${
+            index % 3 === 0 ? "w-24" : index % 3 === 1 ? "w-28" : "w-32"
+          } ${featured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
         />
         <Skeleton
           className={`mb-1 h-3 w-16 rounded-full ${
-            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+            featured ? "app-skeleton-inverse" : "app-skeleton-soft"
           }`}
         />
       </div>
       <div className="mt-4 space-y-2.5">
         <Skeleton
           className={`h-4 w-full rounded-full ${
-            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+            featured ? "app-skeleton-inverse" : "app-skeleton-soft"
           }`}
         />
         <Skeleton
-          className={`h-4 w-10/12 rounded-full ${
-            featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
+          className={`h-4 ${
+            index % 2 === 0 ? "w-10/12" : "w-11/12"
+          } rounded-full ${
+            featured ? "app-skeleton-inverse" : "app-skeleton-soft"
           }`}
         />
       </div>
@@ -73,15 +91,13 @@ const PublicPlanCardSkeleton = ({ featured }: { featured?: boolean }) => (
         <div key={index} className="flex items-start gap-2.5">
           <Skeleton
             className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full ${
-              featured ? "bg-primary/40" : "bg-primary/18"
+              featured ? "app-skeleton-inverse" : "app-skeleton-soft"
             }`}
           />
           <Skeleton
             className={`h-4 rounded-full ${
               index === 3 ? "w-7/12" : index === 2 ? "w-9/12" : "w-11/12"
-            } ${
-              featured ? "bg-primary-foreground/12" : "bg-muted-foreground/12"
-            }`}
+            } ${featured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
           />
         </div>
       ))}
@@ -89,7 +105,7 @@ const PublicPlanCardSkeleton = ({ featured }: { featured?: boolean }) => (
 
     <Skeleton
       className={`mt-6 h-10 w-full rounded-xl ${
-        featured ? "bg-primary/70" : "bg-muted-foreground/12"
+        featured ? "app-skeleton-inverse" : "app-skeleton-strong"
       }`}
     />
   </article>
@@ -100,6 +116,18 @@ const PublicPlans = () => {
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const { data: publicPlans = [], isLoading: isLoadingPublicPlans } =
     usePublicSubscriptionPlansQuery();
+  const planCatalog = t("plans", {
+    returnObjects: true
+  }) as Record<string, unknown>;
+  const skeletonPlans = useMemo<PublicPlanSkeletonSpec[]>(() => {
+    const keys = Object.keys(planCatalog);
+    const sourceKeys = keys.length > 0 ? keys : ["free", "pro"];
+
+    return sourceKeys.map((planKey) => ({
+      id: planKey,
+      featured: planKey.toLowerCase() === "pro"
+    }));
+  }, [planCatalog]);
 
   const plans = useMemo(
     () =>
@@ -164,8 +192,12 @@ const PublicPlans = () => {
       <div className="mx-auto max-w-5xl px-6 pb-16 pt-8 md:px-8">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {isLoadingPublicPlans &&
-            Array.from({ length: 2 }).map((_, index) => (
-              <PublicPlanCardSkeleton key={index} featured={index === 1} />
+            skeletonPlans.map((plan, index) => (
+              <PublicPlanCardSkeleton
+                key={plan.id}
+                featured={plan.featured}
+                index={index}
+              />
             ))}
 
           {!isLoadingPublicPlans &&
