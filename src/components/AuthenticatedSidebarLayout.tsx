@@ -757,6 +757,12 @@ const AuthenticatedSidebarLayout = () => {
                     </Link>
                   </CustomButton>
                 ) : null}
+
+                <div className="pt-1 text-center">
+                  <span className="text-[10px] font-medium tracking-[0.18em] text-muted-foreground/80 uppercase">
+                    {`v${__APP_VERSION__}`}
+                  </span>
+                </div>
               </footer>
             </div>
 

@@ -726,6 +726,7 @@ serve(async (req) => {
 
       return {
         id: `bank-question-${row.bank_question_id ?? idx + 1}`,
+        bankQuestionId: Number(row.bank_question_id),
         topicId: String(row.topic_id ?? "").trim(),
         topicLabel: sanitizeSingleLineText(row.topic_label, 220),
         question: statement,

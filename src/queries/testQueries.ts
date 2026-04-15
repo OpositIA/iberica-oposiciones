@@ -64,6 +64,7 @@ export type QuickTestAttemptPayload = {
   startedAt: string;
   finishedAt: string | null;
   updatedAt: string;
+  pausedRemainingSeconds: number | null;
 };
 
 export type QuickTestHistoryRecord = {
@@ -74,6 +75,7 @@ export type QuickTestHistoryRecord = {
   score: number;
   accuracy: number;
   durationMinutes: number;
+  questionCount: number;
   status: "excellent" | "approved" | "reinforce";
 };
 
@@ -100,6 +102,14 @@ export type InProgressQuickTestSummary = {
   answeredCount: number;
   startedAt: string;
   lastInteractionAt: string;
+};
+
+export type QuickTestQuestionReportState = {
+  questionId: number;
+  reportCount: number;
+  userReported: boolean;
+  isDisabled: boolean;
+  reportThreshold: number;
 };
 
 const QUESTION_LIMIT_MIN = 1;
@@ -199,6 +209,13 @@ const normalizeNullablePositiveInt = (raw: unknown): number | null => {
   if (parsed === null) return null;
   const integer = Math.floor(parsed);
   return integer > 0 ? integer : null;
+};
+
+const normalizeNullableNonNegativeInt = (raw: unknown): number | null => {
+  const parsed = normalizeNullableNumber(raw);
+  if (parsed === null) return null;
+  const integer = Math.floor(parsed);
+  return integer >= 0 ? integer : null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -324,12 +341,34 @@ const normalizeCorrectIndex = (
 };
 
 type EvaluatedQuestion = {
+  bankQuestionId: number | null;
+  disabled: boolean;
   id: string;
   correctIndex: number | null;
 };
 
-const normalizeQuestionsForEvaluation = (raw: unknown): EvaluatedQuestion[] => {
+const normalizeBankQuestionId = (
+  raw: unknown,
+  fallbackId?: string
+): number | null => {
+  const parsedFromRaw = normalizeNullablePositiveInt(raw);
+  if (parsedFromRaw !== null) return parsedFromRaw;
+  if (!fallbackId) return null;
+  const match = fallbackId.match(/bank-question-(\d+)/i);
+  if (!match?.[1]) return null;
+  return normalizeNullablePositiveInt(match[1]);
+};
+
+const normalizeQuestionsForEvaluation = (
+  raw: unknown,
+  options?: {
+    disabledBankQuestionIds?: Iterable<number>;
+  }
+): EvaluatedQuestion[] => {
   if (!Array.isArray(raw)) return [];
+  const disabledBankQuestionIds = new Set(
+    options?.disabledBankQuestionIds ?? []
+  );
 
   return raw
     .map((item, idx): EvaluatedQuestion | null => {
@@ -356,6 +395,18 @@ const normalizeQuestionsForEvaluation = (raw: unknown): EvaluatedQuestion[] => {
         item.correctAnswer;
 
       return {
+        bankQuestionId: normalizeBankQuestionId(
+          item.bankQuestionId ?? item.bank_question_id,
+          id
+        ),
+        disabled:
+          item.disabled === true ||
+          disabledBankQuestionIds.has(
+            normalizeBankQuestionId(
+              item.bankQuestionId ?? item.bank_question_id,
+              id
+            ) ?? -1
+          ),
         id,
         correctIndex: normalizeCorrectIndex(correctRaw, options, optionIds)
       };
@@ -428,7 +479,10 @@ export const fetchCurrentOppositionPrimaryTestExamConfig = async (
 export const evaluateQuickTestAttempt = (
   questionsRaw: unknown,
   selectedAnswersRaw: unknown,
-  testConfig?: OppositionTestExamConfig | null
+  testConfig?: OppositionTestExamConfig | null,
+  options?: {
+    disabledBankQuestionIds?: Iterable<number>;
+  }
 ): {
   answeredCount: number;
   totalQuestions: number;
@@ -439,18 +493,19 @@ export const evaluateQuickTestAttempt = (
   blankCount: number;
   scoreScaleMax: number;
 } => {
-  const questions = normalizeQuestionsForEvaluation(questionsRaw);
+  const questions = normalizeQuestionsForEvaluation(questionsRaw, options);
+  const activeQuestions = questions.filter((question) => !question.disabled);
   const selectedAnswers = normalizeSelectedAnswers(selectedAnswersRaw);
-  const questionIdSet = new Set(questions.map((question) => question.id));
+  const questionIdSet = new Set(activeQuestions.map((question) => question.id));
   const answeredCount = Object.keys(selectedAnswers).filter((questionId) =>
     questionIdSet.has(questionId)
   ).length;
 
-  const gradeable = questions.filter(
+  const gradeable = activeQuestions.filter(
     (question) => question.correctIndex !== null
   );
   const denominator =
-    gradeable.length > 0 ? gradeable.length : questions.length;
+    gradeable.length > 0 ? gradeable.length : activeQuestions.length;
   if (denominator === 0) {
     return {
       answeredCount,
@@ -495,7 +550,7 @@ export const evaluateQuickTestAttempt = (
 
   return {
     answeredCount,
-    totalQuestions: questions.length,
+    totalQuestions: activeQuestions.length,
     score,
     accuracy,
     correctCount,
@@ -503,6 +558,95 @@ export const evaluateQuickTestAttempt = (
     blankCount,
     scoreScaleMax: scoreMax
   };
+};
+
+const normalizeQuickTestQuestionReportState = (
+  row: {
+    is_disabled: boolean;
+    question_id: number;
+    report_count: number;
+    report_threshold: number;
+    user_reported: boolean;
+  } | null
+): QuickTestQuestionReportState | null => {
+  if (!row) return null;
+
+  const questionId = normalizeNullablePositiveInt(row.question_id);
+  const reportCount = normalizeNullableNonNegativeInt(row.report_count);
+  const reportThreshold = normalizeNullablePositiveInt(row.report_threshold);
+
+  if (questionId === null || reportCount === null || reportThreshold === null)
+    return null;
+
+  return {
+    questionId,
+    reportCount,
+    userReported: Boolean(row.user_reported),
+    isDisabled: Boolean(row.is_disabled),
+    reportThreshold
+  };
+};
+
+export const fetchQuickTestQuestionReportStates = async (
+  questionIds: number[]
+): Promise<Map<number, QuickTestQuestionReportState>> => {
+  const normalizedQuestionIds = Array.from(
+    new Set(
+      questionIds
+        .map((questionId) => normalizeNullablePositiveInt(questionId))
+        .filter((questionId): questionId is number => questionId !== null)
+    )
+  );
+
+  if (normalizedQuestionIds.length === 0) return new Map();
+
+  const { data, error } = await supabase.rpc(
+    "get_question_bank_question_report_state",
+    {
+      p_question_ids: normalizedQuestionIds
+    }
+  );
+
+  if (error) throw error;
+
+  const stateMap = new Map<number, QuickTestQuestionReportState>();
+  (Array.isArray(data) ? data : []).forEach((row) => {
+    const normalized = normalizeQuickTestQuestionReportState(row);
+    if (!normalized) return;
+    stateMap.set(normalized.questionId, normalized);
+  });
+
+  return stateMap;
+};
+
+type ReportQuickTestQuestionParams = {
+  questionId: number;
+  testId?: string | null;
+};
+
+export const reportQuickTestQuestion = async ({
+  questionId,
+  testId
+}: ReportQuickTestQuestionParams): Promise<QuickTestQuestionReportState> => {
+  const normalizedQuestionId = normalizeNullablePositiveInt(questionId);
+  if (normalizedQuestionId === null)
+    throw new Error("No se pudo identificar la pregunta.");
+
+  const { data, error } = await supabase.rpc("report_question_bank_question", {
+    p_question_id: normalizedQuestionId,
+    p_quick_test_id: isUuid(testId) ? testId : null
+  });
+
+  if (error) throw error;
+
+  const normalized = normalizeQuickTestQuestionReportState(
+    Array.isArray(data) ? (data[0] ?? null) : null
+  );
+
+  if (!normalized)
+    throw new Error("No se pudo registrar el reporte de la pregunta.");
+
+  return normalized;
 };
 
 const mapQuickTestRowToPayload = (
@@ -534,6 +678,7 @@ const mapQuickTestAttemptRow = (
     started_at: string;
     finished_at: string | null;
     updated_at: string;
+    paused_remaining_seconds?: unknown;
   } | null
 ): QuickTestAttemptPayload | null => {
   if (!row) return null;
@@ -543,7 +688,10 @@ const mapQuickTestAttemptRow = (
     activeQuestionId: row.active_question_id,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    pausedRemainingSeconds: normalizeNullableNonNegativeInt(
+      row.paused_remaining_seconds
+    )
   };
 };
 
@@ -804,7 +952,7 @@ export const fetchQuickTestAttempt = async (
   const { data, error } = await supabase
     .from("quick_test_attempts")
     .select(
-      "selected_answers, active_question_id, started_at, finished_at, updated_at"
+      "selected_answers, active_question_id, started_at, finished_at, updated_at, paused_remaining_seconds"
     )
     .eq("test_id", testId)
     .eq("user_id", userId)
@@ -841,9 +989,39 @@ export const fetchLatestInProgressQuickTest = async (
         lastInteractionAt: row.last_interaction_at
       };
     })
-    .filter((attempt) => attempt.answeredCount > 0 && isUuid(attempt.testId));
+    .filter((attempt) => isUuid(attempt.testId));
 
   return withAnswers[0] ?? null;
+};
+
+export const discardInProgressQuickTests = async (
+  userId: string
+): Promise<string[]> => {
+  const { data, error } = await supabase
+    .from("quick_test_attempts")
+    .select("test_id")
+    .eq("user_id", userId)
+    .is("finished_at", null);
+
+  if (error) throw error;
+
+  const activeTestIds = Array.isArray(data)
+    ? data
+        .map((row) => row.test_id)
+        .filter((testId): testId is string => isUuid(testId))
+    : [];
+
+  if (activeTestIds.length === 0) return [];
+
+  const { error: deleteError } = await supabase
+    .from("quick_tests")
+    .delete()
+    .eq("user_id", userId)
+    .in("id", activeTestIds);
+
+  if (deleteError) throw deleteError;
+
+  return activeTestIds;
 };
 
 type FetchQuickTestHistoryPageParams = {
@@ -930,6 +1108,7 @@ const mapCompletedAttemptToHistoryRecord = (
     score: evaluated.score,
     accuracy: evaluated.accuracy,
     durationMinutes,
+    questionCount: evaluated.totalQuestions,
     status: resolveHistoryStatus(evaluated.accuracy)
   };
 };
@@ -973,7 +1152,7 @@ export const fetchQuickTestsDashboardBundle = async (
           lastInteractionAt: row.last_interaction_at
         } satisfies InProgressQuickTestSummary;
       })
-      .filter((attempt) => attempt.answeredCount > 0 && isUuid(attempt.testId))
+      .filter((attempt) => isUuid(attempt.testId))
       .sort(
         (a, b) =>
           new Date(b.lastInteractionAt).valueOf() -
@@ -1079,6 +1258,7 @@ export const fetchQuickTestHistoryPage = async ({
         score: evaluated.score,
         accuracy: evaluated.accuracy,
         durationMinutes,
+        questionCount: evaluated.totalQuestions,
         status: resolveHistoryStatus(evaluated.accuracy)
       } satisfies QuickTestHistoryRecord;
     })
@@ -1218,6 +1398,8 @@ type SaveQuickTestAttemptProgressParams = {
   selectedAnswers: Record<string, number>;
   activeQuestionId: string | null;
   finishedAt?: string | null;
+  startedAt?: string;
+  pausedRemainingSeconds?: number | null;
 };
 
 export const saveQuickTestAttemptProgress = async ({
@@ -1225,7 +1407,9 @@ export const saveQuickTestAttemptProgress = async ({
   userId,
   selectedAnswers,
   activeQuestionId,
-  finishedAt
+  finishedAt,
+  startedAt,
+  pausedRemainingSeconds
 }: SaveQuickTestAttemptProgressParams): Promise<void> => {
   if (!isUuid(testId)) return;
 
@@ -1237,6 +1421,8 @@ export const saveQuickTestAttemptProgress = async ({
     active_question_id: string | null;
     last_interaction_at: string;
     finished_at?: string | null;
+    started_at?: string;
+    paused_remaining_seconds?: number | null;
   } = {
     test_id: testId,
     user_id: userId,
@@ -1246,6 +1432,9 @@ export const saveQuickTestAttemptProgress = async ({
   };
 
   if (typeof finishedAt !== "undefined") payload.finished_at = finishedAt;
+  if (typeof startedAt !== "undefined") payload.started_at = startedAt;
+  if (typeof pausedRemainingSeconds !== "undefined")
+    payload.paused_remaining_seconds = pausedRemainingSeconds;
 
   const { error } = await supabase.from("quick_test_attempts").upsert(payload, {
     onConflict: "test_id,user_id"
@@ -1278,14 +1467,15 @@ export const resetQuickTestAttempt = async ({
         active_question_id: firstQuestionId,
         started_at: nowIso,
         finished_at: null,
-        last_interaction_at: nowIso
+        last_interaction_at: nowIso,
+        paused_remaining_seconds: null
       },
       {
         onConflict: "test_id,user_id"
       }
     )
     .select(
-      "selected_answers, active_question_id, started_at, finished_at, updated_at"
+      "selected_answers, active_question_id, started_at, finished_at, updated_at, paused_remaining_seconds"
     )
     .maybeSingle();
 

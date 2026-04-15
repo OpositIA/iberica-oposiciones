@@ -437,6 +437,7 @@ export type Database = {
           finished_at: string | null;
           id: number;
           last_interaction_at: string;
+          paused_remaining_seconds: number | null;
           selected_answers: Json;
           started_at: string;
           test_id: string;
@@ -448,6 +449,7 @@ export type Database = {
           finished_at?: string | null;
           id?: number;
           last_interaction_at?: string;
+          paused_remaining_seconds?: number | null;
           selected_answers?: Json;
           started_at?: string;
           test_id: string;
@@ -459,6 +461,7 @@ export type Database = {
           finished_at?: string | null;
           id?: number;
           last_interaction_at?: string;
+          paused_remaining_seconds?: number | null;
           selected_answers?: Json;
           started_at?: string;
           test_id?: string;
@@ -601,11 +604,37 @@ export type Database = {
         };
         Returns: number;
       };
+      get_question_bank_question_report_state: {
+        Args: {
+          p_question_ids: number[];
+        };
+        Returns: {
+          is_disabled: boolean;
+          question_id: number;
+          report_count: number;
+          report_threshold: number;
+          user_reported: boolean;
+        }[];
+      };
       is_signup_email_available: {
         Args: {
           p_email: string;
         };
         Returns: boolean;
+      };
+      report_question_bank_question: {
+        Args: {
+          p_question_id: number;
+          p_quick_test_id?: string | null;
+        };
+        Returns: {
+          inserted: boolean;
+          is_disabled: boolean;
+          question_id: number;
+          report_count: number;
+          report_threshold: number;
+          user_reported: boolean;
+        }[];
       };
       get_user_plan_state: {
         Args: {

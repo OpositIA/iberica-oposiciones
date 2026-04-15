@@ -17,10 +17,15 @@ import { Slider } from "@/components/ui/slider";
 import { type Oposicion } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import { getPlanKey, isPaidPlan } from "@/lib/plans";
-import { setQuickTestSessionPayload } from "@/lib/quickTestStorage";
+import {
+  clearQuickTestProgress,
+  clearQuickTestSessionPayload,
+  setQuickTestSessionPayload
+} from "@/lib/quickTestStorage";
 import { usePreferredOppositionQuery } from "@/queries/profileQueries";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
+  discardInProgressQuickTests,
   fetchLatestInProgressQuickTest,
   fetchReusableQuickTestSession,
   generateQuickTest,
@@ -262,6 +267,15 @@ const ProfileTest = () => {
     setIsGeneratingQuickTest(true);
 
     try {
+      if (forceNew) {
+        const discardedTestIds = await discardInProgressQuickTests(user.id);
+        discardedTestIds.forEach((testId) => {
+          clearQuickTestProgress(testId);
+          clearQuickTestSessionPayload(testId);
+        });
+        setInProgressTest(null);
+      }
+
       const reusableQuickTest = await fetchReusableQuickTestSession({
         userId: user.id,
         oppositionId: oposicionActiva.id,
