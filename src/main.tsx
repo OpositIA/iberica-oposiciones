@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import "react-pdf/dist/Page/TextLayer.css";
 import App from "./App.tsx";
 import AppLoading from "./components/AppLoading.tsx";
 import "./i18n/config";

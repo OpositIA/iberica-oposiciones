@@ -34,7 +34,9 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/TextLayer.css";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import "./profile-syllabus-pdf-viewer.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 const MIN_ZOOM = 0.5;

@@ -1,0 +1,28 @@
+.pdf-viewer-page .react-pdf__Page__textContent {
+  user-select: none;
+}
+
+.pdf-viewer-page .react-pdf__Page__textContent span {
+  color: transparent !important;
+}
+
+.pdf-viewer-page canvas {
+  display: block;
+  max-width: 100%;
+  height: auto !important;
+}
+
+.pdf-viewer-page .react-pdf__Page__textContent mark.pdf-search-highlight {
+  background: rgba(255, 249, 115, 0.72);
+  border-radius: 0.18rem;
+  padding: 0.02em 0.1em 0.02em 0.02em;
+  margin: 0 -0.1em 0 0;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.pdf-viewer-page
+  .react-pdf__Page__textContent
+  mark.pdf-search-highlight.is-active {
+  background: #ffff00;
+}

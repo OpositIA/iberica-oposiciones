@@ -96,6 +96,10 @@ const Index = () => {
           <img
             src={heroImage}
             alt={t("heroImageAlt")}
+            width={2752}
+            height={1536}
+            fetchPriority="high"
+            decoding="async"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-br from-charcoal/95 via-charcoal/80 to-charcoal/40" />
@@ -352,6 +356,10 @@ const Index = () => {
                 <img
                   src={methodologyImage}
                   alt={t("methodology.imageAlt")}
+                  width={1024}
+                  height={1024}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full aspect-[4/5] object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-charcoal/80 via-transparent to-transparent" />
