@@ -439,6 +439,12 @@
   color: transparent !important;
 }
 
+.pdf-viewer-page canvas {
+  display: block;
+  max-width: 100%;
+  height: auto !important;
+}
+
 .pdf-viewer-page .react-pdf__Page__textContent mark.pdf-search-highlight {
   background: rgba(255, 249, 115, 0.72);
   border-radius: 0.18rem;
