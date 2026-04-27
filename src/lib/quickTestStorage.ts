@@ -3,7 +3,10 @@ import {
   sanitizeInteger,
   sanitizeSingleLineText
 } from "@/lib/inputSanitization";
-import { type QuickTestSessionPayload } from "@/queries/testQueries";
+import type {
+  InProgressQuickTestSummary,
+  QuickTestSessionPayload
+} from "@/queries/testQueries";
 
 const SESSION_PREFIX = "quick-test-session:";
 const PROGRESS_PREFIX = "quick-test-progress:";
@@ -12,6 +15,8 @@ export type QuickTestProgress = {
   selectedAnswers: Record<string, number>;
   activeQuestionId: string | null;
   updatedAt: string;
+  pausedRemainingSeconds?: number | null;
+  pauseRequestedAt?: string | null;
 };
 
 const safeGetStorageItem = (
@@ -126,7 +131,12 @@ const normalizeQuickTestProgress = (
   return {
     selectedAnswers,
     activeQuestionId: sanitizeCode(value.activeQuestionId, 120) || null,
-    updatedAt: sanitizeSingleLineText(value.updatedAt, 64)
+    updatedAt: sanitizeSingleLineText(value.updatedAt, 64),
+    pausedRemainingSeconds: sanitizeInteger(value.pausedRemainingSeconds, {
+      min: 0,
+      max: 86_400
+    }),
+    pauseRequestedAt: sanitizeSingleLineText(value.pauseRequestedAt, 64) || null
   };
 };
 
@@ -169,9 +179,23 @@ export const setQuickTestProgress = (
   testId: string,
   progress: QuickTestProgress
 ) => {
-  const normalizedProgress = normalizeQuickTestProgress(progress);
-  if (!normalizedProgress) return;
   const key = getProgressKey(testId);
+  const existingProgress = normalizeQuickTestProgress(
+    safeParseJson<QuickTestProgress>(safeGetStorageItem(getLocalStorage(), key))
+  );
+  const normalizedProgress = normalizeQuickTestProgress({
+    ...existingProgress,
+    ...progress,
+    pausedRemainingSeconds:
+      typeof progress.pausedRemainingSeconds === "undefined"
+        ? (existingProgress?.pausedRemainingSeconds ?? null)
+        : progress.pausedRemainingSeconds,
+    pauseRequestedAt:
+      typeof progress.pauseRequestedAt === "undefined"
+        ? (existingProgress?.pauseRequestedAt ?? null)
+        : progress.pauseRequestedAt
+  });
+  if (!normalizedProgress) return;
   const serialized = JSON.stringify(normalizedProgress);
   safeSetStorageItem(getSessionStorage(), key, serialized);
   safeSetStorageItem(getLocalStorage(), key, serialized);
@@ -198,3 +222,54 @@ export const clearQuickTestProgress = (testId: string) => {
   safeRemoveStorageItem(getSessionStorage(), key);
   safeRemoveStorageItem(getLocalStorage(), key);
 };
+
+export const getStoredInProgressQuickTests =
+  (): InProgressQuickTestSummary[] => {
+    const storages = [getSessionStorage(), getLocalStorage()].filter(
+      (storage): storage is Storage => storage !== null
+    );
+    if (storages.length === 0) return [];
+
+    const testIds = new Set<string>();
+    storages.forEach((storage) => {
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index);
+        if (!key || !key.startsWith(PROGRESS_PREFIX)) continue;
+        const testId = sanitizeCode(key.slice(PROGRESS_PREFIX.length), 80);
+        if (testId) testIds.add(testId);
+      }
+    });
+
+    return Array.from(testIds)
+      .map((testId) => {
+        const progress = getQuickTestProgress(testId);
+        const session = getQuickTestSessionPayload(testId);
+        if (!progress || !session) return null;
+        if (
+          progress.pauseRequestedAt === null &&
+          progress.pausedRemainingSeconds === null
+        )
+          return null;
+
+        const lastInteractionAt =
+          progress.pauseRequestedAt ?? progress.updatedAt;
+        if (!lastInteractionAt) return null;
+
+        return {
+          testId,
+          answeredCount: Object.keys(progress.selectedAnswers).length,
+          startedAt: lastInteractionAt,
+          lastInteractionAt,
+          oppositionName: session.oppositionName || "Test rapido",
+          selectedTopics: session.selectedTopics
+        } satisfies InProgressQuickTestSummary;
+      })
+      .filter((candidate): candidate is InProgressQuickTestSummary =>
+        Boolean(candidate)
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.lastInteractionAt).valueOf() -
+          new Date(a.lastInteractionAt).valueOf()
+      );
+  };

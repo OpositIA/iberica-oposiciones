@@ -11,6 +11,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { isPaidPlan } from "@/lib/plans";
+import { registerActiveQuickTestPauseHandler } from "@/lib/quickTestPauseBridge";
 import {
   clearQuickTestProgress,
   getQuickTestProgress,
@@ -32,6 +33,7 @@ import {
   reportQuickTestQuestion,
   resetQuickTestAttempt,
   saveQuickTestAttemptProgress,
+  saveQuickTestAttemptProgressOnPageExit,
   type OppositionTestExamConfig,
   type QuickTestQuestionReportState,
   type QuickTestSessionPayload
@@ -44,23 +46,9 @@ import {
   CircleHelp,
   RotateCcw
 } from "lucide-react";
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Link,
-  UNSAFE_NavigationContext,
-  useBeforeUnload,
-  useLocation,
-  useNavigate,
-  useParams
-} from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 type QuickTestLocationState = {
   quickTest?: QuickTestSessionPayload;
@@ -289,48 +277,13 @@ const sanitizeSelectedAnswers = (
   return normalized;
 };
 
-type BrowserNavigationBlockTx = {
-  retry: () => void;
-};
+type LeaveDestination = string;
 
 const formatCountdown = (seconds: number) => {
   const safe = Math.max(0, Math.floor(seconds));
   const mins = Math.floor(safe / 60);
   const secs = safe % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-};
-
-const useBrowserNavigationBlocker = (
-  when: boolean,
-  onBlock: (tx: BrowserNavigationBlockTx) => void
-) => {
-  const navigationContext = useContext(UNSAFE_NavigationContext);
-
-  useEffect(() => {
-    if (!when) return;
-
-    const navigator = navigationContext.navigator as
-      | {
-          block?: (
-            blocker: (tx: BrowserNavigationBlockTx) => void
-          ) => () => void;
-        }
-      | undefined;
-
-    if (!navigator || typeof navigator.block !== "function") return;
-
-    const unblock = navigator.block((tx: BrowserNavigationBlockTx) => {
-      onBlock({
-        ...tx,
-        retry() {
-          unblock();
-          tx.retry();
-        }
-      });
-    });
-
-    return unblock;
-  }, [navigationContext, onBlock, when]);
 };
 
 const computeQuickTestDurationSeconds = (
@@ -356,21 +309,9 @@ const computeQuickTestDurationSeconds = (
   );
 };
 
-const formatRemainingTime = (totalSeconds: number) => {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const seconds = safeSeconds % 60;
-
-  if (hours > 0)
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-};
-
 const ProfileQuickTestSession = () => {
   const { t } = useTranslation(["profile", "plans"]);
-  const { user, isAuthReady } = useAuth();
+  const { user, session, isAuthReady } = useAuth();
   const { data: planState } = useUserPlanStateQuery(user?.id);
   const hasQuickTestsAccess = isPaidPlan(planState);
   const { testId: routeTestId = "" } = useParams();
@@ -380,7 +321,9 @@ const ProfileQuickTestSession = () => {
   const ensuredAttemptForTestRef = useRef<string | null>(null);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedSignatureRef = useRef<string | null>(null);
+  const lastAutoPauseSignatureRef = useRef<string | null>(null);
   const isFinalizingRef = useRef(false);
+  const skipLeaveAutoPauseRef = useRef(false);
   const [selectedAnswers, setSelectedAnswers] = useState<
     Record<string, number>
   >({});
@@ -401,8 +344,9 @@ const ProfileQuickTestSession = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [isInternalNavigation, setIsInternalNavigation] = useState(false);
-  const [blockedTransition, setBlockedTransition] =
-    useState<BrowserNavigationBlockTx | null>(null);
+  const [pendingNavigationTo, setPendingNavigationTo] = useState<string | null>(
+    null
+  );
   const [timerNowMs, setTimerNowMs] = useState(() => Date.now());
   const locationState = location.state as QuickTestLocationState | null;
 
@@ -443,14 +387,17 @@ const ProfileQuickTestSession = () => {
     setIsHydratingAttempt(false);
     setIsAttemptHydrated(false);
     setIsFinishing(false);
+    setPendingNavigationTo(null);
     setTimerNowMs(Date.now());
     setQuestionReportStates({});
     setIsLoadingQuestionReportStates(false);
     setReportTargetQuestionId(null);
     setIsReportingQuestion(false);
+    skipLeaveAutoPauseRef.current = false;
     isFinalizingRef.current = false;
     ensuredAttemptForTestRef.current = null;
     lastSavedSignatureRef.current = null;
+    lastAutoPauseSignatureRef.current = null;
     if (saveDebounceRef.current) {
       clearTimeout(saveDebounceRef.current);
       saveDebounceRef.current = null;
@@ -660,6 +607,7 @@ const ProfileQuickTestSession = () => {
 
     const hydrateAttempt = async () => {
       try {
+        const savedProgress = getQuickTestProgress(routeTestId);
         const attempt = await runSingleFlight(
           `quick-test:attempt:${routeTestId}:${user.id}`,
           () =>
@@ -673,32 +621,68 @@ const ProfileQuickTestSession = () => {
         if (isCancelled) return;
 
         ensuredAttemptForTestRef.current = routeTestId;
+        const resolvedPausedRemainingSeconds = attempt?.finishedAt
+          ? null
+          : (attempt?.pausedRemainingSeconds ??
+            savedProgress?.pausedRemainingSeconds ??
+            null);
+        const localAnswers = sanitizeSelectedAnswers(
+          savedProgress?.selectedAnswers,
+          questionById
+        );
         setAttemptStartedAt(attempt?.startedAt ?? null);
         setAttemptFinishedAt(attempt?.finishedAt ?? null);
-        setPausedRemainingSeconds(attempt?.pausedRemainingSeconds ?? null);
+        setPausedRemainingSeconds(resolvedPausedRemainingSeconds);
 
         const dbAnswers = sanitizeSelectedAnswers(
           attempt?.selectedAnswers,
           questionById
         );
+        const localUpdatedAtMs = savedProgress?.updatedAt
+          ? new Date(savedProgress.updatedAt).valueOf()
+          : Number.NaN;
+        const remoteUpdatedAtMs = attempt?.updatedAt
+          ? new Date(attempt.updatedAt).valueOf()
+          : Number.NaN;
+        const shouldUseLocalSnapshot =
+          Number.isFinite(localUpdatedAtMs) &&
+          (!Number.isFinite(remoteUpdatedAtMs) ||
+            localUpdatedAtMs >= remoteUpdatedAtMs);
+        const restoredAnswers = shouldUseLocalSnapshot
+          ? localAnswers
+          : dbAnswers;
         const restoredActiveQuestionId =
-          attempt?.activeQuestionId &&
-          questionById.has(attempt.activeQuestionId as string)
-            ? attempt.activeQuestionId
-            : (questions[0]?.id ?? null);
+          shouldUseLocalSnapshot &&
+          savedProgress?.activeQuestionId &&
+          questionById.has(savedProgress.activeQuestionId)
+            ? savedProgress.activeQuestionId
+            : attempt?.activeQuestionId &&
+                questionById.has(attempt.activeQuestionId as string)
+              ? attempt.activeQuestionId
+              : (questions[0]?.id ?? null);
 
-        setSelectedAnswers(dbAnswers);
+        setSelectedAnswers(restoredAnswers);
         setActiveQuestionId(restoredActiveQuestionId);
-        lastSavedSignatureRef.current = JSON.stringify({
-          selectedAnswers: dbAnswers,
-          activeQuestionId: restoredActiveQuestionId ?? null,
-          finishedAt: attempt?.finishedAt ?? null,
-          startedAt: attempt?.startedAt ?? null
-        });
+        lastSavedSignatureRef.current = shouldUseLocalSnapshot
+          ? null
+          : JSON.stringify({
+              selectedAnswers: restoredAnswers,
+              activeQuestionId: restoredActiveQuestionId ?? null,
+              finishedAt: attempt?.finishedAt ?? null,
+              startedAt: attempt?.startedAt ?? null,
+              pausedRemainingSeconds: resolvedPausedRemainingSeconds
+            });
         setQuickTestProgress(routeTestId, {
-          selectedAnswers: dbAnswers,
+          selectedAnswers: restoredAnswers,
           activeQuestionId: restoredActiveQuestionId,
-          updatedAt: attempt?.updatedAt ?? new Date().toISOString()
+          updatedAt:
+            shouldUseLocalSnapshot && savedProgress?.updatedAt
+              ? savedProgress.updatedAt
+              : (attempt?.updatedAt ?? new Date().toISOString()),
+          pausedRemainingSeconds: resolvedPausedRemainingSeconds,
+          pauseRequestedAt: attempt?.finishedAt
+            ? null
+            : (savedProgress?.pauseRequestedAt ?? null)
         });
       } catch (error) {
         console.error("[quick-test] hydrate attempt failed", error);
@@ -788,25 +772,53 @@ const ProfileQuickTestSession = () => {
 
   const isReadOnlyHistoryView =
     !hasQuickTestsAccess && Boolean(attemptFinishedAt);
-  const isMidTest =
+  const shouldConfirmLeave =
     hasQuickTestsAccess &&
+    isAttemptHydrated &&
     activeQuestionCount > 0 &&
-    answeredCount > 0 &&
-    answeredCount < activeQuestionCount &&
     !attemptFinishedAt &&
     !isInternalNavigation &&
+    !isReadOnlyHistoryView &&
     !isTimeUp;
-  const onBlockedNavigation = useCallback((tx: BrowserNavigationBlockTx) => {
-    setBlockedTransition(tx);
-    setIsLeaveDialogOpen(true);
-  }, []);
-  useBrowserNavigationBlocker(isMidTest, onBlockedNavigation);
 
-  useBeforeUnload((event) => {
-    if (!isMidTest) return;
-    event.preventDefault();
-    event.returnValue = "";
-  });
+  useEffect(() => {
+    if (!shouldConfirmLeave) return;
+
+    const currentTarget = location.pathname + location.search + location.hash;
+    const handleDocumentLinkClick = (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+        return;
+
+      const rawTarget = event.target;
+      if (!(rawTarget instanceof Element)) return;
+
+      const anchor = rawTarget.closest("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target && anchor.target !== "_self") return;
+      if (anchor.hasAttribute("download")) return;
+
+      const rawHref = anchor.getAttribute("href");
+      if (!rawHref || rawHref.startsWith("#")) return;
+
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+
+      const nextTarget = `${url.pathname}${url.search}${url.hash}`;
+      if (nextTarget === currentTarget) return;
+
+      event.preventDefault();
+      setPendingNavigationTo(nextTarget);
+      setIsLeaveDialogOpen(true);
+    };
+
+    document.addEventListener("click", handleDocumentLinkClick, true);
+
+    return () => {
+      document.removeEventListener("click", handleDocumentLinkClick, true);
+    };
+  }, [location.hash, location.pathname, location.search, shouldConfirmLeave]);
 
   useEffect(() => {
     if (!isAttemptHydrated) return;
@@ -822,7 +834,8 @@ const ProfileQuickTestSession = () => {
       selectedAnswers: normalizedSelectedAnswers,
       activeQuestionId: activeQuestionId ?? null,
       finishedAt: attemptFinishedAt ?? null,
-      startedAt: attemptStartedAt ?? null
+      startedAt: attemptStartedAt ?? null,
+      pausedRemainingSeconds
     });
     if (lastSavedSignatureRef.current === signature) return;
 
@@ -836,8 +849,9 @@ const ProfileQuickTestSession = () => {
             userId: user.id,
             selectedAnswers: normalizedSelectedAnswers,
             activeQuestionId,
+            startedAt: attemptStartedAt ?? undefined,
             finishedAt: attemptFinishedAt ?? undefined,
-            pausedRemainingSeconds: null
+            pausedRemainingSeconds
           }),
         { reuseResultForMs: 400 }
       )
@@ -860,6 +874,7 @@ const ProfileQuickTestSession = () => {
     attemptStartedAt,
     attemptFinishedAt,
     isAttemptHydrated,
+    pausedRemainingSeconds,
     questionById,
     hasQuickTestsAccess,
     questions,
@@ -945,6 +960,162 @@ const ProfileQuickTestSession = () => {
   }, [remainingTimerSeconds]);
   const isTimerCritical =
     remainingTimerSeconds !== null && remainingTimerSeconds < 60;
+  const persistPauseSnapshotLocally = useCallback(
+    (pausedSeconds: number | null) => {
+      if (!routeTestId || questions.length === 0) return;
+
+      const updatedAtIso = new Date().toISOString();
+      const normalizedSelectedAnswers = sanitizeSelectedAnswers(
+        selectedAnswers,
+        questionById
+      );
+
+      setQuickTestProgress(routeTestId, {
+        selectedAnswers: normalizedSelectedAnswers,
+        activeQuestionId,
+        updatedAt: updatedAtIso,
+        pausedRemainingSeconds: pausedSeconds,
+        pauseRequestedAt: pausedSeconds === null ? null : updatedAtIso
+      });
+    },
+    [
+      activeQuestionId,
+      questionById,
+      questions.length,
+      routeTestId,
+      selectedAnswers
+    ]
+  );
+
+  const persistPauseOnPageExit = useCallback(() => {
+    if (!shouldConfirmLeave) return;
+    if (skipLeaveAutoPauseRef.current) return;
+
+    const pausedSeconds = remainingTimerSeconds ?? null;
+    const normalizedSelectedAnswers = sanitizeSelectedAnswers(
+      selectedAnswers,
+      questionById
+    );
+    const signature = JSON.stringify({
+      selectedAnswers: normalizedSelectedAnswers,
+      activeQuestionId: activeQuestionId ?? null,
+      pausedRemainingSeconds: pausedSeconds,
+      startedAt: attemptStartedAt ?? null
+    });
+
+    if (lastAutoPauseSignatureRef.current === signature) return;
+    lastAutoPauseSignatureRef.current = signature;
+
+    persistPauseSnapshotLocally(pausedSeconds);
+
+    if (!user?.id || !routeTestId || !isUuid(routeTestId)) return;
+
+    saveQuickTestAttemptProgressOnPageExit({
+      testId: routeTestId,
+      userId: user.id,
+      selectedAnswers: normalizedSelectedAnswers,
+      activeQuestionId,
+      startedAt: attemptStartedAt ?? undefined,
+      pausedRemainingSeconds: pausedSeconds,
+      accessToken: session?.access_token ?? null
+    });
+  }, [
+    activeQuestionId,
+    attemptStartedAt,
+    persistPauseSnapshotLocally,
+    questionById,
+    remainingTimerSeconds,
+    routeTestId,
+    selectedAnswers,
+    session?.access_token,
+    shouldConfirmLeave,
+    user?.id
+  ]);
+
+  const pauseCurrentAttemptSilently = useCallback(async () => {
+    if (!shouldConfirmLeave) return false;
+    if (isPausing) return true;
+
+    const updatedAtIso = new Date().toISOString();
+    const pausedSeconds = remainingTimerSeconds ?? null;
+    const normalizedSelectedAnswers = sanitizeSelectedAnswers(
+      selectedAnswers,
+      questionById
+    );
+    const signature = JSON.stringify({
+      selectedAnswers: normalizedSelectedAnswers,
+      activeQuestionId: activeQuestionId ?? null,
+      finishedAt: null,
+      startedAt: attemptStartedAt ?? null
+    });
+
+    persistPauseSnapshotLocally(pausedSeconds);
+    setPausedRemainingSeconds(pausedSeconds);
+
+    if (user?.id && routeTestId && isUuid(routeTestId)) {
+      try {
+        await saveQuickTestAttemptProgress({
+          testId: routeTestId,
+          userId: user.id,
+          selectedAnswers: normalizedSelectedAnswers,
+          activeQuestionId,
+          startedAt: attemptStartedAt ?? undefined,
+          pausedRemainingSeconds: pausedSeconds
+        });
+        lastSavedSignatureRef.current = signature;
+      } catch (error) {
+        console.error("[quick-test] silent pause attempt failed", error);
+        return false;
+      }
+    } else if (routeTestId) {
+      setQuickTestProgress(routeTestId, {
+        selectedAnswers: normalizedSelectedAnswers,
+        activeQuestionId,
+        updatedAt: updatedAtIso,
+        pausedRemainingSeconds: pausedSeconds,
+        pauseRequestedAt: pausedSeconds === null ? null : updatedAtIso
+      });
+    }
+
+    return true;
+  }, [
+    activeQuestionId,
+    attemptStartedAt,
+    isPausing,
+    persistPauseSnapshotLocally,
+    questionById,
+    remainingTimerSeconds,
+    routeTestId,
+    selectedAnswers,
+    shouldConfirmLeave,
+    user?.id
+  ]);
+
+  useEffect(() => {
+    if (!shouldConfirmLeave) return;
+    return registerActiveQuickTestPauseHandler(pauseCurrentAttemptSilently);
+  }, [pauseCurrentAttemptSilently, shouldConfirmLeave]);
+
+  useEffect(() => {
+    if (!shouldConfirmLeave) return;
+
+    const handlePageHide = () => {
+      persistPauseOnPageExit();
+    };
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      persistPauseOnPageExit();
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [persistPauseOnPageExit, shouldConfirmLeave]);
 
   useEffect(() => {
     if (!isAttemptHydrated) return;
@@ -970,6 +1141,7 @@ const ProfileQuickTestSession = () => {
 
     setAttemptStartedAt(resumedStartedAtIso);
     setPausedRemainingSeconds(null);
+    persistPauseSnapshotLocally(null);
 
     if (!user?.id || !routeTestId || !isUuid(routeTestId)) return;
 
@@ -986,6 +1158,7 @@ const ProfileQuickTestSession = () => {
     attemptFinishedAt,
     isAttemptHydrated,
     pausedRemainingSeconds,
+    persistPauseSnapshotLocally,
     questionById,
     routeTestId,
     selectedAnswers,
@@ -1044,73 +1217,47 @@ const ProfileQuickTestSession = () => {
       : extrapolatedScore.toFixed(1);
   }, [extrapolatedScore]);
 
-  const finalizeAttempt = useCallback(
-    async (finishedAtIso: string) => {
-      if (attemptFinishedAt || isReadOnlyHistoryView) return;
+  const pauseAndLeaveTest = useCallback(
+    async (destination: LeaveDestination = "/dashboard") => {
+      if (isPausing) return;
 
-      const normalizedSelectedAnswers = sanitizeSelectedAnswers(
-        selectedAnswers,
-        questionById
-      );
-      const signature = JSON.stringify({
-        selectedAnswers: normalizedSelectedAnswers,
-        activeQuestionId: activeQuestionId ?? null,
-        finishedAt: finishedAtIso
-      });
+      if (attemptFinishedAt || isReadOnlyHistoryView) {
+        skipLeaveAutoPauseRef.current = true;
+        setIsInternalNavigation(true);
+        navigate(destination);
+        return;
+      }
 
-      setAttemptFinishedAt(finishedAtIso);
+      setIsPausing(true);
+      setIsInternalNavigation(true);
 
-      if (routeTestId) {
-        setQuickTestProgress(routeTestId, {
-          selectedAnswers: normalizedSelectedAnswers,
-          activeQuestionId,
-          updatedAt: finishedAtIso
+      const pauseSucceeded = await pauseCurrentAttemptSilently();
+
+      if (pauseSucceeded && user?.id) {
+        await queryClient.invalidateQueries({
+          queryKey: ["quick-tests", "dashboard-bundle", user.id]
         });
       }
 
-      if (user?.id && routeTestId && isUuid(routeTestId)) {
-        try {
-          await saveQuickTestAttemptProgress({
-            testId: routeTestId,
-            userId: user.id,
-            selectedAnswers: normalizedSelectedAnswers,
-            activeQuestionId,
-            finishedAt: finishedAtIso
-          });
-          lastSavedSignatureRef.current = signature;
-        } catch (error) {
-          console.error("[quick-test] finalize attempt failed", error);
-        }
-      }
+      setIsLeaveDialogOpen(false);
+      setPendingNavigationTo(null);
+      skipLeaveAutoPauseRef.current = true;
 
-      setIsResultDialogOpen(true);
+      navigate(destination);
+
+      setIsPausing(false);
     },
     [
-      activeQuestionId,
       attemptFinishedAt,
+      isPausing,
       isReadOnlyHistoryView,
-      questionById,
-      routeTestId,
-      selectedAnswers,
+      navigate,
+      pauseCurrentAttemptSilently,
+      setPendingNavigationTo,
+      queryClient,
       user?.id
     ]
   );
-
-  useEffect(() => {
-    if (!hasQuickTestsAccess) return;
-    if (!isAttemptHydrated) return;
-    if (questions.length === 0) return;
-    if (!isTimeUp) return;
-    if (attemptFinishedAt) return;
-    void finalizeAttempt(new Date().toISOString());
-  }, [
-    attemptFinishedAt,
-    finalizeAttempt,
-    hasQuickTestsAccess,
-    isAttemptHydrated,
-    isTimeUp,
-    questions.length
-  ]);
 
   const handleRetry = async () => {
     if (isReadOnlyHistoryView) return;
@@ -1122,7 +1269,9 @@ const ProfileQuickTestSession = () => {
         setQuickTestProgress(routeTestId, {
           selectedAnswers: {},
           activeQuestionId: firstQuestionId,
-          updatedAt: nowIso
+          updatedAt: nowIso,
+          pausedRemainingSeconds: null,
+          pauseRequestedAt: null
         });
       }
 
@@ -1189,7 +1338,7 @@ const ProfileQuickTestSession = () => {
 
   const handleLeaveDialogOpenChange = (open: boolean) => {
     setIsLeaveDialogOpen(open);
-    if (!open) setBlockedTransition(null);
+    if (!open) setPendingNavigationTo(null);
   };
   const handleReportDialogOpenChange = (open: boolean) => {
     if (!open && !isReportingQuestion) setReportTargetQuestionId(null);
@@ -1197,74 +1346,6 @@ const ProfileQuickTestSession = () => {
   const handleFinalizeDialogOpenChange = (open: boolean) => {
     if (!isFinishing) setIsFinalizeDialogOpen(open);
   };
-  const handlePauseTest = useCallback(async () => {
-    if (isPausing) return;
-
-    if (attemptFinishedAt || isReadOnlyHistoryView) {
-      setIsInternalNavigation(true);
-      navigate("/dashboard");
-      return;
-    }
-
-    const updatedAtIso = new Date().toISOString();
-    const normalizedSelectedAnswers = sanitizeSelectedAnswers(
-      selectedAnswers,
-      questionById
-    );
-    const signature = JSON.stringify({
-      selectedAnswers: normalizedSelectedAnswers,
-      activeQuestionId: activeQuestionId ?? null,
-      finishedAt: null,
-      startedAt: attemptStartedAt ?? null
-    });
-
-    setIsPausing(true);
-    setIsInternalNavigation(true);
-
-    try {
-      if (routeTestId) {
-        setQuickTestProgress(routeTestId, {
-          selectedAnswers: normalizedSelectedAnswers,
-          activeQuestionId,
-          updatedAt: updatedAtIso
-        });
-      }
-
-      if (user?.id && routeTestId && isUuid(routeTestId)) {
-        await saveQuickTestAttemptProgress({
-          testId: routeTestId,
-          userId: user.id,
-          selectedAnswers: normalizedSelectedAnswers,
-          activeQuestionId,
-          pausedRemainingSeconds: remainingTimerSeconds ?? null
-        });
-        lastSavedSignatureRef.current = signature;
-        await queryClient.invalidateQueries({
-          queryKey: ["quick-tests", "dashboard-bundle", user.id]
-        });
-      }
-
-      navigate("/dashboard");
-    } catch {
-      setIsInternalNavigation(false);
-      return;
-    } finally {
-      setIsPausing(false);
-    }
-  }, [
-    activeQuestionId,
-    attemptStartedAt,
-    attemptFinishedAt,
-    isPausing,
-    isReadOnlyHistoryView,
-    navigate,
-    queryClient,
-    questionById,
-    remainingTimerSeconds,
-    routeTestId,
-    selectedAnswers,
-    user?.id
-  ]);
 
   const handleConfirmQuestionReport = async () => {
     const targetQuestion = reportTargetQuestion;
@@ -1293,7 +1374,13 @@ const ProfileQuickTestSession = () => {
   };
 
   const handleFinalizeTest = useCallback(
-    async ({ force = false }: { force?: boolean } = {}) => {
+    async ({
+      force = false,
+      redirectToDashboard = false
+    }: {
+      force?: boolean;
+      redirectToDashboard?: boolean;
+    } = {}) => {
       if (isReadOnlyHistoryView || attemptFinishedAt || isFinalizingRef.current)
         return;
       if (!force && !isAllAnswered) return;
@@ -1318,7 +1405,9 @@ const ProfileQuickTestSession = () => {
           setQuickTestProgress(routeTestId, {
             selectedAnswers: normalizedSelectedAnswers,
             activeQuestionId,
-            updatedAt: finishedAtIso
+            updatedAt: finishedAtIso,
+            pausedRemainingSeconds: null,
+            pauseRequestedAt: null
           });
         }
 
@@ -1328,13 +1417,23 @@ const ProfileQuickTestSession = () => {
             userId: user.id,
             selectedAnswers: normalizedSelectedAnswers,
             activeQuestionId,
+            startedAt: attemptStartedAt ?? undefined,
             finishedAt: finishedAtIso,
             pausedRemainingSeconds: null
           });
           lastSavedSignatureRef.current = signature;
+          await queryClient.invalidateQueries({
+            queryKey: ["quick-tests", "dashboard-bundle", user.id]
+          });
         }
 
         setAttemptFinishedAt(finishedAtIso);
+        skipLeaveAutoPauseRef.current = true;
+        if (redirectToDashboard) {
+          setIsInternalNavigation(true);
+          navigate("/dashboard");
+          return;
+        }
         setIsResultDialogOpen(true);
       } catch {
         return;
@@ -1349,7 +1448,9 @@ const ProfileQuickTestSession = () => {
       attemptFinishedAt,
       isAllAnswered,
       isReadOnlyHistoryView,
+      navigate,
       questionById,
+      queryClient,
       routeTestId,
       selectedAnswers,
       user?.id
@@ -1357,15 +1458,26 @@ const ProfileQuickTestSession = () => {
   );
 
   useEffect(() => {
-    if (!shouldShowFloatingTimer) return;
-    if (remainingTimerSeconds !== 0) return;
+    if (!hasQuickTestsAccess) return;
+    if (!isAttemptHydrated) return;
+    if (questions.length === 0) return;
+    if (!isTimeUp) return;
+    if (attemptFinishedAt) return;
 
-    void handleFinalizeTest({ force: true });
-  }, [handleFinalizeTest, remainingTimerSeconds, shouldShowFloatingTimer]);
+    void handleFinalizeTest({ force: true, redirectToDashboard: true });
+  }, [
+    attemptFinishedAt,
+    handleFinalizeTest,
+    hasQuickTestsAccess,
+    isAttemptHydrated,
+    isTimeUp,
+    questions.length
+  ]);
 
   const handleResultDialogOpenChange = (open: boolean) => {
     setIsResultDialogOpen(open);
     if (!open) {
+      skipLeaveAutoPauseRef.current = true;
       setIsInternalNavigation(true);
       void (async () => {
         if (user?.id) {
@@ -1748,11 +1860,13 @@ const ProfileQuickTestSession = () => {
           disabled={isPausing}
           onClick={() => {
             if (attemptFinishedAt) {
+              skipLeaveAutoPauseRef.current = true;
               if (window.history.length > 1) navigate(-1);
               else navigate("/dashboard");
               return;
             }
-            void handlePauseTest();
+            setPendingNavigationTo(null);
+            setIsLeaveDialogOpen(true);
           }}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -1790,9 +1904,7 @@ const ProfileQuickTestSession = () => {
         confirmLabel={t("testSession.leaveDialogConfirm")}
         cancelLabel={t("testSession.leaveDialogCancel")}
         onConfirm={async () => {
-          blockedTransition?.retry();
-          setBlockedTransition(null);
-          setIsLeaveDialogOpen(false);
+          await pauseAndLeaveTest(pendingNavigationTo ?? "/dashboard");
         }}
       />
       <ConfirmActionDialog

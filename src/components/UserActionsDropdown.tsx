@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { isPaidPlan } from "@/lib/plans";
+import { requestActiveQuickTestPause } from "@/lib/quickTestPauseBridge";
 import { cn } from "@/lib/utils";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
@@ -67,6 +68,7 @@ const UserActionsDropdown = ({
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
+    await requestActiveQuickTestPause().catch(() => false);
     await forceLogout("manual_sign_out");
     setIsSigningOut(false);
   };

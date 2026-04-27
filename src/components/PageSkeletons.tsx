@@ -70,105 +70,146 @@ const DashboardChartHeaderSkeleton = ({
 );
 
 export const PlansPageSkeleton = () => (
-  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-    {Array.from({ length: 2 }).map((_, index) => {
-      const isFeatured = index === 1;
-
-      return (
-        <article
-          key={index}
-          className={`relative flex min-h-[390px] flex-col overflow-hidden rounded-[1.6rem] border p-6 ${
-            isFeatured
-              ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] shadow-[0_28px_70px_-42px_rgba(15,23,42,0.82)]"
-              : "border-border/70 bg-background shadow-[0_22px_50px_-40px_rgba(15,23,42,0.22)] dark:shadow-[0_24px_54px_-44px_rgba(0,0,0,0.48)]"
-          }`}
-        >
-          {isFeatured ? (
-            <>
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
-              <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/20 blur-3xl" />
-              <div className="absolute right-6 top-6">
-                <SkeletonPill className="app-skeleton-inverse w-32" />
-              </div>
-            </>
-          ) : (
-            <div className="pointer-events-none absolute -left-8 top-0 h-24 w-24 rounded-full bg-primary/8 blur-3xl dark:bg-primary/10" />
-          )}
-
-          <div className="max-w-sm">
-            <Skeleton
-              className={`h-3 w-24 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
-            />
-            <Skeleton
-              className={`mt-2.5 h-10 w-40 rounded-2xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
-            />
-
-            <div className="mt-3 flex items-end gap-2">
-              <Skeleton
-                className={`h-11 w-32 rounded-2xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
-              />
-              <Skeleton
-                className={`mb-1 h-3 w-16 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
-              />
-            </div>
-
-            <div className="mt-4 space-y-2.5">
-              <Skeleton
-                className={`h-4 w-full rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
-              />
-              <Skeleton
-                className={`h-4 w-10/12 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
-              />
-            </div>
+  <div className="space-y-6">
+    <section className="rounded-[1.5rem] border border-border/70 bg-background/92 p-5 shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.2)] md:p-6">
+      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-2xl">
+          <SkeletonPill className="w-32" />
+          <Skeleton className="mt-4 h-10 w-52 rounded-2xl" />
+          <div className="mt-3 max-w-xl space-y-2.5">
+            <Skeleton className="h-4 w-full rounded-full" />
+            <Skeleton className="h-4 w-10/12 rounded-full" />
           </div>
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            <SkeletonPill className="w-40" />
+            <SkeletonPill className="w-32" />
+          </div>
+        </div>
 
-          <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
-            {Array.from({ length: 2 }).map((__, statIndex) => (
-              <div
-                className={`rounded-xl border px-3.5 py-2.5 ${
-                  isFeatured
-                    ? "border-primary-foreground/10 bg-white/5"
-                    : "border-border/70 bg-secondary/20"
+        <div className="grid gap-3 sm:grid-cols-2 md:min-w-[22rem]">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-[1.1rem] border border-border/70 bg-secondary/20 px-4 py-3.5"
+            >
+              <Skeleton className="h-3 w-24 rounded-full" />
+              <Skeleton className="mt-2 h-7 w-20 rounded-xl" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {Array.from({ length: 2 }).map((_, index) => {
+        const isFeatured = index === 1;
+
+        return (
+          <article
+            key={index}
+            className={`relative flex min-h-[430px] flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
+              isFeatured
+                ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
+                : "border-foreground/15 bg-background/88 shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
+            }`}
+          >
+            {isFeatured ? (
+              <>
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/8 to-transparent" />
+                <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/20 blur-3xl" />
+                <div className="absolute right-4 top-4">
+                  <SkeletonPill className="app-skeleton-inverse w-24" />
+                </div>
+              </>
+            ) : (
+              <div className="pointer-events-none absolute -left-8 top-0 h-24 w-24 rounded-full bg-primary/10 blur-3xl dark:bg-primary/12" />
+            )}
+
+            <div className="max-w-sm">
+              <Skeleton
+                className={`h-3 w-24 rounded-full ${
+                  isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"
                 }`}
-                key={statIndex}
-              >
-                <Skeleton
-                  className={`h-3 w-20 rounded-full ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
-                />
-                <Skeleton
-                  className={`mt-2 h-7 w-14 rounded-xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
-                />
+              />
+              <div className="mt-3 flex items-start justify-between gap-4">
+                <div className="space-y-2.5">
+                  <Skeleton
+                    className={`h-9 w-36 rounded-2xl ${
+                      isFeatured
+                        ? "app-skeleton-inverse"
+                        : "app-skeleton-strong"
+                    }`}
+                  />
+                  <Skeleton
+                    className={`h-3 w-20 rounded-full ${
+                      isFeatured
+                        ? "app-skeleton-inverse"
+                        : "app-skeleton-soft"
+                    }`}
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <Skeleton
+                    className={`h-10 w-28 rounded-2xl ${
+                      isFeatured
+                        ? "app-skeleton-inverse"
+                        : "app-skeleton-strong"
+                    }`}
+                  />
+                  <Skeleton
+                    className={`ml-auto h-3 w-14 rounded-full ${
+                      isFeatured
+                        ? "app-skeleton-inverse"
+                        : "app-skeleton-soft"
+                    }`}
+                  />
+                </div>
               </div>
-            ))}
-          </div>
 
-          <div className="mt-5 flex-1 space-y-3">
-            {Array.from({ length: 4 }).map((__, featureIndex) => (
-              <div className="flex items-start gap-2.5" key={featureIndex}>
+              <div className="mt-4 space-y-2.5">
                 <Skeleton
-                  className={`mt-0.5 h-4 w-4 rounded-full ${
+                  className={`h-4 w-full rounded-full ${
                     isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
                   }`}
                 />
                 <Skeleton
-                  className={`h-4 rounded-full ${
-                    featureIndex === 3
-                      ? "w-7/12"
-                      : featureIndex === 2
-                        ? "w-9/12"
-                        : "w-10/12"
-                  } ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
+                  className={`h-4 w-10/12 rounded-full ${
+                    isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
+                  }`}
                 />
               </div>
-            ))}
-          </div>
+            </div>
 
-          <Skeleton
-            className={`mt-5 h-11 w-full rounded-xl ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"}`}
-          />
-        </article>
-      );
-    })}
+            <div className="mt-6 flex-1 space-y-2.5 border-t border-current/12 pt-5">
+              {Array.from({ length: 4 }).map((__, featureIndex) => (
+                <div className="flex items-start gap-2.5" key={featureIndex}>
+                  <Skeleton
+                    className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full ${
+                      isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
+                    }`}
+                  />
+                  <Skeleton
+                    className={`h-4 rounded-full ${
+                      featureIndex === 3
+                        ? "w-7/12"
+                        : featureIndex === 2
+                          ? "w-9/12"
+                          : "w-11/12"
+                    } ${isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"}`}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <Skeleton
+              className={`mt-6 h-10 w-full rounded-xl ${
+                isFeatured ? "app-skeleton-inverse" : "app-skeleton-strong"
+              }`}
+            />
+          </article>
+        );
+      })}
+    </div>
   </div>
 );
 

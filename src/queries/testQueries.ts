@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
+import { getStoredInProgressQuickTests } from "@/lib/quickTestStorage";
 
 export type QuickTestTopicSelection = {
   id: string;
@@ -9,6 +10,7 @@ export type QuickTestTopicSelection = {
 };
 
 export type GenerateQuickTestPayload = {
+  mode?: "mock" | "quick";
   oppositionId: string;
   oppositionName: string;
   questionCount: number;
@@ -102,6 +104,8 @@ export type InProgressQuickTestSummary = {
   answeredCount: number;
   startedAt: string;
   lastInteractionAt: string;
+  oppositionName: string;
+  selectedTopics: QuickTestTopicSelection[];
 };
 
 export type QuickTestQuestionReportState = {
@@ -699,6 +703,7 @@ export const generateQuickTest = async (
   payload: GenerateQuickTestPayload
 ): Promise<GenerateQuickTestResponse> => {
   const sanitizedPayload: GenerateQuickTestPayload = {
+    mode: payload.mode === "mock" ? "mock" : "quick",
     oppositionId: sanitizeCode(payload.oppositionId, 120),
     oppositionName: sanitizeSingleLineText(payload.oppositionName, 160),
     questionCount: normalizeQuestionCount(payload.questionCount),
@@ -969,7 +974,7 @@ export const fetchLatestInProgressQuickTest = async (
   const { data, error } = await supabase
     .from("quick_test_attempts")
     .select(
-      "test_id, selected_answers, started_at, last_interaction_at, finished_at"
+      "test_id, selected_answers, started_at, last_interaction_at, finished_at, quick_tests!inner(opposition_name, selected_topics)"
     )
     .eq("user_id", userId)
     .is("finished_at", null)
@@ -982,16 +987,31 @@ export const fetchLatestInProgressQuickTest = async (
   const withAnswers = data
     .map((row) => {
       const normalizedAnswers = normalizeSelectedAnswers(row.selected_answers);
+      const linkedQuickTest = Array.isArray(row.quick_tests)
+        ? (row.quick_tests[0] ?? null)
+        : (row.quick_tests ?? null);
       return {
         testId: row.test_id,
         answeredCount: Object.keys(normalizedAnswers).length,
         startedAt: row.started_at,
-        lastInteractionAt: row.last_interaction_at
+        lastInteractionAt: row.last_interaction_at,
+        oppositionName:
+          sanitizeSingleLineText(linkedQuickTest?.opposition_name, 160) ||
+          "Test rapido",
+        selectedTopics: normalizeTopics(linkedQuickTest?.selected_topics)
       };
     })
     .filter((attempt) => isUuid(attempt.testId));
 
-  return withAnswers[0] ?? null;
+  const localCandidate = getStoredInProgressQuickTests()[0] ?? null;
+  const remoteCandidate = withAnswers[0] ?? null;
+  if (!localCandidate) return remoteCandidate;
+  if (!remoteCandidate) return localCandidate;
+
+  return new Date(localCandidate.lastInteractionAt).valueOf() >=
+    new Date(remoteCandidate.lastInteractionAt).valueOf()
+    ? localCandidate
+    : remoteCandidate;
 };
 
 export const discardInProgressQuickTests = async (
@@ -1035,11 +1055,13 @@ const resolveLinkedQuickTest = (
     | {
         opposition_id: string | null;
         opposition_name: string | null;
+        selected_topics?: unknown;
         questions: unknown;
       }
     | {
         opposition_id: string | null;
         opposition_name: string | null;
+        selected_topics?: unknown;
         questions: unknown;
       }[]
     | null
@@ -1066,11 +1088,13 @@ type QuickTestAttemptJoinedRow = {
     | {
         opposition_id: string | null;
         opposition_name: string | null;
+        selected_topics?: unknown;
         questions: unknown;
       }
     | {
         opposition_id: string | null;
         opposition_name: string | null;
+        selected_topics?: unknown;
         questions: unknown;
       }[]
     | null;
@@ -1121,7 +1145,7 @@ export const fetchQuickTestsDashboardBundle = async (
   const { data, error } = await supabase
     .from("quick_test_attempts")
     .select(
-      "test_id, selected_answers, started_at, finished_at, last_interaction_at, quick_tests!inner(opposition_id, opposition_name, questions)"
+      "test_id, selected_answers, started_at, finished_at, last_interaction_at, quick_tests!inner(opposition_id, opposition_name, selected_topics, questions)"
     )
     .eq("user_id", userId)
     .order("last_interaction_at", { ascending: false })
@@ -1138,18 +1162,23 @@ export const fetchQuickTestsDashboardBundle = async (
     })
   );
 
-  const inProgress =
+  const remoteInProgress =
     rows
       .filter((row) => !row.finished_at)
       .map((row) => {
         const normalizedAnswers = normalizeSelectedAnswers(
           row.selected_answers
         );
+        const linkedQuickTest = resolveLinkedQuickTest(row.quick_tests);
         return {
           testId: row.test_id,
           answeredCount: Object.keys(normalizedAnswers).length,
           startedAt: row.started_at,
-          lastInteractionAt: row.last_interaction_at
+          lastInteractionAt: row.last_interaction_at,
+          oppositionName:
+            sanitizeSingleLineText(linkedQuickTest?.opposition_name, 160) ||
+            "Test rapido",
+          selectedTopics: normalizeTopics(linkedQuickTest?.selected_topics)
         } satisfies InProgressQuickTestSummary;
       })
       .filter((attempt) => isUuid(attempt.testId))
@@ -1158,6 +1187,15 @@ export const fetchQuickTestsDashboardBundle = async (
           new Date(b.lastInteractionAt).valueOf() -
           new Date(a.lastInteractionAt).valueOf()
       )[0] ?? null;
+
+  const localInProgress = getStoredInProgressQuickTests()[0] ?? null;
+  const inProgress =
+    localInProgress &&
+    (!remoteInProgress ||
+      new Date(localInProgress.lastInteractionAt).valueOf() >=
+        new Date(remoteInProgress.lastInteractionAt).valueOf())
+      ? localInProgress
+      : remoteInProgress;
 
   const historyItems = rows
     .filter((row) => Boolean(row.finished_at))
@@ -1402,6 +1440,11 @@ type SaveQuickTestAttemptProgressParams = {
   pausedRemainingSeconds?: number | null;
 };
 
+type SaveQuickTestAttemptProgressOnPageExitParams =
+  SaveQuickTestAttemptProgressParams & {
+    accessToken?: string | null;
+  };
+
 export const saveQuickTestAttemptProgress = async ({
   testId,
   userId,
@@ -1441,6 +1484,72 @@ export const saveQuickTestAttemptProgress = async ({
   });
 
   if (error) throw error;
+};
+
+export const saveQuickTestAttemptProgressOnPageExit = ({
+  testId,
+  userId,
+  selectedAnswers,
+  activeQuestionId,
+  finishedAt,
+  startedAt,
+  pausedRemainingSeconds,
+  accessToken
+}: SaveQuickTestAttemptProgressOnPageExitParams): boolean => {
+  if (!isUuid(testId)) return false;
+
+  const safeAccessToken = sanitizeSingleLineText(accessToken, 4096);
+  const supabaseUrl = sanitizeSingleLineText(
+    import.meta.env.VITE_SUPABASE_URL,
+    512
+  );
+  const supabasePublishableKey = sanitizeSingleLineText(
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    512
+  );
+  if (!safeAccessToken || !supabaseUrl || !supabasePublishableKey) return false;
+
+  const nowIso = new Date().toISOString();
+  const payload: {
+    test_id: string;
+    user_id: string;
+    selected_answers: Record<string, number>;
+    active_question_id: string | null;
+    last_interaction_at: string;
+    finished_at?: string | null;
+    started_at?: string;
+    paused_remaining_seconds?: number | null;
+  } = {
+    test_id: testId,
+    user_id: userId,
+    selected_answers: selectedAnswers,
+    active_question_id: activeQuestionId,
+    last_interaction_at: nowIso
+  };
+
+  if (typeof finishedAt !== "undefined") payload.finished_at = finishedAt;
+  if (typeof startedAt !== "undefined") payload.started_at = startedAt;
+  if (typeof pausedRemainingSeconds !== "undefined")
+    payload.paused_remaining_seconds = pausedRemainingSeconds;
+
+  const endpoint = `${supabaseUrl.replace(/\/$/, "")}/rest/v1/quick_test_attempts?on_conflict=test_id,user_id`;
+
+  try {
+    void fetch(endpoint, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        apikey: supabasePublishableKey,
+        Authorization: `Bearer ${safeAccessToken}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal"
+      },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 type ResetQuickTestAttemptParams = {

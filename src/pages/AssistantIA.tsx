@@ -80,7 +80,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
-
+import remarkGfm from "remark-gfm";
 type ChatMessage = {
   id: string;
   role: "assistant" | "user";
@@ -1435,87 +1435,9 @@ const AssistantIA = () => {
   };
 
   const renderAssistantContent = (content: string, _keyPrefix: string) => (
-    <ReactMarkdown
-      components={{
-        h1: ({ children }) => (
-          <h1 className="mt-3 text-xl font-bold tracking-tight text-foreground">
-            {children}
-          </h1>
-        ),
-        h2: ({ children }) => (
-          <h2 className="mt-3 border-l-2 border-primary/55 pl-2 text-lg font-semibold tracking-tight text-foreground">
-            {children}
-          </h2>
-        ),
-        h3: ({ children }) => (
-          <h3 className="mt-2 text-base font-semibold tracking-wide text-foreground/95">
-            {children}
-          </h3>
-        ),
-        h4: ({ children }) => (
-          <h4 className="mt-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            {children}
-          </h4>
-        ),
-        p: ({ children }) => (
-          <p className="text-[15px] leading-7 text-foreground/95">{children}</p>
-        ),
-        strong: ({ children }) => (
-          <strong className="font-semibold">{children}</strong>
-        ),
-        em: ({ children }) => <em className="italic">{children}</em>,
-        ul: ({ children }) => (
-          <ul className="list-disc pl-5 space-y-1">{children}</ul>
-        ),
-        ol: ({ children }) => (
-          <ol className="list-decimal pl-5 space-y-1">{children}</ol>
-        ),
-        li: ({ children }) => (
-          <li className="text-[15px] leading-7">{children}</li>
-        ),
-        blockquote: ({ children }) => (
-          <blockquote className="border-l-3 border-primary/40 pl-4 italic text-foreground/80">
-            {children}
-          </blockquote>
-        ),
-        hr: () => <hr className="my-2 border-border/60" />,
-        table: ({ children }) => (
-          <div className="overflow-x-auto rounded-lg border border-border/70">
-            <table className="min-w-full border-collapse text-sm">
-              {children}
-            </table>
-          </div>
-        ),
-        thead: ({ children }) => (
-          <thead className="bg-secondary/40">{children}</thead>
-        ),
-        th: ({ children }) => (
-          <th className="border-b border-border/70 px-3 py-2 text-left font-semibold">
-            {children}
-          </th>
-        ),
-        td: ({ children }) => (
-          <td className="border-b border-border/40 px-3 py-2">{children}</td>
-        ),
-        tr: ({ children }) => (
-          <tr className="odd:bg-background even:bg-secondary/15">{children}</tr>
-        ),
-        code: ({ children, className }) => {
-          const isBlock = className?.includes("language-");
-          return isBlock ? (
-            <pre className="overflow-x-auto rounded-lg bg-secondary/30 p-3 text-sm">
-              <code>{children}</code>
-            </pre>
-          ) : (
-            <code className="rounded bg-secondary/40 px-1.5 py-0.5 text-sm">
-              {children}
-            </code>
-          );
-        }
-      }}
-    >
-      {content}
-    </ReactMarkdown>
+    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-headings:text-foreground prose-p:my-2 prose-p:text-[15px] prose-p:leading-7 prose-p:text-foreground/95 prose-strong:text-foreground prose-strong:font-semibold prose-em:text-foreground/90 prose-ul:my-2 prose-ul:pl-6 prose-ol:my-2 prose-ol:pl-6 prose-li:my-0.5 prose-li:text-[15px] prose-li:leading-7 prose-li:text-foreground/95 prose-blockquote:border-primary/40 prose-blockquote:text-foreground/80 prose-hr:my-4 prose-hr:border-border/60 prose-code:rounded prose-code:bg-secondary/40 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto prose-pre:rounded-lg prose-pre:border prose-pre:border-border/60 prose-pre:bg-secondary/30 prose-pre:p-3 prose-pre:text-foreground prose-table:text-sm prose-table:text-foreground prose-thead:border-b prose-thead:border-border/70 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-foreground prose-td:border-b prose-td:border-border/40 prose-td:px-3 prose-td:py-2 prose-td:text-foreground/90 prose-tr:odd:bg-background prose-tr:even:bg-secondary/15 marker:text-primary/80">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
   );
 
   const renderConceptMapMessage = (message: ChatMessage) => {
