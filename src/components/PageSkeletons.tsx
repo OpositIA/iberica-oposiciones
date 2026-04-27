@@ -142,9 +142,7 @@ export const PlansPageSkeleton = () => (
                   />
                   <Skeleton
                     className={`h-3 w-20 rounded-full ${
-                      isFeatured
-                        ? "app-skeleton-inverse"
-                        : "app-skeleton-soft"
+                      isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
                     }`}
                   />
                 </div>
@@ -158,9 +156,7 @@ export const PlansPageSkeleton = () => (
                   />
                   <Skeleton
                     className={`ml-auto h-3 w-14 rounded-full ${
-                      isFeatured
-                        ? "app-skeleton-inverse"
-                        : "app-skeleton-soft"
+                      isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
                     }`}
                   />
                 </div>
