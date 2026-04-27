@@ -82,6 +82,7 @@
       "date": "Fecha",
       "score": "Nota",
       "accuracy": "Precision",
+      "correctAnswers": "Aciertos",
       "duration": "Duracion",
       "status": "Estado",
       "open": "Abrir"

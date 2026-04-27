@@ -1,5 +1,4 @@
 import { useAuth } from "@/auth/AuthProvider";
-import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import { ProfileTestPageSkeleton } from "@/components/PageSkeletons";
 import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,16 +24,25 @@ import { usePreferredOppositionQuery } from "@/queries/profileQueries";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
 import {
   discardInProgressQuickTests,
+  fetchCurrentOppositionPrimaryTestExamConfig,
   fetchLatestInProgressQuickTest,
   fetchReusableQuickTestSession,
   generateQuickTest,
   isUuid,
   upsertQuickTestSession,
   type InProgressQuickTestSummary,
+  type OppositionTestExamConfig,
   type QuickTestSessionPayload,
   type QuickTestTopicSelection
 } from "@/queries/testQueries";
-import { ArrowRight, FileText, ListChecks, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Clock3,
+  FileText,
+  ListChecks,
+  Loader2,
+  RotateCcw
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -61,6 +69,8 @@ type QuickBlockOption = {
   }[];
 };
 
+type TestLaunchMode = "mock" | "quick";
+
 const buildClientUuid = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
     return crypto.randomUUID();
@@ -73,6 +83,13 @@ const buildClientUuid = () => {
     ).join("");
 
   return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-a${randomHex(3)}-${randomHex(12)}`;
+};
+
+const formatCountdown = (seconds: number) => {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 };
 
 const ProfileTest = () => {
@@ -150,6 +167,10 @@ const ProfileTest = () => {
   const [inProgressTest, setInProgressTest] =
     useState<InProgressQuickTestSummary | null>(null);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [mockExamConfig, setMockExamConfig] =
+    useState<OppositionTestExamConfig | null>(null);
+  const [pendingLaunchMode, setPendingLaunchMode] =
+    useState<TestLaunchMode>("quick");
 
   const minimumQuestionCount = Math.max(
     QUICK_TEST_MIN_QUESTIONS,
@@ -177,6 +198,27 @@ const ProfileTest = () => {
     });
   }, [minimumQuestionCount, quickTestQuestionLimit]);
 
+  useEffect(() => {
+    let isCancelled = false;
+    if (!oposicionActiva.id) {
+      setMockExamConfig(null);
+      return;
+    }
+
+    void fetchCurrentOppositionPrimaryTestExamConfig(oposicionActiva.id)
+      .then((config) => {
+        if (!isCancelled) setMockExamConfig(config);
+      })
+      .catch((error) => {
+        console.error("[mock-test] load exam config failed", error);
+        if (!isCancelled) setMockExamConfig(null);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [oposicionActiva.id]);
+
   const selectedTopicIdSet = useMemo(
     () => new Set(selectedTopicIds),
     [selectedTopicIds]
@@ -188,31 +230,69 @@ const ProfileTest = () => {
         .filter((topicLabel): topicLabel is string => Boolean(topicLabel)),
     [selectedTopicIds, topicLabelById]
   );
+  const inProgressPendingQuestions = useMemo(() => {
+    const totalQuestions = inProgressTest?.questionCount ?? 0;
+    const answeredQuestions = inProgressTest?.answeredCount ?? 0;
+    return Math.max(0, totalQuestions - answeredQuestions);
+  }, [inProgressTest?.answeredCount, inProgressTest?.questionCount]);
+  const inProgressRemainingTime = useMemo(() => {
+    const remainingSeconds = inProgressTest?.pausedRemainingSeconds;
+    if (
+      typeof remainingSeconds !== "number" ||
+      !Number.isFinite(remainingSeconds)
+    )
+      return "--:--";
+    return formatCountdown(remainingSeconds);
+  }, [inProgressTest?.pausedRemainingSeconds]);
 
-  const iniciarSimulacro = () => {
-    if (!isCurrentPlanPaid) {
-      setIsUpgradeDialogOpen(true);
-      return;
-    }
+  const buildSelectedTopicsPayload = (
+    topicIds: string[]
+  ): QuickTestTopicSelection[] => {
+    const selectedTopicIdSetForPayload = new Set(topicIds);
 
-    toast({
-      title: t("test.toasts.mockReadyTitle"),
-      description: t("test.toasts.mockReadyDescription", {
-        opposition: oposicionActiva.nombre
-      })
-    });
+    return quickBlocks.reduce<QuickTestTopicSelection[]>((acc, block) => {
+      const blockTopicIds = block.topics.map((topic) => topic.id);
+      const selectedCount = blockTopicIds.filter((topicId) =>
+        selectedTopicIdSetForPayload.has(topicId)
+      ).length;
+
+      if (selectedCount === 0) return acc;
+      if (selectedCount === blockTopicIds.length) {
+        acc.push({
+          id: block.code,
+          label: block.displayTitle || block.title,
+          scope: "block"
+        });
+        return acc;
+      }
+
+      acc.push(
+        ...block.topics
+          .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
+          .map(
+            (topic): QuickTestTopicSelection => ({
+              id: topic.id,
+              label: topic.label,
+              scope: "topic"
+            })
+          )
+      );
+
+      return acc;
+    }, []);
   };
 
-  const iniciarTestRapido = async (forceNew = false) => {
-    if (selectedTopicIds.length === 0) {
-      toast({
-        variant: "destructive",
-        title: t("test.toasts.selectTopicTitle"),
-        description: t("test.toasts.selectTopicsDescription")
-      });
-      return;
-    }
-
+  const launchGeneratedTest = async ({
+    mode,
+    forceNew = false,
+    questionCount,
+    selectedTopicsPayload
+  }: {
+    mode: TestLaunchMode;
+    forceNew?: boolean;
+    questionCount: number;
+    selectedTopicsPayload: QuickTestTopicSelection[];
+  }) => {
     if (!user?.id) {
       toast({
         variant: "destructive",
@@ -227,26 +307,16 @@ const ProfileTest = () => {
       return;
     }
 
-    if (quickTestQuestionCount > quickTestQuestionLimit) {
-      setQuickTestQuestionCount(quickTestQuestionLimit);
-      return;
-    }
-
-    if (quickTestQuestionCount < minimumQuestionCount) {
-      setQuickTestQuestionCount(minimumQuestionCount);
+    if (selectedTopicsPayload.length === 0) {
       toast({
         variant: "destructive",
-        title: t("test.quickDialogMinQuestionsTitle", {
-          defaultValue: "Mínimo de preguntas insuficiente"
-        }),
-        description: t("test.quickDialogMinQuestionsDescription", {
-          defaultValue:
-            "Debes pedir al menos {{count}} preguntas para cubrir los {{count}} temas seleccionados.",
-          count: minimumQuestionCount
-        })
+        title: t("test.toasts.selectTopicTitle"),
+        description: t("test.quickDialogNoTopics")
       });
       return;
     }
+
+    setPendingLaunchMode(mode);
 
     if (!forceNew) {
       try {
@@ -261,41 +331,6 @@ const ProfileTest = () => {
       }
     }
 
-    const selectedTopicIdSetForPayload = new Set(selectedTopicIds);
-    const selectedTopicsPayload = quickBlocks.reduce<QuickTestTopicSelection[]>(
-      (acc, block) => {
-        const blockTopicIds = block.topics.map((topic) => topic.id);
-        const selectedCount = blockTopicIds.filter((topicId) =>
-          selectedTopicIdSetForPayload.has(topicId)
-        ).length;
-
-        if (selectedCount === 0) return acc;
-        if (selectedCount === blockTopicIds.length) {
-          acc.push({
-            id: block.code,
-            label: block.displayTitle || block.title,
-            scope: "block"
-          });
-          return acc;
-        }
-
-        acc.push(
-          ...block.topics
-            .filter((topic) => selectedTopicIdSetForPayload.has(topic.id))
-            .map(
-              (topic): QuickTestTopicSelection => ({
-                id: topic.id,
-                label: topic.label,
-                scope: "topic"
-              })
-            )
-        );
-
-        return acc;
-      },
-      []
-    );
-
     setIsGeneratingQuickTest(true);
 
     try {
@@ -308,38 +343,41 @@ const ProfileTest = () => {
         setInProgressTest(null);
       }
 
-      const reusableQuickTest = await fetchReusableQuickTestSession({
-        userId: user.id,
-        oppositionId: oposicionActiva.id,
-        questionCount: quickTestQuestionCount,
-        selectedTopics: selectedTopicsPayload
-      });
-
-      if (reusableQuickTest) {
-        setQuickTestSessionPayload(reusableQuickTest);
-        toast({
-          title: t("test.toasts.quickTestReadyTitle"),
-          description: t("test.toasts.quickTestReadyDescription", {
-            topicCount: reusableQuickTest.selectedTopics.length,
-            questionCount: reusableQuickTest.questionCount
-          })
+      if (mode === "quick") {
+        const reusableQuickTest = await fetchReusableQuickTestSession({
+          userId: user.id,
+          oppositionId: oposicionActiva.id,
+          questionCount,
+          selectedTopics: selectedTopicsPayload
         });
-        setIsQuickTestDialogOpen(false);
-        navigate(
-          `/perfil/test/${encodeURIComponent(reusableQuickTest.testId)}`,
-          {
-            state: {
-              quickTest: reusableQuickTest
+
+        if (reusableQuickTest) {
+          setQuickTestSessionPayload(reusableQuickTest);
+          toast({
+            title: t("test.toasts.quickTestReadyTitle"),
+            description: t("test.toasts.quickTestReadyDescription", {
+              topicCount: reusableQuickTest.selectedTopics.length,
+              questionCount: reusableQuickTest.questionCount
+            })
+          });
+          setIsQuickTestDialogOpen(false);
+          navigate(
+            `/perfil/test/${encodeURIComponent(reusableQuickTest.testId)}`,
+            {
+              state: {
+                quickTest: reusableQuickTest
+              }
             }
-          }
-        );
-        return;
+          );
+          return;
+        }
       }
 
       const data = await generateQuickTest({
+        mode,
         oppositionId: oposicionActiva.id,
         oppositionName: oposicionActiva.nombre,
-        questionCount: quickTestQuestionCount,
+        questionCount,
         locale: i18n.resolvedLanguage ?? "es",
         selectedTopics: selectedTopicsPayload
       });
@@ -350,7 +388,7 @@ const ProfileTest = () => {
           : typeof data?.questionCount === "number" &&
               Number.isFinite(data.questionCount)
             ? Math.max(1, Math.floor(data.questionCount))
-            : quickTestQuestionCount;
+            : questionCount;
 
       const resolvedTestId =
         typeof data?.testId === "string" &&
@@ -380,11 +418,19 @@ const ProfileTest = () => {
       });
 
       toast({
-        title: t("test.toasts.quickTestReadyTitle"),
-        description: t("test.toasts.quickTestReadyDescription", {
-          topicCount: resolvedSelectedTopics.length,
-          questionCount: generatedQuestionCount
-        })
+        title:
+          mode === "mock"
+            ? t("test.toasts.mockReadyTitle")
+            : t("test.toasts.quickTestReadyTitle"),
+        description:
+          mode === "mock"
+            ? t("test.toasts.mockReadyDescription", {
+                opposition: oposicionActiva.nombre
+              })
+            : t("test.toasts.quickTestReadyDescription", {
+                topicCount: resolvedSelectedTopics.length,
+                questionCount: generatedQuestionCount
+              })
       });
       setIsQuickTestDialogOpen(false);
       navigate(`/perfil/test/${encodeURIComponent(resolvedTestId)}`, {
@@ -398,21 +444,92 @@ const ProfileTest = () => {
         (error.message.includes("quick_test_question_limit_exceeded") ||
           error.message.includes("quick_test_requires_paid_plan"))
       ) {
-        setQuickTestQuestionCount(quickTestQuestionLimit);
+        if (mode === "quick") setQuickTestQuestionCount(quickTestQuestionLimit);
         setIsUpgradeDialogOpen(true);
       }
 
       toast({
         variant: "destructive",
-        title: t("test.toasts.quickTestFailedTitle"),
+        title:
+          mode === "mock"
+            ? t("test.toasts.mockFailedTitle")
+            : t("test.toasts.quickTestFailedTitle"),
         description:
           error instanceof Error && error.message.trim().length > 0
             ? error.message
-            : t("test.toasts.quickTestFailedDescription")
+            : mode === "mock"
+              ? t("test.toasts.mockFailedDescription")
+              : t("test.toasts.quickTestFailedDescription")
       });
     } finally {
       setIsGeneratingQuickTest(false);
     }
+  };
+
+  const iniciarSimulacro = async (forceNew = false) => {
+    const officialQuestionCount = mockExamConfig?.questionCount ?? null;
+    const officialDurationMinutes = mockExamConfig?.durationMinutes ?? null;
+
+    if (!officialQuestionCount || !officialDurationMinutes) {
+      toast({
+        variant: "destructive",
+        title: t("test.toasts.mockFailedTitle"),
+        description: t("test.toasts.mockFailedDescription")
+      });
+      return;
+    }
+
+    await launchGeneratedTest({
+      mode: "mock",
+      forceNew,
+      questionCount: officialQuestionCount,
+      selectedTopicsPayload: quickBlocks.map(
+        (block): QuickTestTopicSelection => ({
+          id: block.code,
+          label: block.displayTitle || block.title,
+          scope: "block"
+        })
+      )
+    });
+  };
+
+  const iniciarTestRapido = async (forceNew = false) => {
+    if (selectedTopicIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: t("test.toasts.selectTopicTitle"),
+        description: t("test.toasts.selectTopicsDescription")
+      });
+      return;
+    }
+
+    if (quickTestQuestionCount > quickTestQuestionLimit) {
+      setQuickTestQuestionCount(quickTestQuestionLimit);
+      return;
+    }
+
+    if (quickTestQuestionCount < minimumQuestionCount) {
+      setQuickTestQuestionCount(minimumQuestionCount);
+      toast({
+        variant: "destructive",
+        title: t("test.quickDialogMinQuestionsTitle", {
+          defaultValue: "Mínimo de preguntas insuficiente"
+        }),
+        description: t("test.quickDialogMinQuestionsDescription", {
+          defaultValue:
+            "Debes pedir al menos {{count}} preguntas para cubrir los {{count}} temas seleccionados.",
+          count: minimumQuestionCount
+        })
+      });
+      return;
+    }
+
+    await launchGeneratedTest({
+      mode: "quick",
+      forceNew,
+      questionCount: quickTestQuestionCount,
+      selectedTopicsPayload: buildSelectedTopicsPayload(selectedTopicIds)
+    });
   };
 
   const toggleTopicSelection = (topicId: string, shouldSelect: boolean) => {
@@ -438,6 +555,12 @@ const ProfileTest = () => {
   const onQuickTestDialogOpenChange = (open: boolean) => {
     if (isGeneratingQuickTest) return;
     setIsQuickTestDialogOpen(open);
+  };
+  const handleResumeInProgressTest = () => {
+    if (!inProgressTest?.testId) return;
+    setIsInProgressDialogOpen(false);
+    setIsQuickTestDialogOpen(false);
+    navigate(`/perfil/test/${encodeURIComponent(inProgressTest.testId)}`);
   };
 
   if (isLoadingOpposition) return <ProfileTestPageSkeleton />;
@@ -531,13 +654,30 @@ const ProfileTest = () => {
                 opposition: oposicionActiva.nombre
               })}
             </p>
+            {mockExamConfig?.questionCount &&
+              mockExamConfig?.durationMinutes && (
+                <p className="text-xs text-muted-foreground">
+                  {t("test.mockOfficialSummary", {
+                    questionCount: mockExamConfig.questionCount,
+                    durationMinutes: mockExamConfig.durationMinutes
+                  })}
+                </p>
+              )}
           </div>
           <CustomButton
             type="button"
-            onClick={iniciarSimulacro}
+            onClick={() => {
+              void iniciarSimulacro();
+            }}
             styleType="menu"
             radius="full"
             className="mt-auto w-full"
+            disabled={
+              isGeneratingQuickTest ||
+              !mockExamConfig?.questionCount ||
+              !mockExamConfig?.durationMinutes ||
+              quickBlocks.length === 0
+            }
           >
             {t("test.startMock")}
           </CustomButton>
@@ -806,28 +946,121 @@ const ProfileTest = () => {
         targetLimit={100}
       />
 
-      <ConfirmActionDialog
+      <Dialog
         open={isInProgressDialogOpen}
-        onOpenChange={setIsInProgressDialogOpen}
-        title={t("test.inProgressDialogTitle")}
-        description={t("test.inProgressDialogDescription", {
-          answeredCount: inProgressTest?.answeredCount ?? 0,
-          lastInteraction:
-            inProgressTest?.lastInteractionAt &&
-            Number.isFinite(
-              new Date(inProgressTest.lastInteractionAt).valueOf()
-            )
-              ? new Date(inProgressTest.lastInteractionAt).toLocaleString()
-              : "-"
-        })}
-        confirmLabel={t("test.inProgressDialogConfirm")}
-        cancelLabel={t("test.inProgressDialogCancel")}
-        isLoading={isGeneratingQuickTest}
-        onConfirm={async () => {
-          setIsInProgressDialogOpen(false);
-          await iniciarTestRapido(true);
+        onOpenChange={(open) => {
+          if (!isGeneratingQuickTest) setIsInProgressDialogOpen(open);
         }}
-      />
+      >
+        <DialogContent className="max-w-[42rem] overflow-hidden rounded-[2rem] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--background))_62%,hsl(var(--secondary)/0.24)_100%)] p-0 shadow-[0_34px_80px_-48px_rgba(15,23,42,0.42)] dark:shadow-[0_34px_80px_-52px_rgba(0,0,0,0.58)]">
+          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
+
+          <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
+            <DialogHeader className="space-y-3 text-left">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/[0.08] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+                <RotateCcw className="h-4 w-4" />
+              </div>
+              <DialogTitle className="text-xl font-serif leading-tight text-foreground">
+                {t("test.inProgressDialogTitle")}
+              </DialogTitle>
+              <DialogDescription className="max-w-md text-sm leading-6 text-muted-foreground">
+                {t("test.inProgressDialogHelper")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[1.35rem] border border-border/65 bg-background/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  <Clock3 className="h-3.5 w-3.5 text-primary/80" />
+                  <span>{t("test.inProgressDialogLastActivityLabel")}</span>
+                </div>
+                <p className="mt-3 text-sm font-medium leading-5 text-foreground">
+                  {inProgressTest?.lastInteractionAt &&
+                  Number.isFinite(
+                    new Date(inProgressTest.lastInteractionAt).valueOf()
+                  )
+                    ? new Date(
+                        inProgressTest.lastInteractionAt
+                      ).toLocaleString()
+                    : "-"}
+                </p>
+              </div>
+
+              <div className="rounded-[1.35rem] border border-border/65 bg-background/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  <ListChecks className="h-3.5 w-3.5 text-primary/80" />
+                  <span>{t("test.inProgressDialogPendingQuestionsLabel")}</span>
+                </div>
+                <p className="mt-3 text-lg font-semibold tracking-tight text-foreground">
+                  {inProgressPendingQuestions}
+                  <span className="ml-1 text-sm font-medium text-muted-foreground">
+                    / {inProgressTest?.questionCount ?? 0}
+                  </span>
+                </p>
+              </div>
+
+              <div className="rounded-[1.35rem] border border-border/65 bg-background/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  <RotateCcw className="h-3.5 w-3.5 text-primary/80" />
+                  <span>{t("test.inProgressDialogRemainingTimeLabel")}</span>
+                </div>
+                <p className="mt-3 text-lg font-semibold tracking-tight text-foreground">
+                  {inProgressRemainingTime}
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CustomButton
+                type="button"
+                styleType="ghost"
+                radius="full"
+                className="w-full sm:w-auto"
+                onClick={() => setIsInProgressDialogOpen(false)}
+                disabled={isGeneratingQuickTest}
+              >
+                {t("test.inProgressDialogCancel")}
+              </CustomButton>
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                <CustomButton
+                  type="button"
+                  styleType="menu"
+                  radius="full"
+                  className="w-full sm:w-auto"
+                  onClick={() => {
+                    void (async () => {
+                      setIsInProgressDialogOpen(false);
+                      await (pendingLaunchMode === "mock"
+                        ? iniciarSimulacro(true)
+                        : iniciarTestRapido(true));
+                    })();
+                  }}
+                  disabled={isGeneratingQuickTest}
+                >
+                  {isGeneratingQuickTest ? (
+                    <>
+                      {t("test.quickDialogGenerating")}
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </>
+                  ) : (
+                    t("test.inProgressDialogConfirm")
+                  )}
+                </CustomButton>
+                <CustomButton
+                  type="button"
+                  styleType="primary"
+                  radius="full"
+                  className="w-full sm:w-auto"
+                  onClick={handleResumeInProgressTest}
+                  disabled={isGeneratingQuickTest}
+                >
+                  {t("test.inProgressDialogResume")}
+                </CustomButton>
+              </div>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

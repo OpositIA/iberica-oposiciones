@@ -12,7 +12,24 @@ const appVersion = packageJson.version ?? "0.0.0";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   build: {
-    chunkSizeWarningLimit: 1800
+    chunkSizeWarningLimit: 1200,
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("react-pdf") || id.includes("pdfjs-dist"))
+            return "pdf-viewer";
+
+          if (id.includes("@xyflow/react")) return "mind-map";
+
+          if (id.includes("recharts")) return "charts";
+
+          if (id.includes("react-markdown")) return "markdown";
+
+          if (id.includes("node_modules")) return "vendor";
+        }
+      }
+    }
   },
   define: {
     __APP_VERSION__: JSON.stringify(appVersion)

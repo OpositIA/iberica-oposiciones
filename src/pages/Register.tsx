@@ -588,7 +588,7 @@ const Register = () => {
         </Reveal>
       </div>
 
-      <div className="flex w-full items-center justify-center bg-background p-8 lg:w-1/2">
+      <div className="flex w-full items-start justify-center overflow-y-auto bg-background px-8 py-6 sm:py-8 lg:w-1/2 lg:items-center">
         <Reveal
           className="w-full max-w-md"
           delay={80}
@@ -597,7 +597,7 @@ const Register = () => {
         >
           <div className="mb-10 lg:hidden">
             <Link to="/" className="mb-8 flex items-center gap-2">
-              <BrandLogo className="h-4 w-auto" />
+              <BrandLogo className="h-10 w-auto sm:h-12" />
             </Link>
           </div>
 
@@ -873,22 +873,15 @@ const Register = () => {
             </div>
           </form>
 
-          <Reveal
-            className="mt-8 text-center"
-            delay={120}
-            duration={620}
-            variant="gentle"
-          >
-            <p className="text-sm text-muted-foreground">
-              {t("auth:register.hasAccount")}{" "}
-              <Link
-                to="/login"
-                className="font-semibold text-primary transition-colors hover:text-primary/80"
-              >
-                {t("auth:register.signIn")}
-              </Link>
-            </p>
-          </Reveal>
+          <p className="text-center mt-8 mb-4 text-sm text-muted-foreground">
+            {t("auth:register.hasAccount")}{" "}
+            <Link
+              to="/login"
+              className="font-semibold text-primary transition-colors hover:text-primary/80"
+            >
+              {t("auth:register.signIn")}
+            </Link>
+          </p>
         </Reveal>
       </div>
     </div>

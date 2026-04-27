@@ -220,24 +220,24 @@ const Plans = () => {
   };
 
   return (
-    <div className="max-w-7xl pb-4">
+    <div className="mx-auto max-w-6xl pb-6">
       {isAuthenticated && currentPlan && (
         <Reveal
           as="section"
-          className="mb-8 rounded-3xl border border-border/70 bg-background/95 p-6 shadow-[0_24px_60px_-45px_rgba(0,0,0,0.42)]"
+          className="mb-10 rounded-[1.5rem] border border-border/70 bg-background/92 p-5 shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.2)] md:p-6"
           duration={780}
-          variant="soft"
+          variant="gentle"
         >
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5" />
                 {t("currentPlan.badge")}
               </div>
-              <h2 className="mt-3 text-2xl font-serif text-foreground">
+              <h2 className="mt-4 text-2xl font-serif leading-tight text-foreground md:text-[2rem]">
                 {t(`plans.${currentPlanKey}.name`)}
               </h2>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {currentPlanHasQuickTests
                   ? t("currentPlan.descriptionPro", {
                       aiLimit: currentPlan.ai_daily_limit,
@@ -247,26 +247,29 @@ const Plans = () => {
                       aiLimit: currentPlan.ai_daily_limit
                     })}
               </p>
-              {scheduledDowngradeDate && (
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-500/35 bg-amber-500/10 px-3 py-1 text-xs text-amber-700">
-                  {t("currentPlan.cancelScheduled", {
-                    date: scheduledDowngradeDate
-                  })}
-                </div>
-              )}
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                {scheduledDowngradeDate && (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/35 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+                    {t("currentPlan.cancelScheduled", {
+                      date: scheduledDowngradeDate
+                    })}
+                  </div>
+                )}
+
+                {currentPlan.discount_code && (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs text-primary">
+                    <TicketPercent className="h-3.5 w-3.5" />
+                    {t("currentPlan.discountActive", {
+                      code: currentPlan.discount_code,
+                      percent: currentPlan.discount_percent ?? 0
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border/70 bg-secondary/20 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  {t("currentPlan.aiUsage")}
-                </p>
-                <p className="mt-2 text-xl font-serif text-foreground">
-                  {currentPlan.ai_used}/{currentPlan.ai_daily_limit}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-border/70 bg-secondary/20 px-4 py-3">
+            <div className="grid gap-3 sm:grid-cols-2 md:min-w-[22rem]">
+              <div className="rounded-[1.1rem] border border-border/70 bg-secondary/20 px-4 py-3.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   {t("currentPlan.quickTestLimit")}
                 </p>
@@ -277,7 +280,7 @@ const Plans = () => {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-border/70 bg-secondary/20 px-4 py-3">
+              <div className="rounded-[1.1rem] border border-border/70 bg-secondary/20 px-4 py-3.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   {t("currentPlan.billing")}
                 </p>
@@ -293,23 +296,13 @@ const Plans = () => {
               </div>
             </div>
           </div>
-
-          {currentPlan.discount_code && (
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs text-primary">
-              <TicketPercent className="h-4 w-4" />
-              {t("currentPlan.discountActive", {
-                code: currentPlan.discount_code,
-                percent: currentPlan.discount_percent ?? 0
-              })}
-            </div>
-          )}
         </Reveal>
       )}
 
       {showPlansSkeleton ? (
         <PlansPageSkeleton />
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {plans.map((plan, index) => {
             const isCurrentPlan = currentPlan?.plan_code === plan.code;
             const isBusy = pendingPlanCode === plan.code;
@@ -320,37 +313,61 @@ const Plans = () => {
                 key={plan.code}
                 delay={index * 90}
                 duration={760}
-                variant={plan.featured ? "up" : "soft"}
-                className={`relative flex flex-col overflow-hidden rounded-[1.6rem] border p-6 ${
+                variant={plan.featured ? "up" : "gentle"}
+                className={`relative flex flex-col overflow-hidden rounded-[1.5rem] border p-5 md:p-6 ${
                   plan.featured
-                    ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_28px_70px_-42px_rgba(15,23,42,0.82)]"
-                    : "border-border/70 bg-background text-foreground"
+                    ? "border-primary/40 bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(15,23,42,0.92))] text-primary-foreground shadow-[0_24px_60px_-44px_rgba(15,23,42,0.86)]"
+                    : "border-foreground/15 bg-background/88 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.04),0_18px_44px_-38px_rgba(15,23,42,0.28)]"
                 }`}
               >
                 {plan.featured && (
-                  <div className="absolute right-6 top-6 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-foreground">
-                    <Crown className="h-3 w-3" />
+                  <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/16 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
+                    <Crown className="h-2.5 w-2.5" />
                     {t("featured")}
                   </div>
                 )}
 
                 <div className="max-w-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-65"></p>
-                  <h3 className="mt-2 text-[1.8rem] font-serif leading-none">
-                    {plan.name}
-                  </h3>
-                  <div className="mt-3 flex items-end gap-2">
-                    <span className="text-[2rem] font-serif leading-none">
-                      {plan.priceLabel}
-                    </span>
-                    <span className="pb-0.5 text-xs opacity-60">
-                      {t("pricing.perMonth")}
-                    </span>
+                  <p
+                    className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                      plan.featured
+                        ? "text-primary-foreground/58"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {plan.eyebrow}
+                  </p>
+                  <div className="mt-3 flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-[1.7rem] font-serif leading-none">
+                        {plan.name}
+                      </h3>
+                      {isCurrentPlan && (
+                        <p
+                          className={`mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                            plan.featured
+                              ? "text-primary-foreground/68"
+                              : "text-primary"
+                          }`}
+                        >
+                          {t("actions.currentPlan")}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-end gap-2 text-right">
+                      <span className="text-[2rem] font-serif leading-none">
+                        {plan.priceLabel}
+                      </span>
+                      <span className="pb-0.5 text-xs opacity-60">
+                        {t("pricing.perMonth")}
+                      </span>
+                    </div>
                   </div>
                   <p
-                    className={`mt-3 text-sm leading-6 ${
+                    className={`mt-4 text-sm leading-6 ${
                       plan.featured
-                        ? "text-primary-foreground/72"
+                        ? "text-primary-foreground/70"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -358,35 +375,13 @@ const Plans = () => {
                   </p>
                 </div>
 
-                <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
-                  <div className="rounded-xl border border-current/10 bg-black/5 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-60">
-                      {t("comparison.aiLimit")}
-                    </p>
-                    <p className="mt-1.5 text-xl font-serif">
-                      {plan.ai_daily_limit}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-current/10 bg-black/5 px-3.5 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] opacity-60">
-                      {t("comparison.quickTestLimit")}
-                    </p>
-                    <p className="mt-1.5 text-xl font-serif">
-                      {plan.planKey === "pro"
-                        ? plan.quick_test_question_limit
-                        : t("comparison.quickTestUnavailable")}
-                    </p>
-                  </div>
-                </div>
-
-                <ul className="mt-5 flex-1 space-y-2.5">
+                <ul className="mt-6 flex-1 space-y-2.5 border-t border-current/12 pt-5">
                   {plan.features.map((feature) => (
                     <li
                       key={feature}
                       className="flex items-start gap-2.5 text-sm"
                     >
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                       <span
                         className={
                           plan.featured
@@ -411,7 +406,7 @@ const Plans = () => {
                     }
                     disabled={isCurrentPlan || isBusy}
                     styleType={plan.featured ? "primary" : "menu"}
-                    className="mt-5 w-full py-3"
+                    className="mt-6 w-full py-2.5"
                   >
                     {isBusy ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -430,7 +425,7 @@ const Plans = () => {
                   <CustomButton
                     asChild
                     styleType={plan.featured ? "primary" : "menu"}
-                    className="mt-5 w-full py-3"
+                    className="mt-6 w-full py-2.5"
                   >
                     <Link
                       to={`/registro?plan=${encodeURIComponent(plan.code)}`}

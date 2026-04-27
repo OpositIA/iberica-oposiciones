@@ -14,6 +14,7 @@ type SelectedTopicInput = {
 };
 
 type GenerateQuickTestRequest = {
+  mode?: unknown;
   oppositionId?: unknown;
   opposition_id?: unknown;
   oppositionName?: unknown;
@@ -445,6 +446,7 @@ serve(async (req) => {
   );
   const localeRaw = sanitizeCode(parsedBody.locale, 12).toLowerCase();
   const locale = localeRaw === "es" ? "es" : "es";
+  const mode = parsedBody.mode === "mock" ? "mock" : "quick";
   const questionCount = clampQuestionCount(
     parsedBody.questionCount ?? parsedBody.question_count
   );
@@ -545,7 +547,7 @@ serve(async (req) => {
     );
   }
 
-  if (questionCount < resolvedSubtopics.length) {
+  if (mode === "quick" && questionCount < resolvedSubtopics.length) {
     return json(
       {
         error: `El nÃšmero mÃ­nimo de preguntas debe ser ${resolvedSubtopics.length}, porque has seleccionado ${resolvedSubtopics.length} temas.`
@@ -613,10 +615,23 @@ serve(async (req) => {
     (acc, rows) => acc + rows.length,
     0
   );
-  const effectiveQuestionCount = Math.max(
-    coveredSubtopics.length,
-    Math.min(questionCount, totalAvailable)
-  );
+
+  if (mode === "mock" && totalAvailable < questionCount) {
+    return json(
+      {
+        error: `No hay suficientes preguntas en banca para generar el simulacro oficial: disponibles ${totalAvailable}, requeridas ${questionCount}.`
+      },
+      409
+    );
+  }
+
+  const effectiveQuestionCount =
+    mode === "mock"
+      ? Math.max(1, Math.min(questionCount, totalAvailable))
+      : Math.max(
+          coveredSubtopics.length,
+          Math.min(questionCount, totalAvailable)
+        );
 
   const pools = new Map<string, QuestionBankRow[]>();
   coveredSubtopics.forEach((subtopic) => {
@@ -629,33 +644,45 @@ serve(async (req) => {
   const selectedRows: QuestionBankRow[] = [];
   const seenIds = new Set<number>();
 
-  coveredSubtopics.forEach((subtopic) => {
-    const pool = pools.get(subtopic.subtopicId) ?? [];
-    const next = pool.shift();
-    if (!next) return;
-    if (seenIds.has(next.id)) return;
-    seenIds.add(next.id);
-    selectedRows.push(next);
-  });
-
-  while (selectedRows.length < effectiveQuestionCount) {
-    const shuffledSubtopics = shuffleInPlace([...coveredSubtopics]);
-    let progressed = false;
-
-    for (const subtopic of shuffledSubtopics) {
+  if (mode === "mock") {
+    const allCandidates = shuffleInPlace(
+      Array.from(groupedBySubtopic.values()).flatMap((rows) => rows)
+    );
+    for (const candidate of allCandidates) {
       if (selectedRows.length >= effectiveQuestionCount) break;
-      const pool = pools.get(subtopic.subtopicId) ?? [];
-      while (pool.length > 0) {
-        const next = pool.shift()!;
-        if (seenIds.has(next.id)) continue;
-        seenIds.add(next.id);
-        selectedRows.push(next);
-        progressed = true;
-        break;
-      }
+      if (seenIds.has(candidate.id)) continue;
+      seenIds.add(candidate.id);
+      selectedRows.push(candidate);
     }
+  } else {
+    coveredSubtopics.forEach((subtopic) => {
+      const pool = pools.get(subtopic.subtopicId) ?? [];
+      const next = pool.shift();
+      if (!next) return;
+      if (seenIds.has(next.id)) return;
+      seenIds.add(next.id);
+      selectedRows.push(next);
+    });
 
-    if (!progressed) break;
+    while (selectedRows.length < effectiveQuestionCount) {
+      const shuffledSubtopics = shuffleInPlace([...coveredSubtopics]);
+      let progressed = false;
+
+      for (const subtopic of shuffledSubtopics) {
+        if (selectedRows.length >= effectiveQuestionCount) break;
+        const pool = pools.get(subtopic.subtopicId) ?? [];
+        while (pool.length > 0) {
+          const next = pool.shift()!;
+          if (seenIds.has(next.id)) continue;
+          seenIds.add(next.id);
+          selectedRows.push(next);
+          progressed = true;
+          break;
+        }
+      }
+
+      if (!progressed) break;
+    }
   }
 
   const questions = shuffleInPlace([...selectedRows])
@@ -673,8 +700,9 @@ serve(async (req) => {
       const citations = Array.isArray(row.citations) ? row.citations : [];
 
       return {
-        id: `bank-question-${row.bank_question_id ?? idx + 1}`,
-        bankQuestionId: Number(row.bank_question_id),
+        id: `bank-question-${row.id ?? idx + 1}`,
+        bankQuestionId:
+          typeof row.id === "number" && Number.isFinite(row.id) ? row.id : null,
         topicId: String(row.topic_id ?? "").trim(),
         topicLabel: sanitizeSingleLineText(row.topic_label, 220),
         subtopicId: sanitizeCode(row.subtopic_id, 160),
@@ -694,6 +722,15 @@ serve(async (req) => {
 
   if (questions.length === 0) {
     return json({ error: "Selected questions could not be normalized" }, 409);
+  }
+
+  if (mode === "mock" && questions.length < questionCount) {
+    return json(
+      {
+        error: `No hay suficientes preguntas validas para completar el simulacro oficial: disponibles ${questions.length}, requeridas ${questionCount}.`
+      },
+      409
+    );
   }
 
   return json({

@@ -28,6 +28,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleUserRound,
+  Coffee,
   FileText,
   LayoutDashboard,
   Menu,
@@ -56,8 +57,8 @@ const BILLING_ISSUE_DISMISS_PREFIX =
   "iberica-oposiciones:billing-issue-dismissed";
 const STUDY_TIMER_BADGE_POSITION_STORAGE_KEY =
   "iberica-oposiciones:study-timer-badge-position-v1";
-const STUDY_TIMER_BADGE_WIDTH = 208;
-const STUDY_TIMER_BADGE_HEIGHT = 44;
+const STUDY_TIMER_BADGE_WIDTH = 276;
+const STUDY_TIMER_BADGE_HEIGHT = 48;
 const STUDY_TIMER_BADGE_MARGIN = 38;
 const STUDY_TIMER_BADGE_DEFAULT_RIGHT_MARGIN = 80;
 
@@ -152,7 +153,7 @@ const AuthenticatedSidebarLayout = () => {
   const location = useLocation();
   const { t, i18n } = useTranslation(["profile", "common", "plans"]);
   const { profile, user } = useAuth();
-  const { status, formattedRemaining, pause, restart, resume } =
+  const { status, phase, formattedRemaining, pause, restart, resume } =
     useStudyTimer();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
@@ -270,6 +271,7 @@ const AuthenticatedSidebarLayout = () => {
   const closeMobileSidebar = () => setIsMobileOpen(false);
   const isPdfViewerRoute = location.pathname.startsWith("/perfil/temario/pdf/");
   const isAssistantRoute = location.pathname === "/perfil/asistente-ia";
+  const isPomodoroRoute = location.pathname === "/perfil/pomodoro";
   const showTopHeader = !isPdfViewerRoute;
   const desktopSidebarOffsetClass = isPdfViewerRoute
     ? ""
@@ -297,8 +299,9 @@ const AuthenticatedSidebarLayout = () => {
     },
     [isMobileOpen]
   );
-  const showHeaderTimer =
-    location.pathname !== "/perfil/pomodoro" && status !== "idle";
+  const showHeaderTimer = !isPomodoroRoute && status !== "idle";
+  const studyTimerPhaseLabel = t(`profile:study.phase${phase}`);
+  const isStudyTimerBreakPhase = phase !== "focus";
 
   useEffect(() => {
     const updateScrollState = () => {
@@ -459,7 +462,8 @@ const AuthenticatedSidebarLayout = () => {
       <div
         className={cn(
           "relative min-h-screen bg-background",
-          isAssistantRoute && "h-screen max-h-screen flex flex-col"
+          (isAssistantRoute || isPomodoroRoute) &&
+            "h-screen max-h-screen flex flex-col overflow-hidden"
         )}
       >
         <div
@@ -522,7 +526,12 @@ const AuthenticatedSidebarLayout = () => {
 
         {showHeaderTimer && studyTimerBadgePosition ? (
           <div
-            className="fixed z-[60] inline-flex items-center gap-1 rounded-full border border-primary/35 bg-background/92 p-1 text-primary shadow-[0_18px_45px_-28px_rgba(15,23,42,0.6)] backdrop-blur-xl select-none"
+            role="status"
+            aria-label={`${studyTimerPhaseLabel}: ${formattedRemaining}`}
+            className={cn(
+              "fixed z-[60] inline-flex items-center gap-1 rounded-full border bg-background/94 p-1 text-foreground shadow-[0_18px_45px_-28px_rgba(15,23,42,0.6)] backdrop-blur-xl select-none",
+              isStudyTimerBreakPhase ? "border-accent/40" : "border-primary/40"
+            )}
             style={{
               left: studyTimerBadgePosition.x,
               top: studyTimerBadgePosition.y,
@@ -530,15 +539,47 @@ const AuthenticatedSidebarLayout = () => {
             }}
             onPointerDown={handleStudyTimerBadgePointerDown}
           >
-            <span className="cursor-grab rounded-full px-2 text-[11px] font-semibold tracking-widest uppercase active:cursor-grabbing">
-              {formattedRemaining}
+            <span className="inline-flex cursor-grab items-center gap-2 rounded-full px-2 py-1 active:cursor-grabbing">
+              <span
+                className={cn(
+                  "inline-flex h-7 w-7 items-center justify-center rounded-full border",
+                  isStudyTimerBreakPhase
+                    ? "border-accent/35 bg-accent/12 text-accent"
+                    : "border-primary/35 bg-primary/12 text-primary"
+                )}
+                aria-hidden="true"
+              >
+                {isStudyTimerBreakPhase ? (
+                  <Coffee className="h-3.5 w-3.5" />
+                ) : (
+                  <Brain className="h-3.5 w-3.5" />
+                )}
+              </span>
+              <span className="flex min-w-0 flex-col leading-none">
+                <span
+                  className={cn(
+                    "max-w-[7.5rem] truncate text-[10px] font-semibold tracking-[0.16em] uppercase",
+                    isStudyTimerBreakPhase ? "text-accent" : "text-primary"
+                  )}
+                >
+                  {studyTimerPhaseLabel}
+                </span>
+                <span className="mt-1 font-mono text-[13px] font-bold tracking-[0.08em] text-foreground">
+                  {formattedRemaining}
+                </span>
+              </span>
             </span>
             {status === "running" && (
               <button
                 type="button"
                 data-timer-action="pause"
                 onClick={pause}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background/90 transition-colors",
+                  isStudyTimerBreakPhase
+                    ? "border-accent/40 text-accent hover:bg-accent/10"
+                    : "border-primary/40 text-primary hover:bg-primary/10"
+                )}
                 aria-label={t("profile:study.pause")}
                 title={t("profile:study.pause")}
               >
@@ -550,7 +591,12 @@ const AuthenticatedSidebarLayout = () => {
                 type="button"
                 data-timer-action="resume"
                 onClick={resume}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background/90 transition-colors",
+                  isStudyTimerBreakPhase
+                    ? "border-accent/40 text-accent hover:bg-accent/10"
+                    : "border-primary/40 text-primary hover:bg-primary/10"
+                )}
                 aria-label={t("profile:study.resume")}
                 title={t("profile:study.resume")}
               >
@@ -561,7 +607,12 @@ const AuthenticatedSidebarLayout = () => {
               type="button"
               data-timer-action="restart"
               onClick={restart}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-background/90 transition-colors hover:bg-primary/10"
+              className={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background/90 transition-colors",
+                isStudyTimerBreakPhase
+                  ? "border-accent/40 text-accent hover:bg-accent/10"
+                  : "border-primary/40 text-primary hover:bg-primary/10"
+              )}
               aria-label={t("profile:study.restart")}
               title={t("profile:study.restart")}
             >
@@ -830,7 +881,9 @@ const AuthenticatedSidebarLayout = () => {
               ? "h-screen w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300"
               : isAssistantRoute
                 ? "flex-1 min-h-0 w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300 flex flex-col"
-                : "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
+                : isPomodoroRoute
+                  ? "flex-1 min-h-0 w-[95%] max-w-[110rem] mx-auto overflow-hidden px-4 md:px-6 pt-2 pb-3 relative z-10 transition-all duration-300"
+                  : "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
             desktopSidebarOffsetClass
           )}
         >

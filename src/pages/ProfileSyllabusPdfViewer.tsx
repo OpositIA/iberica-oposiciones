@@ -34,11 +34,13 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/TextLayer.css";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import "./profile-syllabus-pdf-viewer.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 2.4;
+const MAX_ZOOM = 1.3;
 const ZOOM_STEP = 0.2;
 const THUMBNAIL_WIDTH = 120;
 const FREE_PREVIEW_PAGE_LIMIT = 1;
@@ -219,8 +221,11 @@ const ProfileSyllabusPdfViewer = () => {
   }, [pdfPayload]);
 
   const mainPageWidth = useMemo(() => {
+    const horizontalPadding = viewerWidth < 640 ? 24 : 64;
     const baseWidth =
-      viewerWidth > 0 ? Math.min(Math.max(viewerWidth - 64, 280), 940) : 760;
+      viewerWidth > 0
+        ? Math.min(Math.max(viewerWidth - horizontalPadding, 220), 940)
+        : 760;
     return Math.round(baseWidth * zoom);
   }, [viewerWidth, zoom]);
   const viewerWatermarkLabel = useMemo(() => {
@@ -747,8 +752,8 @@ const ProfileSyllabusPdfViewer = () => {
         <header
           className={`border-b px-2 py-2 backdrop-blur md:px-3 ${headerToneClass}`}
         >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 md:flex-nowrap md:gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <Link
                 to="/perfil/temario"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-all duration-200 hover:bg-white/70 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-0"
@@ -758,24 +763,60 @@ const ProfileSyllabusPdfViewer = () => {
               >
                 <ArrowLeft className="h-6 w-6" />
               </Link>
-              <div className="hidden h-5 w-px bg-slate-200 md:block" />
-              <div className="hidden min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 md:flex">
+              <div className="h-5 w-px bg-slate-200" />
+              <div className="flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 md:tracking-[0.22em]">
                 <FileText className="h-4 w-4" />
-                <span className="max-w-[20rem] truncate lg:max-w-[28rem] xl:max-w-[36rem]">
+                <span className="min-w-0 flex-1 truncate">
                   {topicTitle ||
                     t("syllabus.viewerBadge", { defaultValue: "Visor PDF" })}
                 </span>
               </div>
+              <div className="flex items-center gap-1 md:hidden">
+                <CustomButton
+                  asChild
+                  size="sm"
+                  styleType="unstyled"
+                  className="h-10 w-10 rounded-full p-0 text-slate-600 hover:bg-white"
+                >
+                  <Link to={syllabusDownloadHref}>
+                    <Download className="h-4 w-4" />
+                    <span className="sr-only">
+                      {syllabusDownloadOffer?.is_purchased
+                        ? t("syllabus.viewerDownloadOwned", {
+                            defaultValue: "Descarga activa"
+                          })
+                        : t("syllabus.viewerDownload", {
+                            defaultValue: "Descarga"
+                          })}
+                    </span>
+                  </Link>
+                </CustomButton>
+
+                <CustomButton
+                  type="button"
+                  size="sm"
+                  styleType="unstyled"
+                  className="h-10 w-10 rounded-full p-0 text-slate-600 hover:bg-white"
+                  onClick={() => setIsVisualComfortEnabled((value) => !value)}
+                >
+                  <Eye className="h-4 w-4" />
+                  <span className="sr-only">
+                    {t("syllabus.viewerVisualComfort", {
+                      defaultValue: "Fatiga visual"
+                    })}
+                  </span>
+                </CustomButton>
+              </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 md:w-auto md:min-w-fit md:flex-none md:flex-nowrap">
               <CustomButton
                 asChild
                 size="sm"
                 styleType={
                   syllabusDownloadOffer?.is_purchased ? "primary" : "ghost"
                 }
-                className="rounded-full px-3"
+                className="hidden rounded-full px-3 md:inline-flex"
               >
                 <Link to={syllabusDownloadHref}>
                   <Download className="h-4 w-4" />
@@ -793,7 +834,7 @@ const ProfileSyllabusPdfViewer = () => {
                 type="button"
                 size="sm"
                 styleType={isVisualComfortEnabled ? "primary" : "ghost"}
-                className="rounded-full px-3"
+                className="hidden rounded-full px-3 md:inline-flex"
                 onClick={() => setIsVisualComfortEnabled((value) => !value)}
               >
                 <Eye className="h-4 w-4" />
@@ -802,8 +843,8 @@ const ProfileSyllabusPdfViewer = () => {
                 })}
               </CustomButton>
 
-              <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
-                <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1 shadow-sm">
+              <div className="order-last flex w-full min-w-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 md:order-none md:w-auto md:min-w-[18rem] lg:min-w-[20rem]">
+                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-white px-3 py-1 shadow-sm md:min-w-[14rem] md:flex-1">
                   <Search className="h-4 w-4 text-slate-400" />
                   <Input
                     value={searchInput}
@@ -816,12 +857,12 @@ const ProfileSyllabusPdfViewer = () => {
                     placeholder={t("syllabus.viewerSearchPlaceholder", {
                       defaultValue: "Buscar en el PDF"
                     })}
-                    className="h-7 w-32 border-0 bg-transparent px-0 py-0 text-sm font-medium text-slate-900 placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0 md:w-40"
+                    className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm font-medium text-slate-900 placeholder:text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                     aria-label={t("syllabus.viewerSearchLabel", {
                       defaultValue: "Buscar en el PDF"
                     })}
                   />
-                  <span className="min-w-16 text-right text-xs font-medium tabular-nums text-slate-500">
+                  <span className="min-w-min shrink-0 text-right text-xs font-medium tabular-nums text-slate-500 sm:min-w-min">
                     {isIndexingText
                       ? t("syllabus.viewerSearchIndexing", {
                           defaultValue: "Indexando"
@@ -857,7 +898,7 @@ const ProfileSyllabusPdfViewer = () => {
                 </CustomButton>
               </div>
 
-              <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
+              <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 md:flex">
                 <CustomButton
                   size="iconSm"
                   styleType="unstyled"
@@ -871,7 +912,7 @@ const ProfileSyllabusPdfViewer = () => {
                   <ChevronLeft className="h-4 w-4" />
                 </CustomButton>
 
-                <div className="flex items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm">
+                <div className="flex items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm whitespace-nowrap">
                   <Input
                     value={pageInput}
                     onChange={(event) =>
@@ -889,7 +930,7 @@ const ProfileSyllabusPdfViewer = () => {
                       defaultValue: "Numero de pagina"
                     })}
                   />
-                  <span className="text-sm font-medium text-slate-500">
+                  <span className="shrink-0 whitespace-nowrap text-sm font-medium text-slate-500">
                     / {pageCount || "--"}
                   </span>
                 </div>
@@ -913,7 +954,7 @@ const ProfileSyllabusPdfViewer = () => {
                 </CustomButton>
               </div>
 
-              <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
+              <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 md:flex">
                 <CustomButton
                   size="iconSm"
                   styleType="unstyled"
@@ -963,16 +1004,13 @@ const ProfileSyllabusPdfViewer = () => {
         </header>
 
         <div
-          className={`grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
+          className={`grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
         >
           <aside
-            className={`min-h-0 border-b md:border-b-0 md:border-r ${sidebarToneClass}`}
+            className={`hidden min-h-0 border-r xl:block ${sidebarToneClass}`}
           >
-            <ScrollArea
-              ref={thumbnailScrollAreaRef}
-              className="h-[12rem] md:h-full"
-            >
-              <div className="flex items-center gap-3 p-3 md:flex md:flex-col md:items-center md:gap-2 md:p-4">
+            <ScrollArea ref={thumbnailScrollAreaRef} className="h-full">
+              <div className="flex flex-col items-center gap-2 p-4">
                 <Document
                   file={thumbnailPdfFile}
                   options={PDF_DOCUMENT_OPTIONS}
@@ -1062,9 +1100,9 @@ const ProfileSyllabusPdfViewer = () => {
           <div ref={viewerContainerRef} className="min-h-0 min-w-0">
             <div
               ref={viewerScrollRef}
-              className="relative h-full overflow-y-auto"
+              className="relative h-full overflow-auto"
             >
-              <div className="flex min-h-full items-start justify-center p-4 md:p-8">
+              <div className="flex min-h-full min-w-fit items-start justify-center p-2 sm:p-4 md:p-6 xl:p-8">
                 <Document
                   file={mainPdfFile}
                   options={PDF_DOCUMENT_OPTIONS}

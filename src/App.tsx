@@ -5,38 +5,46 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import AuthenticatedSidebarLayout from "./components/AuthenticatedSidebarLayout";
 import LandingRouteGuard from "./components/LandingRouteGuard";
 import PlanRequiredRoute from "./components/PlanRequiredRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import SeoManager from "./components/SeoManager";
-import AssistantIA from "./pages/AssistantIA";
-import AuthCallback from "./pages/AuthCallback";
-import Dashboard from "./pages/Dashboard";
-import FooterAbout from "./pages/FooterAbout";
-import FooterPrivacy from "./pages/FooterPrivacy";
-import FooterTerms from "./pages/FooterTerms";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import MiPerfil from "./pages/MiPerfil";
-import NotFound from "./pages/NotFound";
-import PlanSelection from "./pages/PlanSelection";
-import Plans from "./pages/Plans";
-import ProfileBillingIssue from "./pages/ProfileBillingIssue";
-import ProfileQuickTestSession from "./pages/ProfileQuickTestSession";
-import ProfileStudy from "./pages/ProfileStudy";
-import ProfileTemario from "./pages/ProfileTemario";
-import ProfileTest from "./pages/ProfileTest";
-import PublicFaq from "./pages/PublicFaq";
-import PublicPlans from "./pages/PublicPlans";
-import Register from "./pages/Register";
-import RegisterCheckoutSuccess from "./pages/RegisterCheckoutSuccess";
-import RegisterPlanSelection from "./pages/RegisterPlanSelection";
-import ResetPassword from "./pages/ResetPassword";
-import Support from "./pages/Support";
 import { StudyTimerProvider } from "./study/StudyTimerProvider";
 
+const AuthenticatedSidebarLayout = lazy(
+  () => import("./components/AuthenticatedSidebarLayout")
+);
+const AssistantIA = lazy(() => import("./pages/AssistantIA"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const FooterAbout = lazy(() => import("./pages/FooterAbout"));
+const FooterPrivacy = lazy(() => import("./pages/FooterPrivacy"));
+const FooterTerms = lazy(() => import("./pages/FooterTerms"));
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const MiPerfil = lazy(() => import("./pages/MiPerfil"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const PlanSelection = lazy(() => import("./pages/PlanSelection"));
+const Plans = lazy(() => import("./pages/Plans"));
+const ProfileBillingIssue = lazy(() => import("./pages/ProfileBillingIssue"));
+const ProfileQuickTestSession = lazy(
+  () => import("./pages/ProfileQuickTestSession")
+);
+const ProfileStudy = lazy(() => import("./pages/ProfileStudy"));
+const ProfileTemario = lazy(() => import("./pages/ProfileTemario"));
+const ProfileTest = lazy(() => import("./pages/ProfileTest"));
+const PublicFaq = lazy(() => import("./pages/PublicFaq"));
+const PublicPlans = lazy(() => import("./pages/PublicPlans"));
+const Register = lazy(() => import("./pages/Register"));
+const RegisterCheckoutSuccess = lazy(
+  () => import("./pages/RegisterCheckoutSuccess")
+);
+const RegisterPlanSelection = lazy(
+  () => import("./pages/RegisterPlanSelection")
+);
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Support = lazy(() => import("./pages/Support"));
 const ProfileSyllabusPdfViewer = lazy(
   () => import("./pages/ProfileSyllabusPdfViewer")
 );

@@ -364,7 +364,7 @@ const Login = () => {
         >
           <div className="lg:hidden mb-10">
             <Link to="/" className="flex items-center gap-2 mb-8">
-              <BrandLogo className="h-4 w-auto" />
+              <BrandLogo className="h-10 w-auto sm:h-12" />
             </Link>
           </div>
 
