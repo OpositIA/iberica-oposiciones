@@ -184,12 +184,13 @@
     animation-play-state: paused;
   }
 
-  .reveal {
+  .reveal.reveal {
     --reveal-delay: 0ms;
     --reveal-duration: 720ms;
     opacity: 0;
     transform: translate3d(0, 24px, 0);
-    transition-property: opacity, transform;
+    transition-property:
+      opacity, transform, background-color, border-color, color, box-shadow;
     transition-duration: var(--reveal-duration);
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     transition-delay: var(--reveal-delay);
@@ -333,8 +334,25 @@
   }
 }
 
+@keyframes study-timer-breath {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.48;
+  }
+
+  50% {
+    transform: scale(1.055);
+    opacity: 0.92;
+  }
+}
+
 .app-loader-spinner {
   animation: app-loader-spin 0.8s linear infinite;
+}
+
+.study-timer-breath-aura {
+  animation: study-timer-breath 4.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -344,6 +362,11 @@
     transition: none !important;
     opacity: 1 !important;
     filter: none !important;
+    transform: none !important;
+  }
+
+  .study-timer-breath-aura {
+    animation: none !important;
     transform: none !important;
   }
 

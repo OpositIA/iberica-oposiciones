@@ -76,6 +76,7 @@ export type QuickTestHistoryRecord = {
   startedAt: string;
   score: number;
   accuracy: number;
+  correctCount: number;
   durationMinutes: number;
   questionCount: number;
   status: "excellent" | "approved" | "reinforce";
@@ -1081,11 +1082,11 @@ const resolveLinkedQuickTest = (
 };
 
 const resolveHistoryStatus = (
-  accuracy: number
+  score: number
 ): "excellent" | "approved" | "reinforce" => {
-  if (accuracy >= 85) return "excellent";
-  if (accuracy >= 70) return "approved";
-  return "reinforce";
+  if (score > 8) return "excellent";
+  if (score < 5) return "reinforce";
+  return "approved";
 };
 
 type QuickTestAttemptJoinedRow = {
@@ -1144,9 +1145,10 @@ const mapCompletedAttemptToHistoryRecord = (
     startedAt,
     score: evaluated.score,
     accuracy: evaluated.accuracy,
+    correctCount: evaluated.correctCount,
     durationMinutes,
     questionCount: evaluated.totalQuestions,
-    status: resolveHistoryStatus(evaluated.accuracy)
+    status: resolveHistoryStatus(evaluated.score)
   };
 };
 
@@ -1314,9 +1316,10 @@ export const fetchQuickTestHistoryPage = async ({
         startedAt,
         score: evaluated.score,
         accuracy: evaluated.accuracy,
+        correctCount: evaluated.correctCount,
         durationMinutes,
         questionCount: evaluated.totalQuestions,
-        status: resolveHistoryStatus(evaluated.accuracy)
+        status: resolveHistoryStatus(evaluated.score)
       } satisfies QuickTestHistoryRecord;
     })
     .filter((item): item is QuickTestHistoryRecord => Boolean(item));
