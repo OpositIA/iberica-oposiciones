@@ -12,8 +12,10 @@
     "noImplicitAny": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
     "allowJs": true,
     "noUnusedLocals": false,
     "strictNullChecks": false
-  }
+  },
+  "exclude": ["node_modules"]
 }
