@@ -12,10 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { isPaidPlan } from "@/lib/plans";
 import { WORKSPACE_TOUR_TARGETS } from "@/lib/workspaceTour";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
-import {
-  fetchQuickTestsDashboardBundle,
-  type QuickTestHistoryRecord
-} from "@/queries/testQueries";
+import { fetchQuickTestsDashboardBundle } from "@/queries/testQueries";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -23,20 +20,23 @@ import {
   BookOpen,
   CalendarDays,
   Clock3,
-  Minus,
   RotateCcw,
   Target,
-  TrendingDown,
   TrendingUp
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  XAxis,
+  YAxis
+} from "recharts";
 
 type TestStatus = "excellent" | "approved" | "reinforce";
-type TestTrend = "up" | "down" | "flat";
-type DashboardHistoryRow = QuickTestHistoryRecord & { trend: TestTrend };
 
 type DashboardKpiCardProps = {
   icon: LucideIcon;
@@ -57,7 +57,7 @@ const performanceChartConfig = {
     label: "Score",
     theme: {
       light: "hsl(var(--primary))",
-      dark: "hsl(var(--primary))"
+      dark: "hsl(var(--accent))"
     }
   }
 } satisfies ChartConfig;
@@ -68,9 +68,10 @@ const basePanelClassName =
 const chartSurfaceClassName =
   "rounded-[1.55rem] border border-border/70 bg-gradient-to-b from-background via-background to-secondary/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] dark:from-card dark:via-card dark:to-secondary/20";
 
-const chartGridColor = "hsl(var(--border) / 0.72)";
-const chartTickColor = "hsl(var(--muted-foreground) / 0.86)";
-const chartAreaCursorColor = "hsl(var(--primary) / 0.32)";
+const chartGridColor = "hsl(var(--border) / 0.86)";
+const chartTickColor = "hsl(var(--foreground) / 0.72)";
+const chartAreaCursorColor = "hsl(var(--accent) / 0.45)";
+const chartReferenceLineColor = "hsl(var(--accent) / 0.52)";
 
 const distributionToneClass: Record<TestStatus, string> = {
   excellent: "bg-emerald-500",
@@ -154,24 +155,10 @@ const Dashboard = () => {
     return fullName || profile?.email || t("defaults.user");
   }, [profile, t]);
 
-  const historialTests = useMemo<DashboardHistoryRow[]>(() => {
-    const historyItems = dashboardBundle?.historyItems ?? [];
-    return historyItems.map((item, idx) => {
-      const previousItem = historyItems[idx + 1];
-      const trend: TestTrend = !previousItem
-        ? "flat"
-        : item.accuracy > previousItem.accuracy
-          ? "up"
-          : item.accuracy < previousItem.accuracy
-            ? "down"
-            : "flat";
-
-      return {
-        ...item,
-        trend
-      };
-    });
-  }, [dashboardBundle?.historyItems]);
+  const historialTests = useMemo(
+    () => dashboardBundle?.historyItems ?? [],
+    [dashboardBundle?.historyItems]
+  );
 
   const visibleHistoryItems = useMemo(
     () => historialTests.slice(0, visibleHistoryCount),
@@ -282,18 +269,15 @@ const Dashboard = () => {
   if (isHistoryLoading && !dashboardBundle) return <DashboardPageSkeleton />;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pt-3 md:pt-4">
       <Reveal
         as="section"
-        className={`${basePanelClassName} relative overflow-hidden px-5 py-5 md:px-7 md:py-6`}
+        className="px-5 py-5 md:px-7 md:py-6"
         data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardHero}
         duration={820}
         variant="soft"
       >
-        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-        <div className="pointer-events-none absolute -right-20 -top-24 h-48 w-48 rounded-full bg-primary/[0.08] blur-3xl dark:bg-primary/[0.12]" />
-
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <h1 className="text-[1.95rem] font-serif leading-tight text-foreground md:text-[2.35rem]">
               {t("header.greeting", { name: accountName })}
@@ -391,16 +375,16 @@ const Dashboard = () => {
 
           {recentPerformanceData.length > 0 ? (
             <div
-              className={`${chartSurfaceClassName} min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-5`}
+              className={`${chartSurfaceClassName} min-w-0 overflow-hidden bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.14),transparent_32%),radial-gradient(circle_at_82%_8%,hsl(var(--accent)/0.12),transparent_34%)] px-3 py-4 sm:px-4 sm:py-5 dark:bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.18),transparent_34%),radial-gradient(circle_at_82%_8%,hsl(var(--accent)/0.18),transparent_36%)]`}
             >
               <ChartContainer
                 config={performanceChartConfig}
-                className="h-[200px] w-full sm:h-[220px]"
+                className="h-[220px] w-full sm:h-[240px]"
               >
                 <AreaChart
                   data={recentPerformanceData}
                   margin={{
-                    left: isMobile ? 2 : 4,
+                    left: isMobile ? -10 : -4,
                     right: isMobile ? 2 : 8,
                     top: 8,
                     bottom: 2
@@ -416,20 +400,47 @@ const Dashboard = () => {
                     >
                       <stop
                         offset="0%"
-                        stopColor="var(--color-score)"
-                        stopOpacity={0.22}
+                        stopColor="hsl(var(--primary))"
+                        stopOpacity={0.34}
+                      />
+                      <stop
+                        offset="46%"
+                        stopColor="hsl(var(--accent))"
+                        stopOpacity={0.2}
                       />
                       <stop
                         offset="100%"
                         stopColor="var(--color-score)"
-                        stopOpacity={0.02}
+                        stopOpacity={0.04}
                       />
+                    </linearGradient>
+                    <linearGradient
+                      id="dashboard-score-stroke"
+                      x1="0"
+                      x2="1"
+                      y1="0"
+                      y2="0"
+                    >
+                      <stop offset="0%" stopColor="hsl(var(--primary))" />
+                      <stop offset="100%" stopColor="hsl(var(--accent))" />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
                     stroke={chartGridColor}
-                    strokeDasharray="3 5"
+                    strokeDasharray="4 6"
                     vertical={false}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    domain={[0, 10]}
+                    tick={{
+                      fill: chartTickColor,
+                      fontSize: isMobile ? 10 : 11
+                    }}
+                    tickCount={6}
+                    tickLine={false}
+                    tickMargin={8}
+                    width={isMobile ? 28 : 34}
                   />
                   <XAxis
                     axisLine={false}
@@ -443,10 +454,16 @@ const Dashboard = () => {
                     tickLine={false}
                     tickMargin={10}
                   />
+                  <ReferenceLine
+                    stroke={chartReferenceLineColor}
+                    strokeDasharray="6 6"
+                    strokeWidth={1.35}
+                    y={5}
+                  />
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        className="border-primary/15 bg-background/95 shadow-[0_18px_40px_-28px_hsl(var(--primary)/0.35)]"
+                        className="border-primary/25 bg-background/95 shadow-[0_18px_40px_-28px_hsl(var(--accent)/0.45)] backdrop-blur"
                         formatter={(value, name, item) => (
                           <>
                             <span className="text-muted-foreground">
@@ -466,27 +483,27 @@ const Dashboard = () => {
                     cursor={{
                       stroke: chartAreaCursorColor,
                       strokeDasharray: "4 4",
-                      strokeWidth: 1.25
+                      strokeWidth: 1.5
                     }}
                   />
                   <Area
                     activeDot={{
                       fill: "hsl(var(--background))",
                       r: isMobile ? 4 : 5,
-                      stroke: "var(--color-score)",
-                      strokeWidth: 2.25
+                      stroke: "hsl(var(--accent))",
+                      strokeWidth: 2.75
                     }}
                     dataKey="score"
                     dot={{
                       fill: "var(--color-score)",
-                      r: isMobile ? 2.5 : 3,
+                      r: isMobile ? 2.75 : 3.25,
                       stroke: "hsl(var(--background))",
-                      strokeWidth: 2
+                      strokeWidth: 2.25
                     }}
                     fill="url(#dashboard-score-fill)"
                     fillOpacity={1}
-                    stroke="var(--color-score)"
-                    strokeWidth={2.5}
+                    stroke="url(#dashboard-score-stroke)"
+                    strokeWidth={3}
                     type="monotone"
                   />
                 </AreaChart>
@@ -518,7 +535,7 @@ const Dashboard = () => {
 
           {hasHistoryData ? (
             <div
-              className={`${chartSurfaceClassName} flex h-full flex-col px-4 py-4`}
+              className={`${chartSurfaceClassName} flex  flex-col px-4 py-4`}
             >
               <div className="mb-5 border-b border-border/60 pb-4">
                 <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
@@ -587,16 +604,13 @@ const Dashboard = () => {
                 <thead className="border-b border-border/60 bg-secondary/25">
                   <tr className="text-left">
                     <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
-                      {t("history.columns.test")}
-                    </th>
-                    <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
                       {t("history.columns.date")}
                     </th>
                     <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
                       {t("history.columns.score")}
                     </th>
                     <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
-                      {t("history.columns.accuracy")}
+                      {t("history.columns.correctAnswers")}
                     </th>
                     <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
                       {t("history.columns.duration")}
@@ -604,8 +618,10 @@ const Dashboard = () => {
                     <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
                       {t("history.columns.status")}
                     </th>
-                    <th className="px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
-                      {t("history.columns.open")}
+                    <th className="px-4 py-3 text-right text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
+                      <span className="sr-only">
+                        {t("history.columns.open")}
+                      </span>
                     </th>
                   </tr>
                 </thead>
@@ -615,9 +631,6 @@ const Dashboard = () => {
                       key={test.testId}
                       className="border-t border-border/60 transition-colors hover:bg-secondary/20"
                     >
-                      <td className="px-4 py-3.5 text-sm text-foreground">
-                        {`${test.oppositionName} #${test.testId.slice(0, 8)}`}
-                      </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">
                           <CalendarDays className="h-3.5 w-3.5" />
@@ -628,18 +641,7 @@ const Dashboard = () => {
                         {test.score.toFixed(1)}
                       </td>
                       <td className="px-4 py-3.5 text-sm text-foreground">
-                        <span className="inline-flex items-center gap-1.5">
-                          {test.trend === "up" && (
-                            <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          )}
-                          {test.trend === "down" && (
-                            <TrendingDown className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-                          )}
-                          {test.trend === "flat" && (
-                            <Minus className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                          )}
-                          {Math.round(test.accuracy)}%
-                        </span>
+                        {`${test.correctCount}/${test.questionCount}`}
                       </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">
                         {`${test.durationMinutes} min`}
@@ -654,7 +656,7 @@ const Dashboard = () => {
                           {t(`history.status.${test.status}`)}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3.5 text-right">
                         <CustomButton
                           asChild
                           radius="full"

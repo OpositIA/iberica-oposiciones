@@ -82,6 +82,7 @@
       "date": "Date",
       "score": "Score",
       "accuracy": "Accuracy",
+      "correctAnswers": "Correct",
       "duration": "Duration",
       "status": "Status",
       "open": "Open"

@@ -26,6 +26,7 @@ type StudyTimerContextValue = {
   pause: () => void;
   resume: () => void;
   restart: () => void;
+  skipPhase: () => void;
   stop: () => void;
   formattedRemaining: string;
 };
@@ -69,6 +70,28 @@ const normalizePhase = (value: unknown): StudyTimerPhase => {
   if (value === "shortBreak" || value === "longBreak" || value === "focus")
     return value;
   return "focus";
+};
+
+let timerAudioContext: AudioContext | null = null;
+
+const getTimerAudioContext = () => {
+  const AudioContextCtor =
+    window.AudioContext ||
+    (window as Window & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (!AudioContextCtor) return null;
+
+  if (!timerAudioContext || timerAudioContext.state === "closed")
+    timerAudioContext = new AudioContextCtor();
+
+  return timerAudioContext;
+};
+
+const unlockTimerDoneSound = () => {
+  const ctx = getTimerAudioContext();
+  if (!ctx || ctx.state !== "suspended") return;
+
+  void ctx.resume().catch(() => undefined);
 };
 
 const safeParsePersistedState = (
@@ -134,24 +157,69 @@ const safeParsePersistedState = (
 };
 
 const playTimerDoneSound = () => {
-  const AudioContextCtor =
-    window.AudioContext ||
-    (window as Window & { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
-  if (!AudioContextCtor) return;
+  const ctx = getTimerAudioContext();
+  if (!ctx) return;
 
-  const ctx = new AudioContextCtor();
+  if (ctx.state === "suspended") {
+    void ctx
+      .resume()
+      .then(() => playTimerDoneSound())
+      .catch(() => undefined);
+    return;
+  }
+
   const masterGain = ctx.createGain();
   masterGain.connect(ctx.destination);
-  masterGain.gain.value = 0.0001;
-
-  if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
+  masterGain.gain.setValueAtTime(1, ctx.currentTime);
 
   const notes = [
-    { offset: 0, frequency: 523.25, duration: 0.18 },
-    { offset: 0.22, frequency: 659.25, duration: 0.2 },
-    { offset: 0.48, frequency: 783.99, duration: 0.26 }
+    // ============= FRASE 1 (motivo grave) =============
+    // Compás 1 - "Por la ma‑ña‑na"
+    { offset: 0.0, frequency: 392.0, duration: 0.2381 }, // Sol4 (Por)
+    { offset: 0.2381, frequency: 392.0, duration: 0.2381 }, // Sol4 (la)
+    { offset: 0.4762, frequency: 440.0, duration: 0.2381 }, // La4 (ma-)
+    { offset: 0.7143, frequency: 392.0, duration: 0.2381 }, // Sol4 (ña-)
+    { offset: 0.9524, frequency: 523.25, duration: 0.4762 }, // Do5 (na)
+
+    // "ca‑fé"
+    { offset: 1.4286, frequency: 493.88, duration: 0.2381 }, // Si4 (ca-)
+    { offset: 1.6667, frequency: 440.0, duration: 0.4762 }, // La4 (fé)
+
+    // Compás 2 - "por la tar‑de"
+    { offset: 2.1429, frequency: 349.23, duration: 0.2381 }, // Fa4 (por)
+    { offset: 2.381, frequency: 349.23, duration: 0.2381 }, // Fa4 (la)
+    { offset: 2.619, frequency: 440.0, duration: 0.2381 }, // La4 (tar-)
+    { offset: 2.8571, frequency: 392.0, duration: 0.2381 }, // Sol4 (de)
+
+    // "ron"
+    { offset: 3.0952, frequency: 261.63, duration: 0.7143 }, // Do4 (ron, ligado hasta el final del compás)
+
+    // ============= FRASE 2 (variación aguda) =============
+    // Compás 3 - "Por la ma‑ña‑na"
+    { offset: 3.8095, frequency: 392.0, duration: 0.2381 }, // Sol4 (Por)
+    { offset: 4.0476, frequency: 392.0, duration: 0.2381 }, // Sol4 (la)
+    { offset: 4.2857, frequency: 440.0, duration: 0.2381 }, // La4 (ma-)
+    { offset: 4.5238, frequency: 392.0, duration: 0.2381 }, // Sol4 (ña-)
+    { offset: 4.7619, frequency: 523.25, duration: 0.4762 }, // Do5 (na)
+
+    // "ca‑fé"
+    { offset: 5.2381, frequency: 587.33, duration: 0.2381 }, // Re5 (ca-)
+    { offset: 5.4762, frequency: 659.25, duration: 0.4762 }, // Mi5 (fé)
+
+    // Compás 4 - "por la tar‑de"
+    { offset: 5.9524, frequency: 523.25, duration: 0.2381 }, // Do5 (por)
+    { offset: 6.1905, frequency: 493.88, duration: 0.2381 }, // Si4 (la)
+    { offset: 6.4286, frequency: 440.0, duration: 0.2381 }, // La4 (tar-)
+    { offset: 6.6667, frequency: 392.0, duration: 0.2381 }, // Sol4 (de)
+
+    // "ron" (final apoteósico)
+    { offset: 6.9048, frequency: 523.25, duration: 0.7143 } // Do5 (ron, cierra el loop)
   ];
+
+  const soundDurationMs =
+    Math.ceil(
+      Math.max(...notes.map(({ offset, duration }) => offset + duration)) * 1000
+    ) + 100;
 
   notes.forEach(({ offset, frequency, duration }) => {
     const osc = ctx.createOscillator();
@@ -174,8 +242,8 @@ const playTimerDoneSound = () => {
   });
 
   window.setTimeout(() => {
-    void ctx.close().catch(() => undefined);
-  }, 1400);
+    masterGain.disconnect();
+  }, soundDurationMs);
 };
 
 const StudyTimerContext = createContext<StudyTimerContextValue | null>(null);
@@ -344,6 +412,7 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
   );
 
   const start = useCallback(() => {
+    unlockTimerDoneSound();
     const nextDuration = getPhaseDurationSeconds(phase, focusDurationSeconds);
     setRemainingSeconds(nextDuration);
     setStatus("running");
@@ -362,9 +431,33 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
 
   const resume = useCallback(() => {
     if (status !== "paused" || remainingSeconds <= 0) return;
+    unlockTimerDoneSound();
     setStatus("running");
     setEndAtMs(Date.now() + remainingSeconds * 1000);
   }, [remainingSeconds, status]);
+
+  const skipPhase = useCallback(() => {
+    unlockTimerDoneSound();
+    const { nextPhase, nextCompletedFocusSessions } = advancePomodoroPhase(
+      phase,
+      completedFocusSessions
+    );
+    const nextDuration = getPhaseDurationSeconds(
+      nextPhase,
+      focusDurationSeconds
+    );
+
+    setPhase(nextPhase);
+    setCompletedFocusSessions(nextCompletedFocusSessions);
+    setRemainingSeconds(nextDuration);
+    setStatus("running");
+    setEndAtMs(Date.now() + nextDuration * 1000);
+  }, [
+    advancePomodoroPhase,
+    completedFocusSessions,
+    focusDurationSeconds,
+    phase
+  ]);
 
   const restart = useCallback(() => {
     const resetDuration = getPhaseDurationSeconds(
@@ -372,6 +465,7 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
       focusDurationSeconds
     );
     setPhase("focus");
+    setCompletedFocusSessions(0);
     setStatus("idle");
     setEndAtMs(null);
     setRemainingSeconds(resetDuration);
@@ -391,6 +485,7 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
       pause,
       resume,
       restart,
+      skipPhase,
       stop,
       formattedRemaining: formatSeconds(remainingSeconds)
     }),
@@ -403,6 +498,7 @@ export const StudyTimerProvider = ({ children }: PropsWithChildren) => {
       restart,
       resume,
       setDurationMinutes,
+      skipPhase,
       start,
       status,
       stop

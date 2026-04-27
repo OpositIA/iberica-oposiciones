@@ -142,9 +142,7 @@ export const PlansPageSkeleton = () => (
                   />
                   <Skeleton
                     className={`h-3 w-20 rounded-full ${
-                      isFeatured
-                        ? "app-skeleton-inverse"
-                        : "app-skeleton-soft"
+                      isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
                     }`}
                   />
                 </div>
@@ -158,9 +156,7 @@ export const PlansPageSkeleton = () => (
                   />
                   <Skeleton
                     className={`ml-auto h-3 w-14 rounded-full ${
-                      isFeatured
-                        ? "app-skeleton-inverse"
-                        : "app-skeleton-soft"
+                      isFeatured ? "app-skeleton-inverse" : "app-skeleton-soft"
                     }`}
                   />
                 </div>
@@ -374,15 +370,10 @@ export const MyProfilePageSkeleton = () => (
 );
 
 export const DashboardPageSkeleton = () => (
-  <div className="space-y-6">
-    <section
-      className={`${dashboardPanelClassName} relative overflow-hidden bg-gradient-to-br from-primary/[0.08] via-background to-background p-6 md:p-8 dark:from-primary/[0.14] dark:via-card dark:to-card`}
-    >
-      <div className="pointer-events-none absolute -left-12 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
-      <div className="pointer-events-none absolute bottom-0 right-0 h-48 w-48 rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
+  <div className="space-y-6 pt-3 md:pt-4">
+    <section className="px-5 py-5 md:px-7 md:py-6">
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
         <div className="max-w-3xl space-y-3">
-          <SkeletonPill className="w-28" />
           <Skeleton className="h-10 w-72 rounded-2xl" />
           <SkeletonLines lines={["w-full", "w-10/12"]} />
         </div>

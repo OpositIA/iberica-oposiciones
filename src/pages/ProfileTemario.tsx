@@ -174,7 +174,7 @@ const ProfileTemario = () => {
                   </AccordionTrigger>
                   <AccordionContent className="pb-5">
                     {tema.subtopics.length > 0 ? (
-                      <ul className="space-y-3 rounded-[1.25rem] border border-border/70 bg-secondary/15 p-4">
+                      <ul className="space-y-3  p-4">
                         {tema.subtopics.map((subtopic, subtopicIndex) => {
                           const subtopicFiles =
                             subtopicFilesById.get(subtopic.id) ?? [];

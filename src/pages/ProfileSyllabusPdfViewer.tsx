@@ -1007,13 +1007,10 @@ const ProfileSyllabusPdfViewer = () => {
           className={`grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[17rem_minmax(0,1fr)] ${bodyToneClass}`}
         >
           <aside
-            className={`hidden min-h-0 border-b md:block xl:border-b-0 xl:border-r ${sidebarToneClass}`}
+            className={`hidden min-h-0 border-r xl:block ${sidebarToneClass}`}
           >
-            <ScrollArea
-              ref={thumbnailScrollAreaRef}
-              className="h-[12rem] md:h-full"
-            >
-              <div className="flex items-center gap-3 p-3 md:flex-col md:items-center md:gap-2 md:p-4">
+            <ScrollArea ref={thumbnailScrollAreaRef} className="h-full">
+              <div className="flex flex-col items-center gap-2 p-4">
                 <Document
                   file={thumbnailPdfFile}
                   options={PDF_DOCUMENT_OPTIONS}

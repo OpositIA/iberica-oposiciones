@@ -250,7 +250,7 @@
     "phaseLabel": "Fase actual",
     "statusLabel": "Estado",
     "phasefocus": "Concentracion",
-    "phaseshortBreak": "Descanso corto",
+    "phaseshortBreak": "Descanso",
     "phaselongBreak": "Descanso largo",
     "statusRunning": "Temporizador en marcha",
     "statusPaused": "Temporizador en pausa",
@@ -264,6 +264,8 @@
     "start": "Iniciar",
     "stop": "Detener",
     "restart": "Reiniciar",
+    "skipPhase": "Saltar fase",
+    "phaseProgressLabel": "Progreso de fases. Fase actual: {{phase}}",
     "toasts": {
       "focusCompleteTitle": "Pomodoro completado",
       "focusCompleteDescription": "Siguiente fase: {{nextPhase}}.",
