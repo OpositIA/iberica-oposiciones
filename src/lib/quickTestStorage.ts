@@ -258,6 +258,8 @@ export const getStoredInProgressQuickTests =
         return {
           testId,
           answeredCount: Object.keys(progress.selectedAnswers).length,
+          questionCount: session.questionCount,
+          pausedRemainingSeconds: progress.pausedRemainingSeconds ?? null,
           startedAt: lastInteractionAt,
           lastInteractionAt,
           oppositionName: session.oppositionName || "Test rapido",
