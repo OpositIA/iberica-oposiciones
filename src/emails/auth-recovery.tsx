@@ -1,3 +1,4 @@
+import * as React from "react";
 import AuthEmailLayout, {
   type AuthEmailLayoutProps
 } from "./_components/AuthEmailLayout";
@@ -5,5 +6,9 @@ import AuthEmailLayout, {
 export type AuthRecoveryEmailProps = AuthEmailLayoutProps;
 
 export default function AuthRecoveryEmail(props: AuthRecoveryEmailProps) {
-  return <AuthEmailLayout {...props} />;
+  return (
+    <React.Fragment>
+      <AuthEmailLayout {...props} />
+    </React.Fragment>
+  );
 }

@@ -1,3 +1,4 @@
+import * as React from "react";
 import {
   Body,
   Button,
@@ -6,10 +7,9 @@ import {
   Hr,
   Html,
   Link,
-  Preview,
   Section,
   Text
-} from "@react-email/components";
+} from "react-email";
 
 const palette = {
   background: "#f8fafc",
@@ -32,6 +32,15 @@ const bodyStyle = {
     "'Mulish', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   margin: "0",
   padding: "32px 12px"
+};
+
+const previewStyle = {
+  display: "none",
+  overflow: "hidden",
+  lineHeight: "1px",
+  opacity: "0",
+  maxHeight: "0",
+  maxWidth: "0"
 };
 
 const shellStyle = {
@@ -216,63 +225,67 @@ export default function AuthEmailLayout({
   supportLabel
 }: AuthEmailLayoutProps) {
   return (
-    <Html lang="es">
-      <Head />
-      <Preview>{previewText}</Preview>
-      <Body style={bodyStyle}>
-        <Container style={shellStyle}>
-          <Section style={cardStyle}>
-            <Section style={headerStyle}>
-              <Text style={badgeStyle}>{eyebrow}</Text>
-              <Text style={brandStyle}>{brandName}</Text>
-              <Text style={straplineStyle}>{brandStrapline}</Text>
-            </Section>
-
-            <Section style={contentStyle}>
-              <Text style={titleStyle}>{title}</Text>
-              {paragraphs.map((paragraph) => (
-                <Text key={paragraph} style={paragraphStyle}>
-                  {paragraph}
-                </Text>
-              ))}
-
-              <Section style={buttonWrapStyle}>
-                <Button href={actionHref} style={buttonStyle}>
-                  {actionLabel}
-                </Button>
+    <React.Fragment>
+      <Html lang="es">
+        <Head />
+        <div data-skip-in-text="true" style={previewStyle}>
+          {previewText}
+        </div>
+        <Body style={bodyStyle}>
+          <Container style={shellStyle}>
+            <Section style={cardStyle}>
+              <Section style={headerStyle}>
+                <Text style={badgeStyle}>{eyebrow}</Text>
+                <Text style={brandStyle}>{brandName}</Text>
+                <Text style={straplineStyle}>{brandStrapline}</Text>
               </Section>
 
-              <Section style={infoPanelStyle}>
-                <Text style={infoTitleStyle}>{fallbackTitle}</Text>
-                <Text style={{ ...paragraphStyle, marginBottom: "10px" }}>
-                  {fallbackLabel}
-                </Text>
-                <Link href={fallbackHref} style={linkStyle}>
-                  {fallbackHref}
-                </Link>
+              <Section style={contentStyle}>
+                <Text style={titleStyle}>{title}</Text>
+                {paragraphs.map((paragraph) => (
+                  <Text key={paragraph} style={paragraphStyle}>
+                    {paragraph}
+                  </Text>
+                ))}
+
+                <Section style={buttonWrapStyle}>
+                  <Button href={actionHref} style={buttonStyle}>
+                    {actionLabel}
+                  </Button>
+                </Section>
+
+                <Section style={infoPanelStyle}>
+                  <Text style={infoTitleStyle}>{fallbackTitle}</Text>
+                  <Text style={{ ...paragraphStyle, marginBottom: "10px" }}>
+                    {fallbackLabel}
+                  </Text>
+                  <Link href={fallbackHref} style={linkStyle}>
+                    {fallbackHref}
+                  </Link>
+                </Section>
+
+                <Text style={securityStyle}>{securityNote}</Text>
               </Section>
 
-              <Text style={securityStyle}>{securityNote}</Text>
-            </Section>
+              <Hr style={dividerStyle} />
 
-            <Hr style={dividerStyle} />
-
-            <Section style={footerStyle}>
-              <Text style={footerTextStyle}>{footerPrimary}</Text>
-              <Text style={footerTextStyle}>{footerSecondary}</Text>
-              <Text style={{ ...footerTextStyle, marginBottom: "0" }}>
-                <Link href="{{ .SiteURL }}" style={footerLinkStyle}>
-                  {siteLabel}
-                </Link>{" "}
-                ·{" "}
-                <Link href="{{ .SiteURL }}/support" style={footerLinkStyle}>
-                  {supportLabel}
-                </Link>
-              </Text>
+              <Section style={footerStyle}>
+                <Text style={footerTextStyle}>{footerPrimary}</Text>
+                <Text style={footerTextStyle}>{footerSecondary}</Text>
+                <Text style={{ ...footerTextStyle, marginBottom: "0" }}>
+                  <Link href="{{ .SiteURL }}" style={footerLinkStyle}>
+                    {siteLabel}
+                  </Link>{" "}
+                  ·{" "}
+                  <Link href="{{ .SiteURL }}/support" style={footerLinkStyle}>
+                    {supportLabel}
+                  </Link>
+                </Text>
+              </Section>
             </Section>
-          </Section>
-        </Container>
-      </Body>
-    </Html>
+          </Container>
+        </Body>
+      </Html>
+    </React.Fragment>
   );
 }

@@ -1,1 +1,1 @@
-{"root":["./vite.config.ts","./scripts/render-email-templates.tsx","./src/vite-env.d.ts","./src/types/react-email.d.ts"],"version":"5.9.3"}
+{"root":["./vite.config.ts","./scripts/render-email-templates.tsx","./src/vite-env.d.ts"],"version":"6.0.3"}

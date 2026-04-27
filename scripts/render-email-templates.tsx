@@ -1,7 +1,7 @@
-import { pretty, render } from "@react-email/render";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import * as React from "react";
+import { pretty, render } from "react-email";
 import AuthConfirmationEmail, {
   type AuthConfirmationEmailProps
 } from "../src/emails/auth-confirmation";
