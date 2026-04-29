@@ -103,6 +103,8 @@ export type QuickTestsDashboardBundle = {
 export type InProgressQuickTestSummary = {
   testId: string;
   answeredCount: number;
+  questionCount: number | null;
+  pausedRemainingSeconds: number | null;
   startedAt: string;
   lastInteractionAt: string;
   oppositionName: string;
@@ -975,7 +977,7 @@ export const fetchLatestInProgressQuickTest = async (
   const { data, error } = await supabase
     .from("quick_test_attempts")
     .select(
-      "test_id, selected_answers, started_at, last_interaction_at, finished_at, quick_tests!inner(opposition_name, selected_topics)"
+      "test_id, selected_answers, started_at, last_interaction_at, finished_at, paused_remaining_seconds, quick_tests!inner(opposition_name, selected_topics, question_count)"
     )
     .eq("user_id", userId)
     .is("finished_at", null)
@@ -994,6 +996,12 @@ export const fetchLatestInProgressQuickTest = async (
       return {
         testId: row.test_id,
         answeredCount: Object.keys(normalizedAnswers).length,
+        questionCount: normalizeNullablePositiveInt(
+          linkedQuickTest?.question_count
+        ),
+        pausedRemainingSeconds: normalizeNullableNonNegativeInt(
+          row.paused_remaining_seconds
+        ),
         startedAt: row.started_at,
         lastInteractionAt: row.last_interaction_at,
         oppositionName:
@@ -1057,12 +1065,14 @@ const resolveLinkedQuickTest = (
         opposition_id: string | null;
         opposition_name: string | null;
         selected_topics?: unknown;
+        question_count?: unknown;
         questions: unknown;
       }
     | {
         opposition_id: string | null;
         opposition_name: string | null;
         selected_topics?: unknown;
+        question_count?: unknown;
         questions: unknown;
       }[]
     | null
@@ -1085,17 +1095,20 @@ type QuickTestAttemptJoinedRow = {
   started_at: string;
   finished_at: string | null;
   last_interaction_at: string;
+  paused_remaining_seconds?: unknown;
   quick_tests:
     | {
         opposition_id: string | null;
         opposition_name: string | null;
         selected_topics?: unknown;
+        question_count?: unknown;
         questions: unknown;
       }
     | {
         opposition_id: string | null;
         opposition_name: string | null;
         selected_topics?: unknown;
+        question_count?: unknown;
         questions: unknown;
       }[]
     | null;
@@ -1147,7 +1160,7 @@ export const fetchQuickTestsDashboardBundle = async (
   const { data, error } = await supabase
     .from("quick_test_attempts")
     .select(
-      "test_id, selected_answers, started_at, finished_at, last_interaction_at, quick_tests!inner(opposition_id, opposition_name, selected_topics, questions)"
+      "test_id, selected_answers, started_at, finished_at, last_interaction_at, paused_remaining_seconds, quick_tests!inner(opposition_id, opposition_name, selected_topics, question_count, questions)"
     )
     .eq("user_id", userId)
     .order("last_interaction_at", { ascending: false })
@@ -1175,6 +1188,12 @@ export const fetchQuickTestsDashboardBundle = async (
         return {
           testId: row.test_id,
           answeredCount: Object.keys(normalizedAnswers).length,
+          questionCount: normalizeNullablePositiveInt(
+            linkedQuickTest?.question_count
+          ),
+          pausedRemainingSeconds: normalizeNullableNonNegativeInt(
+            row.paused_remaining_seconds
+          ),
           startedAt: row.started_at,
           lastInteractionAt: row.last_interaction_at,
           oppositionName:

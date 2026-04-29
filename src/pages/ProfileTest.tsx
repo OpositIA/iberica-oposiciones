@@ -35,7 +35,14 @@ import {
   type QuickTestSessionPayload,
   type QuickTestTopicSelection
 } from "@/queries/testQueries";
-import { ArrowRight, FileText, ListChecks, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Clock3,
+  FileText,
+  ListChecks,
+  Loader2,
+  RotateCcw
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -76,6 +83,13 @@ const buildClientUuid = () => {
     ).join("");
 
   return `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-a${randomHex(3)}-${randomHex(12)}`;
+};
+
+const formatCountdown = (seconds: number) => {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 };
 
 const ProfileTest = () => {
@@ -216,37 +230,20 @@ const ProfileTest = () => {
         .filter((topicLabel): topicLabel is string => Boolean(topicLabel)),
     [selectedTopicIds, topicLabelById]
   );
-  const inProgressSelectionLabel = useMemo(() => {
-    const selectedTopics = inProgressTest?.selectedTopics ?? [];
-    if (selectedTopics.length === 0) {
-      return t("test.inProgressDialogSelectionFallback", {
-        opposition:
-          inProgressTest?.oppositionName || oposicionActiva.nombre || "-"
-      });
-    }
-
-    const [firstSelection, ...restSelections] = selectedTopics;
-    const firstLabel = t(
-      firstSelection.scope === "block"
-        ? "test.inProgressDialogSelectionBlock"
-        : "test.inProgressDialogSelectionTopic",
-      {
-        label: firstSelection.label
-      }
-    );
-
-    if (restSelections.length === 0) return firstLabel;
-
-    return t("test.inProgressDialogSelectionWithMore", {
-      selection: firstLabel,
-      count: restSelections.length
-    });
-  }, [
-    inProgressTest?.oppositionName,
-    inProgressTest?.selectedTopics,
-    oposicionActiva.nombre,
-    t
-  ]);
+  const inProgressPendingQuestions = useMemo(() => {
+    const totalQuestions = inProgressTest?.questionCount ?? 0;
+    const answeredQuestions = inProgressTest?.answeredCount ?? 0;
+    return Math.max(0, totalQuestions - answeredQuestions);
+  }, [inProgressTest?.answeredCount, inProgressTest?.questionCount]);
+  const inProgressRemainingTime = useMemo(() => {
+    const remainingSeconds = inProgressTest?.pausedRemainingSeconds;
+    if (
+      typeof remainingSeconds !== "number" ||
+      !Number.isFinite(remainingSeconds)
+    )
+      return "--:--";
+    return formatCountdown(remainingSeconds);
+  }, [inProgressTest?.pausedRemainingSeconds]);
 
   const buildSelectedTopicsPayload = (
     topicIds: string[]
@@ -955,70 +952,113 @@ const ProfileTest = () => {
           if (!isGeneratingQuickTest) setIsInProgressDialogOpen(open);
         }}
       >
-        <DialogContent className="max-w-lg rounded-[1.75rem] border-border/70 bg-background/95 p-0 shadow-[0_28px_64px_-44px_rgba(15,23,42,0.42)]">
-          <DialogHeader className="border-b border-border/70 bg-secondary/20 px-6 pt-6 pb-4 text-left">
-            <DialogTitle className="text-base font-semibold leading-tight">
-              {t("test.inProgressDialogTitle")}
-            </DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-              {t("test.inProgressDialogDescription", {
-                selection: inProgressSelectionLabel,
-                answeredCount: inProgressTest?.answeredCount ?? 0,
-                lastInteraction:
-                  inProgressTest?.lastInteractionAt &&
+        <DialogContent className="max-w-[42rem] overflow-hidden rounded-[2rem] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--background))_62%,hsl(var(--secondary)/0.24)_100%)] p-0 shadow-[0_34px_80px_-48px_rgba(15,23,42,0.42)] dark:shadow-[0_34px_80px_-52px_rgba(0,0,0,0.58)]">
+          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/35 to-transparent" />
+
+          <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
+            <DialogHeader className="space-y-3 text-left">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/[0.08] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+                <RotateCcw className="h-4 w-4" />
+              </div>
+              <DialogTitle className="text-xl font-serif leading-tight text-foreground">
+                {t("test.inProgressDialogTitle")}
+              </DialogTitle>
+              <DialogDescription className="max-w-md text-sm leading-6 text-muted-foreground">
+                {t("test.inProgressDialogHelper")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[1.35rem] border border-border/65 bg-background/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  <Clock3 className="h-3.5 w-3.5 text-primary/80" />
+                  <span>{t("test.inProgressDialogLastActivityLabel")}</span>
+                </div>
+                <p className="mt-3 text-sm font-medium leading-5 text-foreground">
+                  {inProgressTest?.lastInteractionAt &&
                   Number.isFinite(
                     new Date(inProgressTest.lastInteractionAt).valueOf()
                   )
                     ? new Date(
                         inProgressTest.lastInteractionAt
                       ).toLocaleString()
-                    : "-"
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="border-t border-border/70 bg-secondary/20 px-6 py-4 sm:justify-end">
-            <CustomButton
-              type="button"
-              styleType="menu"
-              radius="full"
-              onClick={() => setIsInProgressDialogOpen(false)}
-              disabled={isGeneratingQuickTest}
-            >
-              {t("test.inProgressDialogCancel")}
-            </CustomButton>
-            <CustomButton
-              type="button"
-              styleType="menu"
-              radius="full"
-              onClick={handleResumeInProgressTest}
-              disabled={isGeneratingQuickTest}
-            >
-              {t("test.inProgressDialogResume")}
-            </CustomButton>
-            <CustomButton
-              type="button"
-              styleType="primary"
-              radius="full"
-              onClick={() => {
-                void (async () => {
-                  setIsInProgressDialogOpen(false);
-                  await (pendingLaunchMode === "mock"
-                    ? iniciarSimulacro(true)
-                    : iniciarTestRapido(true));
-                })();
-              }}
-              disabled={isGeneratingQuickTest}
-            >
-              {isGeneratingQuickTest ? (
-                <>
-                  {t("test.quickDialogGenerating")}
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </>
-              ) : (
-                t("test.inProgressDialogConfirm")
-              )}
-            </CustomButton>
-          </DialogFooter>
+                    : "-"}
+                </p>
+              </div>
+
+              <div className="rounded-[1.35rem] border border-border/65 bg-background/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  <ListChecks className="h-3.5 w-3.5 text-primary/80" />
+                  <span>{t("test.inProgressDialogPendingQuestionsLabel")}</span>
+                </div>
+                <p className="mt-3 text-lg font-semibold tracking-tight text-foreground">
+                  {inProgressPendingQuestions}
+                  <span className="ml-1 text-sm font-medium text-muted-foreground">
+                    / {inProgressTest?.questionCount ?? 0}
+                  </span>
+                </p>
+              </div>
+
+              <div className="rounded-[1.35rem] border border-border/65 bg-background/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  <RotateCcw className="h-3.5 w-3.5 text-primary/80" />
+                  <span>{t("test.inProgressDialogRemainingTimeLabel")}</span>
+                </div>
+                <p className="mt-3 text-lg font-semibold tracking-tight text-foreground">
+                  {inProgressRemainingTime}
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CustomButton
+                type="button"
+                styleType="ghost"
+                radius="full"
+                className="w-full sm:w-auto"
+                onClick={() => setIsInProgressDialogOpen(false)}
+                disabled={isGeneratingQuickTest}
+              >
+                {t("test.inProgressDialogCancel")}
+              </CustomButton>
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                <CustomButton
+                  type="button"
+                  styleType="menu"
+                  radius="full"
+                  className="w-full sm:w-auto"
+                  onClick={() => {
+                    void (async () => {
+                      setIsInProgressDialogOpen(false);
+                      await (pendingLaunchMode === "mock"
+                        ? iniciarSimulacro(true)
+                        : iniciarTestRapido(true));
+                    })();
+                  }}
+                  disabled={isGeneratingQuickTest}
+                >
+                  {isGeneratingQuickTest ? (
+                    <>
+                      {t("test.quickDialogGenerating")}
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </>
+                  ) : (
+                    t("test.inProgressDialogConfirm")
+                  )}
+                </CustomButton>
+                <CustomButton
+                  type="button"
+                  styleType="primary"
+                  radius="full"
+                  className="w-full sm:w-auto"
+                  onClick={handleResumeInProgressTest}
+                  disabled={isGeneratingQuickTest}
+                >
+                  {t("test.inProgressDialogResume")}
+                </CustomButton>
+              </div>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

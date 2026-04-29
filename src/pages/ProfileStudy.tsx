@@ -87,7 +87,6 @@ const ProfileStudy = () => {
       <div className="relative flex h-full min-h-0 flex-col gap-3 px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
         <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-xl">
-            
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
               {t("profile:layout.menuItems.study")}
             </h1>

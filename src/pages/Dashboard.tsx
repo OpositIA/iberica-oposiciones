@@ -10,9 +10,13 @@ import CustomButton from "@/components/ui/custom-button";
 import Reveal from "@/components/ui/reveal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isPaidPlan } from "@/lib/plans";
+import { getStoredInProgressQuickTests } from "@/lib/quickTestStorage";
 import { WORKSPACE_TOUR_TARGETS } from "@/lib/workspaceTour";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
-import { fetchQuickTestsDashboardBundle } from "@/queries/testQueries";
+import {
+  fetchQuickTestsDashboardBundle,
+  type InProgressQuickTestSummary
+} from "@/queries/testQueries";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -132,6 +136,8 @@ const Dashboard = () => {
   const hasQuickTestsAccess = isPaidPlan(planState);
   const [visibleHistoryCount, setVisibleHistoryCount] =
     useState(HISTORY_PAGE_SIZE);
+  const [localInProgressQuickTest, setLocalInProgressQuickTest] =
+    useState<InProgressQuickTestSummary | null>(null);
 
   const { data: dashboardBundle, isLoading: isHistoryLoading } = useQuery({
     queryKey: user?.id
@@ -140,13 +146,49 @@ const Dashboard = () => {
     queryFn: () => fetchQuickTestsDashboardBundle(user?.id as string),
     enabled: Boolean(user?.id),
     staleTime: 30_000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: true
   });
 
   const quickTestStats = dashboardBundle?.stats;
-  const inProgressQuickTest = dashboardBundle?.inProgress ?? null;
+
+  useEffect(() => {
+    const refreshLocalInProgress = () => {
+      setLocalInProgressQuickTest(getStoredInProgressQuickTests()[0] ?? null);
+    };
+
+    refreshLocalInProgress();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshLocalInProgress();
+    };
+
+    window.addEventListener("focus", refreshLocalInProgress);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refreshLocalInProgress);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user?.id]);
+
+  const inProgressQuickTest = useMemo(() => {
+    const remoteInProgressQuickTest = dashboardBundle?.inProgress ?? null;
+    if (!localInProgressQuickTest) return remoteInProgressQuickTest;
+    if (!remoteInProgressQuickTest) return localInProgressQuickTest;
+
+    const localTimestamp = new Date(
+      localInProgressQuickTest.lastInteractionAt
+    ).valueOf();
+    const remoteTimestamp = new Date(
+      remoteInProgressQuickTest.lastInteractionAt
+    ).valueOf();
+
+    return localTimestamp >= remoteTimestamp
+      ? localInProgressQuickTest
+      : remoteInProgressQuickTest;
+  }, [dashboardBundle?.inProgress, localInProgressQuickTest]);
 
   const accountName = useMemo(() => {
     const fullName = `${profile?.firstName ?? ""} ${
@@ -534,9 +576,7 @@ const Dashboard = () => {
           </div>
 
           {hasHistoryData ? (
-            <div
-              className={`${chartSurfaceClassName} flex  flex-col px-4 py-4`}
-            >
+            <div className={`${chartSurfaceClassName} flex flex-col px-4 py-4`}>
               <div className="mb-5 border-b border-border/60 pb-4">
                 <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
                   {t("cards.completedTests")}
