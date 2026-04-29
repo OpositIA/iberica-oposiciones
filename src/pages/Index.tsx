@@ -1,5 +1,4 @@
-import heroImage from "@/assets/hero-image.jpg";
-import methodologyImage from "@/assets/methodology-image.jpg";
+import methodologyImage from "@/assets/methodology-image.webp";
 import CookieConsentManager from "@/components/CookieConsentManager";
 import CustomButton from "@/components/ui/custom-button";
 import Reveal from "@/components/ui/reveal";
@@ -9,6 +8,8 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
+
+const heroImage = "/hero-image.webp";
 
 const Index = () => {
   const { t } = useTranslation("landing");
@@ -98,6 +99,7 @@ const Index = () => {
             alt={t("heroImageAlt")}
             width={2752}
             height={1536}
+            loading="eager"
             fetchPriority="high"
             decoding="async"
             className="w-full h-full object-cover"

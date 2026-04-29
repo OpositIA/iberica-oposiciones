@@ -182,7 +182,7 @@ const ASK_ENDPOINT = `${
 }/functions/v1/ask`;
 const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-const ASSISTANT_RESPONSE_MAX_CHARS = 12000;
+const ASSISTANT_RESPONSE_MAX_CHARS = 20000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -386,15 +386,47 @@ const extractConceptMapFromPayload = (
 const serializeConceptMapForStorage = (conceptMap: ConceptMapData) =>
   `${CONCEPT_MAP_STORAGE_PREFIX}${JSON.stringify(conceptMap)}`;
 
+const stripUnsafeControlCharacters = (value: string) =>
+  value.replace(/[\s\S]/g, (character) => {
+    const code = character.charCodeAt(0);
+    return code <= 8 ||
+      code === 11 ||
+      code === 12 ||
+      (code >= 14 && code <= 31) ||
+      code === 127
+      ? ""
+      : character;
+  });
+
+const sanitizeAssistantMarkdown = (
+  value: unknown,
+  maxLength = ASSISTANT_RESPONSE_MAX_CHARS
+) => {
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  )
+    return "";
+
+  return stripUnsafeControlCharacters(String(value))
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .slice(0, maxLength)
+    .trim();
+};
+
 const parseAssistantContentFromStorage = (
   content: string
 ): AssistantContentParseResult => {
   if (!content.startsWith(CONCEPT_MAP_STORAGE_PREFIX))
-    return { text: content, conceptMap: null };
+    return { text: sanitizeAssistantMarkdown(content), conceptMap: null };
 
   const rawConceptMap = content.slice(CONCEPT_MAP_STORAGE_PREFIX.length);
   const parsedConceptMap = normalizeConceptMapData(parseJson(rawConceptMap));
-  if (!parsedConceptMap) return { text: content, conceptMap: null };
+  if (!parsedConceptMap)
+    return { text: sanitizeAssistantMarkdown(content), conceptMap: null };
 
   return {
     text: parsedConceptMap.title,
@@ -1231,10 +1263,17 @@ const AssistantIA = () => {
     if (!payload || typeof payload !== "object") return "";
 
     const data = payload as Record<string, unknown>;
-    const stringFields = ["message", "reply", "response", "text", "content"];
+    const stringFields = [
+      "answer",
+      "message",
+      "reply",
+      "response",
+      "text",
+      "content"
+    ];
     for (const field of stringFields) {
       const value = data[field];
-      const sanitized = sanitizeMultilineText(
+      const sanitized = sanitizeAssistantMarkdown(
         value,
         ASSISTANT_RESPONSE_MAX_CHARS
       );
@@ -1246,13 +1285,13 @@ const AssistantIA = () => {
       const firstChoice = choices[0] as
         | { message?: { content?: unknown }; text?: unknown }
         | undefined;
-      const messageContent = sanitizeMultilineText(
+      const messageContent = sanitizeAssistantMarkdown(
         firstChoice?.message?.content,
         ASSISTANT_RESPONSE_MAX_CHARS
       );
       if (messageContent) return messageContent;
 
-      const choiceText = sanitizeMultilineText(
+      const choiceText = sanitizeAssistantMarkdown(
         firstChoice?.text,
         ASSISTANT_RESPONSE_MAX_CHARS
       );
@@ -1435,7 +1474,7 @@ const AssistantIA = () => {
   };
 
   const renderAssistantContent = (content: string, _keyPrefix: string) => (
-    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-headings:text-foreground prose-p:my-2 prose-p:text-[15px] prose-p:leading-7 prose-p:text-foreground/95 prose-strong:text-foreground prose-strong:font-semibold prose-em:text-foreground/90 prose-ul:my-2 prose-ul:pl-6 prose-ol:my-2 prose-ol:pl-6 prose-li:my-0.5 prose-li:text-[15px] prose-li:leading-7 prose-li:text-foreground/95 prose-blockquote:border-primary/40 prose-blockquote:text-foreground/80 prose-hr:my-4 prose-hr:border-border/60 prose-code:rounded prose-code:bg-secondary/40 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto prose-pre:rounded-lg prose-pre:border prose-pre:border-border/60 prose-pre:bg-secondary/30 prose-pre:p-3 prose-pre:text-foreground prose-table:text-sm prose-table:text-foreground prose-thead:border-b prose-thead:border-border/70 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-foreground prose-td:border-b prose-td:border-border/40 prose-td:px-3 prose-td:py-2 prose-td:text-foreground/90 prose-tr:odd:bg-background prose-tr:even:bg-secondary/15 marker:text-primary/80">
+    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-headings:text-foreground prose-p:my-2 prose-p:text-[15px] prose-p:leading-7 prose-p:text-foreground/95 prose-strong:text-foreground prose-strong:font-semibold prose-em:text-foreground/90 prose-ul:my-2 prose-ul:pl-6 prose-ol:my-2 prose-ol:pl-6 prose-li:my-0.5 prose-li:text-[15px] prose-li:leading-7 prose-li:text-foreground/95 prose-blockquote:border-primary/40 prose-blockquote:text-foreground/80 prose-hr:my-4 prose-hr:border-border/60 prose-code:rounded prose-code:bg-secondary/40 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-foreground prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto prose-pre:rounded-lg prose-pre:border prose-pre:border-border/60 prose-pre:bg-secondary/30 prose-pre:p-3 prose-pre:text-foreground prose-table:text-sm prose-table:text-foreground prose-thead:border-b prose-thead:border-border/70 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-foreground prose-td:border-b prose-td:border-border/40 prose-td:px-3 prose-td:py-2 prose-td:text-foreground/90 prose-tr:odd:bg-background prose-tr:even:bg-secondary/15 marker:text-primary/80 [&_ol_ol]:mt-1 [&_ol_ul]:mt-1 [&_ul_ol]:mt-1 [&_ul_ul]:mt-1 [&_ol_ol]:pl-5 [&_ol_ul]:pl-5 [&_ul_ol]:pl-5 [&_ul_ul]:pl-5">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>
   );
