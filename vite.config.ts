@@ -17,6 +17,41 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/scheduler/")
+          )
+            return "react-core";
+
+          if (id.includes("node_modules/react-router-dom/"))
+            return "react-router";
+
+          if (
+            id.includes("node_modules/i18next/") ||
+            id.includes("node_modules/react-i18next/") ||
+            id.includes("node_modules/i18next-resources-to-backend/")
+          )
+            return "i18n";
+
+          if (id.includes("node_modules/@tanstack/react-query/"))
+            return "react-query";
+
+          if (id.includes("node_modules/@supabase/")) return "supabase";
+
+          if (id.includes("node_modules/@radix-ui/")) return "radix-ui";
+
+          if (id.includes("node_modules/lucide-react/")) return "icons";
+
+          if (
+            id.includes("node_modules/clsx/") ||
+            id.includes("node_modules/tailwind-merge/") ||
+            id.includes("node_modules/class-variance-authority/")
+          )
+            return "ui-utils";
+
           if (id.includes("react-pdf") || id.includes("pdfjs-dist"))
             return "pdf-viewer";
 
@@ -25,8 +60,6 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("recharts")) return "charts";
 
           if (id.includes("react-markdown")) return "markdown";
-
-          if (id.includes("node_modules")) return "vendor";
         }
       }
     }

@@ -1,10 +1,10 @@
-import eduardoPhoto from "@/assets/Edu.jpg";
-import oscarPhoto from "@/assets/oscar.jpeg";
+import eduardoPhoto from "@/assets/Edu.webp";
+import oscarPhoto from "@/assets/oscar.webp";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import Reveal from "@/components/ui/reveal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type TeamMember = {
@@ -32,11 +32,9 @@ const FooterAbout = () => {
     eduardo: eduardoPhoto,
     oscar: oscarPhoto
   };
-  const teamImageSources = useMemo(() => [eduardoPhoto, oscarPhoto], []);
   const [isPageReady, setIsPageReady] = useState(
     typeof document !== "undefined" && document.readyState === "complete"
   );
-  const [areTeamImagesReady, setAreTeamImagesReady] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -50,36 +48,6 @@ const FooterAbout = () => {
     return () => window.removeEventListener("load", handleLoad);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let isCancelled = false;
-
-    const loadImage = (src: string) =>
-      new Promise<void>((resolve) => {
-        const image = new window.Image();
-        image.src = src;
-
-        if (image.complete) {
-          resolve();
-          return;
-        }
-
-        image.onload = () => resolve();
-        image.onerror = () => resolve();
-      });
-
-    Promise.all(teamImageSources.map(loadImage)).then(() => {
-      if (!isCancelled) setAreTeamImagesReady(true);
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [teamImageSources]);
-
-  const isContentReady = isPageReady && areTeamImagesReady;
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="bg-charcoal">
@@ -91,7 +59,7 @@ const FooterAbout = () => {
         <div className="absolute left-0 top-0 h-80 w-full bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.16),transparent_36%),radial-gradient(circle_at_82%_12%,hsl(var(--accent)/0.16),transparent_30%)]" />
 
         <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 md:px-8 md:pb-24 md:pt-14">
-          {isContentReady ? (
+          {isPageReady ? (
             <div className="animate-in fade-in-0 duration-700">
               <Reveal
                 as="header"
@@ -130,7 +98,8 @@ const FooterAbout = () => {
                           src={teamImages[member.id]}
                           alt={member.imageAlt}
                           className="h-full w-full object-cover object-center"
-                          loading="eager"
+                          loading={index === 0 ? "eager" : "lazy"}
+                          fetchPriority={index === 0 ? "high" : "auto"}
                           decoding="async"
                         />
                       </div>

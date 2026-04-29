@@ -19,13 +19,28 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    const updateScrollState = () => {
-      setIsScrolled(window.scrollY > 16);
-    };
+    if (
+      typeof document === "undefined" ||
+      typeof IntersectionObserver === "undefined"
+    )
+      return;
 
-    updateScrollState();
-    window.addEventListener("scroll", updateScrollState, { passive: true });
-    return () => window.removeEventListener("scroll", updateScrollState);
+    const scrollMarker = document.createElement("span");
+    scrollMarker.setAttribute("aria-hidden", "true");
+    scrollMarker.style.cssText =
+      "position:absolute;top:16px;left:0;width:1px;height:1px;pointer-events:none;opacity:0;";
+    document.body.prepend(scrollMarker);
+
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsScrolled(!entry.isIntersecting);
+    });
+
+    observer.observe(scrollMarker);
+
+    return () => {
+      observer.disconnect();
+      scrollMarker.remove();
+    };
   }, []);
 
   return (
