@@ -273,6 +273,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         `auth:hydrate-session:${fingerprint}`,
         async () => {
           if (!isMounted) return;
+          setIsAuthReady(false);
           setSession(nextSession);
           setUser(nextSession.user ?? null);
           applyLightThemeOnFirstLogin({
@@ -282,7 +283,6 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           });
           setProfile(buildProfileSnapshot(null, nextSession.user));
           resetAuthFailureGuard();
-          setIsAuthReady(true);
           hydratedSessionFingerprintRef.current = fingerprint;
 
           let loadedLocale = DEFAULT_LOCALE;
@@ -314,6 +314,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
             });
           }
           if (!isMounted) return;
+          setIsAuthReady(true);
         },
         { reuseResultForMs: 1500 }
       );
