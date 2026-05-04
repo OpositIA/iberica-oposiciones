@@ -23,7 +23,6 @@ const FooterPrivacy = lazy(() => import("./pages/FooterPrivacy"));
 const FooterTerms = lazy(() => import("./pages/FooterTerms"));
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
-const MiPerfil = lazy(() => import("./pages/MiPerfil"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PlanSelection = lazy(() => import("./pages/PlanSelection"));
 const Plans = lazy(() => import("./pages/Plans"));
@@ -196,7 +195,11 @@ const App = () => (
                 path="/perfil/pago-fallido"
                 element={<ProfileBillingIssue />}
               />
-              <Route path="/perfil/soporte" element={<Support />} />
+              <Route
+                path="/perfil/soporte"
+                element={<Navigate to="/soporte" replace />}
+              />
+              <Route path="/soporte" element={<Support />} />
               <Route path="/perfil/test" element={<ProfileTest />} />
               <Route
                 path="/perfil/test/:testId"
@@ -216,7 +219,7 @@ const App = () => (
                 element={<Navigate to="/perfil/pomodoro" replace />}
               />
               <Route path="/perfil/pomodoro" element={<ProfileStudy />} />
-              <Route path="/perfil/mi-perfil" element={<MiPerfil />} />
+              <Route path="/perfil/mi-perfil" element={<Support />} />
               <Route
                 path="/perfil/estadisticas"
                 element={<Navigate to="/dashboard" replace />}

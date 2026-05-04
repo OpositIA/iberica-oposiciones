@@ -141,6 +141,7 @@ const SeoManager = () => {
         default:
           if (
             location.pathname === "/dashboard" ||
+            location.pathname === "/soporte" ||
             location.pathname === "/seleccion-plan" ||
             location.pathname.startsWith("/perfil")
           ) {

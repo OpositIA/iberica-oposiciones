@@ -17,7 +17,6 @@ import {
   CircleUserRound,
   FileText,
   LayoutDashboard,
-  LifeBuoy,
   LogOut,
   NotebookText,
   Sparkles,
@@ -150,12 +149,6 @@ const UserActionsDropdown = ({
           <Link to="/perfil/asistente-ia" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
             {t("profile:layout.menuItems.ia")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/perfil/soporte" className="flex items-center gap-2">
-            <LifeBuoy className="h-4 w-4" />
-            {t("profile:layout.menuItems.support")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={dropdownActionClassName}>

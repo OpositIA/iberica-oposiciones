@@ -3,7 +3,16 @@
     "allow": [
       "Bash(curl -s -H 'Accept: application/json' https://www.boe.es/datosabiertos/api/boe/sumario/20251231)",
       "Bash(node -e \":*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(curl -s -L \"https://api.anthropic.com/v1/design/h/oi_Re6Me8ou_REFU-_rDgA?open_file=Profile+Support.html\" --max-filesize 5000000 -o /tmp/design_output.html)",
+      "Bash(echo \"Exit: $?\")",
+      "Read(//tmp/**)",
+      "Bash(xxd /tmp/design_output.html)",
+      "Bash(cp /tmp/design_output.html /tmp/design_output.gz)",
+      "Bash(gunzip -c /tmp/design_output.gz)",
+      "Bash(mkdir -p /tmp/design_pkg)",
+      "Bash(tar -xf /tmp/design_extracted.html -C /tmp/design_pkg)"
     ]
   }
 }
