@@ -122,7 +122,8 @@
       "selectOption": "Selecciona una opcion",
       "description": "Si cambias de oposicion, los apartados de Test y Temario se ajustaran a la nueva seleccion.",
       "change": "Cambiar",
-      "changing": "Cambiando..."
+      "changing": "Cambiando...",
+      "lockedDescription": "Ya has cambiado tu oposicion una vez. No es posible volver a cambiarla."
     },
     "paymentSection": {
       "badge": "Facturacion",
@@ -136,9 +137,183 @@
     "dialog": {
       "title": "Confirmar cambio de oposicion",
       "description": "Vas a cambiar tu oposicion activa a \"{{opposition}}\". Quieres continuar?",
+      "warning": "Esta es tu unica oportunidad de cambiar de oposicion. Una vez confirmado no podras volver a modificarla.",
       "confirm": "Confirmar cambio",
       "changing": "Cambiando...",
       "cancel": "Cancelar"
+    }
+  },
+  "fieldRow": {
+    "edit": "Editar"
+  },
+  "tabs": {
+    "profile": "Mi perfil",
+    "help": "Centro de ayuda",
+    "contact": "Contactar",
+    "tickets": "Mis consultas"
+  },
+  "profileView": {
+    "planPro": "Plan profesional",
+    "planFree": "Plan gratuito",
+    "edit": "Editar",
+    "noOpposition": "Sin oposición seleccionada",
+    "fullName": "Nombre completo",
+    "email": "Correo electrónico",
+    "opposition": "Oposición objetivo",
+    "activity": {
+      "title": "Tu actividad",
+      "completedTests": "Tests completados",
+      "globalAverage": "Media global",
+      "averageAccuracy": "Precisión media"
+    },
+    "actionCards": {
+      "changePassword": "Cambiar contraseña",
+      "changePasswordDesc": "Mantén tu cuenta segura.",
+      "privacy": "Privacidad y datos",
+      "privacyDesc": "Gestiona tu información."
+    },
+    "planPanel": {
+      "proTitle": "Tienes todo desbloqueado.",
+      "freeTitle": "Actualiza para desbloquear todo.",
+      "proDesc": "Tests ilimitados, AsistenteIA y temario completo.",
+      "freeDesc": "Accede a tests ilimitados y al AsistenteIA."
+    }
+  },
+  "editProfile": {
+    "overline": "Perfil",
+    "title": "Editar tu información",
+    "desc": "Mantén tus datos al día. Algunos cambios se reflejan de inmediato en toda la aplicación.",
+    "avatarAlt": "Foto de perfil",
+    "avatarFormat": "PNG, JPG, WEBP o GIF. Máximo 2 MB.",
+    "changePhoto": "Cambiar foto",
+    "changingPhoto": "Actualizando...",
+    "removePhoto": "Quitar",
+    "fieldName": "Nombre",
+    "fieldLastName": "Apellidos",
+    "fieldEmail": "Correo electrónico",
+    "fieldLocale": "Idioma de la app",
+    "fieldOpposition": "Oposición objetivo",
+    "selectOpposition": "Selecciona una oposición",
+    "oppositionLocked": "Ya has cambiado tu oposición una vez. No es posible volver a cambiarla.",
+    "changesNote": "Los cambios se guardan en tu cuenta personal.",
+    "cancel": "Cancelar",
+    "save": "Guardar cambios",
+    "saving": "Guardando…",
+    "dialog": {
+      "title": "Confirmar cambio de oposición",
+      "description": "Vas a cambiar tu oposición activa a \"{{name}}\". ¿Quieres continuar?",
+      "warning": "Esta es tu única oportunidad de cambiar de oposición. Una vez confirmado no podrás volver a modificarla.",
+      "confirm": "Confirmar cambio",
+      "changing": "Guardando…",
+      "cancel": "Cancelar"
+    },
+    "toasts": {
+      "invalidFormat": "Sube una imagen PNG, JPG, WEBP o GIF.",
+      "imageTooLarge": "La imagen no puede superar 2 MB.",
+      "invalidSession": "Inicia sesión de nuevo para cambiar tu foto.",
+      "uploadFailed": "No se pudo subir la imagen.",
+      "avatarSaveFailed": "No se pudo guardar la foto de perfil.",
+      "avatarUpdated": "Foto de perfil actualizada correctamente.",
+      "avatarRemoveFailed": "No se pudo quitar la foto de perfil.",
+      "avatarRemoved": "Foto de perfil eliminada correctamente.",
+      "nameRequired": "El nombre es obligatorio.",
+      "lastNameRequired": "El apellido es obligatorio.",
+      "saveFailed": "Error al guardar los cambios.",
+      "saved": "Perfil actualizado correctamente."
+    }
+  },
+  "changePassword": {
+    "overline": "Seguridad",
+    "title": "Cambiar contraseña",
+    "desc": "Por seguridad, cerraremos las demás sesiones activas tras el cambio.",
+    "fieldNew": "Nueva contraseña",
+    "fieldNewPlaceholder": "Mínimo 8 caracteres",
+    "fieldConfirm": "Confirmar contraseña",
+    "fieldConfirmPlaceholder": "Repite la contraseña",
+    "strengthPrefix": "Seguridad",
+    "strengthWeak": "Débil",
+    "strengthFair": "Aceptable",
+    "strengthGood": "Buena",
+    "strengthStrong": "Excelente",
+    "reqLength": "8 caracteres o más",
+    "reqUpperLower": "Mayúsculas y minúsculas",
+    "reqNumber": "Al menos un número",
+    "reqSymbol": "Al menos un símbolo",
+    "sessionWarning": "Cuando cambies la contraseña, se cerrarán las sesiones en otros dispositivos. Tendrás que volver a iniciar sesión donde lo necesites.",
+    "cancel": "Cancelar",
+    "save": "Actualizar contraseña",
+    "saving": "Guardando…",
+    "errors": {
+      "minRequirements": "La contraseña no cumple los requisitos mínimos.",
+      "mismatch": "Las contraseñas no coinciden."
+    },
+    "toasts": {
+      "saveFailed": "Error al actualizar la contraseña.",
+      "saved": "Contraseña actualizada correctamente."
+    }
+  },
+  "privacy": {
+    "overline": "Privacidad y datos",
+    "title": "Tus datos, bajo tu control",
+    "desc": "Cumplimos íntegramente el Reglamento General de Protección de Datos (RGPD). Aquí puedes ejercer todos tus derechos.",
+    "permissionsTitle": "Permisos y comunicaciones",
+    "permissionsDesc": "Controla cómo usamos tus datos. Estos cambios son inmediatos.",
+    "toggleNews": "Email de novedades del producto",
+    "toggleNewsDesc": "Nuevos tests, mejoras del asistente y cambios importantes.",
+    "toggleAnalytics": "Análisis de uso anónimo",
+    "toggleAnalyticsDesc": "Nos ayuda a mejorar tests y ranking de respuestas.",
+    "dangerZone": "Zona crítica",
+    "deleteTitle": "Eliminar mi cuenta",
+    "deleteCta": "Eliminar cuenta",
+    "toasts": {
+      "saveFailed": "Error al guardar los cambios."
+    }
+  },
+  "contactTab": {
+    "overline": "Contactar con soporte",
+    "title": "Cuéntanos qué necesitas.",
+    "desc": "Cuanto más detalle nos des, antes podremos resolverlo. Respondemos en menos de 24 horas hábiles.",
+    "topicLabel": "Tema de la consulta",
+    "fieldSubject": "Asunto",
+    "fieldSubjectPlaceholder": "Resumen breve de tu consulta",
+    "fieldMessage": "Mensaje",
+    "fieldMessagePlaceholder": "Describe lo que ha pasado, cuándo y qué esperabas ver. Si es un error técnico, indica navegador y dispositivo.",
+    "autoSession": "Adjuntaremos datos de tu sesión automáticamente para acelerar la respuesta.",
+    "cancel": "Cancelar",
+    "send": "Enviar consulta",
+    "sending": "Enviando…",
+    "topics": {
+      "account": "Mi cuenta",
+      "billing": "Facturación",
+      "tests": "Error en un test",
+      "ai": "AsistenteIA",
+      "technical": "Otro asunto"
+    },
+    "errors": {
+      "subject": "Añade un asunto breve.",
+      "message": "Cuéntanos un poco más (mínimo 20 caracteres)."
+    },
+    "successOverline": "Ticket creado",
+    "successTitle": "Mensaje enviado",
+    "successDesc": "Hemos recibido tu consulta. Recibirás respuesta en menos de 24 horas hábiles en {{email}}.",
+    "sendAnother": "Enviar otra",
+    "viewTickets": "Ver mis consultas",
+    "sidebarOverline": "Antes de escribirnos",
+    "sidebarDesc": "Estos artículos resuelven el {{pct}}% de las consultas que recibimos.",
+    "availabilityTitle": "Disponibilidad",
+    "availabilityActive": "El formulario de contacto está activo. Respondemos en menos de 24 horas hábiles.",
+    "availabilityInactive": "El formulario de contacto no está disponible en este momento. Contáctanos por email.",
+    "sidebarLinks": [
+      "Renovación y cancelación del plan",
+      "Reportar un error en un test",
+      "Recuperar la contraseña"
+    ],
+    "toasts": {
+      "receivedTitle": "Formulario recibido",
+      "sentTitle": "Consulta enviada",
+      "sentDesc": "Hemos recibido tu consulta. Te responderemos en menos de 24 horas hábiles.",
+      "errorTitle": "Error al enviar",
+      "errorDesc": "No se pudo enviar tu consulta. Por favor, inténtalo de nuevo."
     }
   },
   "test": {

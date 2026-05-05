@@ -19,7 +19,7 @@ import {
   createStripeCheckoutSession,
   usePublicSubscriptionPlansQuery
 } from "@/queries/subscriptionQueries";
-import { ArrowRight, CheckCircle2, Crown } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
@@ -271,19 +271,18 @@ const RegisterPlanSelection = () => {
                 return (
                   <article
                     key={plan.code}
-                    className={`relative flex cursor-pointer flex-col overflow-hidden rounded-[1.5rem] border p-5 transition-all duration-200 md:p-6 ${
+                    className={`relative flex cursor-pointer flex-col overflow-hidden rounded-[1.5rem] border-2 p-5 transition-all duration-200 md:p-6 ${
                       isSelected
-                        ? "border-primary/45 bg-secondary/20 shadow-[0_22px_50px_-40px_rgba(15,23,42,0.18)]"
+                        ? "border-primary bg-primary/8 shadow-[0_0_0_4px_hsl(var(--primary)/0.12),0_22px_50px_-30px_rgba(15,23,42,0.25)]"
                         : plan.featured
-                          ? "border-primary/45 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_22px_50px_-40px_rgba(15,23,42,0.82)]"
-                          : "border-foreground/20 bg-background/80 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.06),0_18px_44px_-36px_rgba(15,23,42,0.45)]"
+                          ? "border-primary/30 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9))] text-primary-foreground shadow-[0_22px_50px_-40px_rgba(15,23,42,0.82)]"
+                          : "border-foreground/15 bg-background/80 text-foreground shadow-[0_0_0_1px_hsl(var(--foreground)/0.06),0_18px_44px_-36px_rgba(15,23,42,0.45)]"
                     }`}
                     onClick={() => setSelectedPlanCode(plan.code)}
                   >
-                    {plan.featured && (
-                      <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/20 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-primary-foreground">
-                        <Crown className="h-2.5 w-2.5" />
-                        {t("plans:featured")}
+                    {isSelected && (
+                      <div className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <CheckCircle2 className="h-4 w-4" />
                       </div>
                     )}
 

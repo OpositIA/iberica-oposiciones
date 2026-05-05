@@ -1,4 +1,7 @@
 {
+  "pageHeader": {
+    "back": "Back"
+  },
   "page": {
     "badge": "Support",
     "title": "Clear help for account, tests, and AI",
@@ -109,12 +112,44 @@
           "description": "In an AI-powered exam prep product, concrete reports are more useful than generic complaints."
         }
       ]
+    },
+    "hero": {
+      "overline": "Help center",
+      "title": "How can we help?",
+      "description": "Search FAQs or write to us. We respond in less than 24 business hours.",
+      "searchPlaceholder": "E.g.: How do I cancel my subscription?",
+      "clear": "Clear"
+    },
+    "emptyResults": {
+      "title": "No results found for \"{{query}}\"",
+      "description": "Write to us and a human from the team will help.",
+      "cta": "Contact"
+    },
+    "usefulQuestion": "Helpful?",
+    "sidebar": {
+      "noAnswer": "Can't find an answer?",
+      "talkToPerson": "Talk to a person.",
+      "contactForm": "Contact form",
+      "responseTime": "We respond in less than 24h",
+      "emailResponseTime": "Response in less than 24h",
+      "openQuery": "Open query",
+      "myQueries": "My queries",
+      "openConversations": "You have <1>1 open conversation</1> and 2 resolved.",
+      "viewFullHistory": "View full history"
     }
   },
   "faq": {
     "title": "Frequently asked questions",
     "description": "Realistic questions for an AI-assisted exam prep app, organized by the areas that matter most for daily study.",
     "allCategories": "All",
+    "categories": {
+      "all": "All",
+      "account": "Account",
+      "billing": "Billing",
+      "tests": "Tests",
+      "ai": "AI Assistant",
+      "incidents": "Errors or incidents"
+    },
     "groups": [
       {
         "id": "account-access",
@@ -431,6 +466,51 @@
       "unconfiguredDescription": "The form is ready, but this environment still needs a configured channel to receive reports."
     }
   },
+  "systemStatus": {
+    "title": "System status",
+    "operational": "Operational",
+    "allServicesNormal": "All services are running normally."
+  },
+  "tickets": {
+    "overline": "My queries",
+    "pageTitle": "Ticket history",
+    "subtitle": "All your support conversations are here.",
+    "newQuery": "New query",
+    "filters": {
+      "all": "All",
+      "open": "Open",
+      "resolved": "Resolved"
+    },
+    "status": {
+      "open": "In progress",
+      "awaiting": "Awaiting your reply",
+      "resolved": "Resolved"
+    },
+    "empty": {
+      "title": "No queries in this category",
+      "description": "When you contact support, conversations will appear here.",
+      "cta": "Open query"
+    },
+    "meta": {
+      "messages": "{{count}} messages",
+      "updated": "Updated {{date}}"
+    }
+  },
+  "supportChat": {
+    "overline": "Support",
+    "title": "Chat with support",
+    "desc": "Conversation associated with {{ticketId}}. The transcript is saved in your tickets.",
+    "online": "Online · replies in ~2 min",
+    "endChat": "End chat",
+    "attachFile": "Attach file",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "fallbackSubject": "Support query",
+    "attachmentPrefix": "Support",
+    "fallbackTicket": "your ticket",
+    "level2": "Level 2 support",
+    "footerNote": "We automatically attach your session and plan data to speed up the response."
+  },
   "aboutAi": {
     "title": "About AI",
     "description": "AI is meant to help you study better, not to replace critical review of the content.",
@@ -455,6 +535,54 @@
       "title": "Important note",
       "description": "AI-assisted explanations may not always be perfect. If you detect something incorrect or doubtful, you can verify it and report it from this same section.",
       "cta": "Go to reports"
+    }
+  },
+  "deleteAccount": {
+    "title": "Delete account",
+    "description": "Are you sure you want to delete your account?",
+    "warning": "This action is irreversible. Before continuing, we want to make sure you understand what you will lose.",
+    "pauseHint": "Just want to pause? You can cancel renewal and keep your free account with all your progress intact.",
+    "items": [
+      "Your test history and accumulated progress",
+      "Your complete history with the AI Assistant",
+      "Your registered study sessions",
+      "Your active plan (not refundable)"
+    ],
+    "keepAccount": "Keep account",
+    "continueDelete": "Continue deletion",
+    "confirmWord": "DELETE",
+    "step2Continue": "Continue",
+    "reasons": [
+      "I passed my exam 🎉",
+      "The price is too high",
+      "Missing features I need",
+      "I found another platform",
+      "I don't use it enough",
+      "Other reason"
+    ],
+    "step2Overline": "Step 2 of 3",
+    "step2Title": "Why are you leaving?",
+    "step2Desc": "Your answer helps us improve. It is optional but very valuable.",
+    "step3Overline": "Step 3 of 3 · final confirmation",
+    "step3Title": "Final confirmation",
+    "placeholder": "Type DELETE",
+    "hint": "Uppercase, no spaces.",
+    "back": "Back",
+    "step2Continue": "Continue",
+    "confirm": "Delete my account",
+    "confirmWord": "DELETE",
+    "processing": "Processing…"
+  },
+  "accountDeletion": {
+    "dangerDescription": "We will mark your profile as deleted, sign you out, and release your email so you can register again from scratch. Invoices are kept for tax obligations.",
+    "irreversible": "This action cannot be undone.",
+    "finalConfirmationPrefix": "To confirm, type",
+    "finalConfirmationSuffix": " below. Your profile will be marked as deleted and the session will be closed immediately.",
+    "toasts": {
+      "successTitle": "Account deleted",
+      "successDescription": "The account has been marked as deleted and the session has been closed.",
+      "errorTitle": "Unable to delete account",
+      "errorDescription": "Please try again in a few minutes."
     }
   },
   "validation": {

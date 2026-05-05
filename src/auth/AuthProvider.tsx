@@ -145,6 +145,32 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     []
   );
 
+  const loadUserDeletedState = useCallback(
+    async (userId: string): Promise<boolean> =>
+      runSingleFlight(
+        `auth:load-deleted-state:${userId}`,
+        async () => {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("is_deleted")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (error) {
+            authLog("No se pudo cargar estado deleted desde profiles", {
+              userId,
+              error: error.message
+            });
+            return false;
+          }
+
+          return data?.is_deleted === true;
+        },
+        { reuseResultForMs: 1500 }
+      ),
+    []
+  );
+
   const loadUserProfile = useCallback(
     async (authUser: User) =>
       runSingleFlight(`auth:load-profile:${authUser.id}`, async () => {
@@ -288,6 +314,12 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           let loadedLocale = DEFAULT_LOCALE;
           let loadedProfile = buildProfileSnapshot(null, nextSession.user);
           try {
+            const isDeleted = await loadUserDeletedState(nextSession.user.id);
+            if (isDeleted) {
+              await forceLogout("account_soft_deleted");
+              return;
+            }
+
             const [resolvedLocale, resolvedProfile] = await Promise.all([
               loadUserLocale(nextSession.user.id),
               loadUserProfile(nextSession.user)
@@ -448,6 +480,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   }, [
     applyLocale,
     forceLogout,
+    loadUserDeletedState,
     loadUserLocale,
     loadUserProfile,
     navigate,

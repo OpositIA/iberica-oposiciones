@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateQuickTestAttempt,
+  resolveQuickTestHistoryStatus,
   type OppositionTestExamConfig
 } from "@/queries/testQueries";
 
@@ -81,5 +82,26 @@ describe("evaluateQuickTestAttempt", () => {
     expect(result.wrongCount).toBe(1);
     expect(result.score).toBeCloseTo(7.5, 2);
     expect(result.scoreScaleMax).toBe(10);
+  });
+});
+
+describe("resolveQuickTestHistoryStatus", () => {
+  it("uses the configured opposition score scale and passing score", () => {
+    expect(
+      resolveQuickTestHistoryStatus({
+        score: 22,
+        scoreScaleMax: 50,
+        passingScore: 25
+      })
+    ).toBe("reinforce");
+  });
+
+  it("keeps the legacy 0-10 thresholds when no passing score exists", () => {
+    expect(
+      resolveQuickTestHistoryStatus({
+        score: 8.5,
+        scoreScaleMax: 10
+      })
+    ).toBe("excellent");
   });
 });

@@ -294,7 +294,7 @@ const Login = () => {
 
     setIsLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password
     });
@@ -308,6 +308,26 @@ const Login = () => {
       });
       setIsLoading(false);
       return;
+    }
+
+    const userId = signInData.user?.id;
+    if (userId) {
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("is_deleted")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (profileRow?.is_deleted === true) {
+        await supabase.auth.signOut();
+        toast({
+          variant: "destructive",
+          title: t("auth:login.errors.deletedAccountTitle"),
+          description: t("auth:login.errors.deletedAccountDescription")
+        });
+        setIsLoading(false);
+        return;
+      }
     }
 
     navigate("/dashboard", { replace: true });

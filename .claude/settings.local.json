@@ -12,7 +12,9 @@
       "Bash(cp /tmp/design_output.html /tmp/design_output.gz)",
       "Bash(gunzip -c /tmp/design_output.gz)",
       "Bash(mkdir -p /tmp/design_pkg)",
-      "Bash(tar -xf /tmp/design_extracted.html -C /tmp/design_pkg)"
+      "Bash(tar -xf /tmp/design_extracted.html -C /tmp/design_pkg)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__apply_migration"
     ]
   }
 }

@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import ConfirmActionDialog from "@/components/ConfirmActionDialog";
 import {
   Accordion,
   AccordionContent,
@@ -14,7 +15,11 @@ import { resolveOppositionNameById } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale, type AppLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
-import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
+import {
+  sanitizeCode,
+  sanitizeSingleLineText,
+  sanitizeUrl
+} from "@/lib/inputSanitization";
 import { isPaidPlan } from "@/lib/plans";
 import {
   useOppositionOptionsQuery,
@@ -27,6 +32,7 @@ import {
 } from "@/queries/subscriptionQueries";
 import { fetchQuickTestsDashboardBundle } from "@/queries/testQueries";
 import {
+  softDeleteAccount,
   submitSupportContactForm,
   supportChannelAvailability
 } from "@/support/supportApi";
@@ -38,8 +44,8 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  Bell,
   BookOpen,
+  Camera,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -58,10 +64,19 @@ import {
   Search,
   Send,
   Shield,
+  ThumbsDown,
+  ThumbsUp,
   Trash2
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent
+} from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -75,81 +90,41 @@ type RouteName =
   | "support-chat";
 type RouteState = { name: RouteName; ticketId?: string };
 
-// ─── FAQ Data ─────────────────────────────────────────────────────────────────
+const AVATAR_BUCKET = "profile-avatars";
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const ALLOWED_AVATAR_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif"
+]);
 
-const FAQ_CATEGORIES = [
-  { id: "all", label: "Todas" },
-  { id: "account", label: "Cuenta" },
-  { id: "billing", label: "Facturación" },
-  { id: "tests", label: "Tests" },
-  { id: "ia", label: "Asistente IA" },
-  { id: "privacy", label: "Privacidad" }
-] as const;
+const sanitizeAvatarForMetadata = (value: string) => sanitizeUrl(value);
 
-type FaqCat = "account" | "billing" | "tests" | "ia" | "privacy";
+const extractAvatarStoragePath = (value: string) => {
+  const sanitized = sanitizeAvatarForMetadata(value);
+  if (!sanitized) return null;
 
-const FAQS: { cat: FaqCat; q: string; a: string }[] = [
-  {
-    cat: "account",
-    q: "¿Cómo cambio mi correo electrónico?",
-    a: "Desde Perfil → Editar perfil puedes actualizar tu nombre y datos básicos. El correo electrónico está vinculado a tu cuenta de acceso y requiere verificación para cambios sensibles."
-  },
-  {
-    cat: "account",
-    q: "He olvidado mi contraseña, ¿cómo la recupero?",
-    a: 'En la pantalla de inicio de sesión pulsa "¿Olvidaste tu contraseña?". Recibirás un correo con un enlace válido durante 30 minutos para definir una nueva. Si no llega, revisa la carpeta de spam.'
-  },
-  {
-    cat: "account",
-    q: "¿Puedo eliminar mi cuenta y mis datos?",
-    a: "Sí. En Perfil → Privacidad y datos puedes solicitar el borrado completo. Procesamos la petición en 72 horas y eliminamos progreso, historial y datos personales conforme al RGPD. Las facturas se conservan por obligación fiscal."
-  },
-  {
-    cat: "billing",
-    q: "¿Cuándo se renueva mi suscripción?",
-    a: "Tu plan se renueva automáticamente el mismo día del mes en que te suscribiste. Recibirás un recordatorio por email 3 días antes. Puedes cancelar en cualquier momento desde el portal de facturación."
-  },
-  {
-    cat: "billing",
-    q: "¿Cómo descargo mis facturas?",
-    a: "Las facturas en PDF están disponibles en el portal de facturación, accesible desde Perfil → Suscripción y facturación. Cada cargo genera una factura automática con tus datos fiscales."
-  },
-  {
-    cat: "billing",
-    q: "¿Puedo cambiar de plan a mitad de mes?",
-    a: "Sí. Al subir de plan se aplica de inmediato y solo cobramos la diferencia prorrateada por los días restantes. Al bajar, el cambio es efectivo en el siguiente ciclo."
-  },
-  {
-    cat: "tests",
-    q: "¿Por qué un test marca mi respuesta como incorrecta?",
-    a: 'Si detectas un error en un enunciado o respuesta, repórtalo desde el botón "Reportar" al finalizar el test. Nuestro equipo lo revisa en menos de 48h.'
-  },
-  {
-    cat: "tests",
-    q: "¿Puedo repetir un test y mantener el historial?",
-    a: "Sí. Cada intento se guarda como una sesión separada. La nota más alta se considera tu mejor resultado y verás la evolución completa en tus estadísticas."
-  },
-  {
-    cat: "tests",
-    q: "¿Cómo se calcula la nota final?",
-    a: "Aplicamos el sistema oficial: aciertos suman 1, fallos restan en función del número de opciones (1/3 con 4 opciones), y las preguntas en blanco no restan."
-  },
-  {
-    cat: "ia",
-    q: "¿La AsistenteIA tiene información oficial actualizada?",
-    a: "Sí. Actualizamos el contenido periódicamente con el BOE y las convocatorias publicadas. La IA cita siempre la fuente legal y la fecha de actualización."
-  },
-  {
-    cat: "ia",
-    q: "¿Cuántas consultas puedo hacer al día?",
-    a: "En el plan de pago las consultas son ilimitadas. En el plan Gratuito tienes un número limitado de consultas diarias que se reinicia a las 00:00 hora peninsular."
-  },
-  {
-    cat: "privacy",
-    q: "¿Qué datos personales guardáis y para qué?",
-    a: "Guardamos tu nombre, correo, progreso de estudio y datos de facturación. Los usamos solo para prestarte el servicio y nunca los compartimos con terceros sin tu consentimiento."
-  }
-];
+  const marker = `/storage/v1/object/public/${AVATAR_BUCKET}/`;
+  const markerIndex = sanitized.indexOf(marker);
+  if (markerIndex === -1) return null;
+
+  return decodeURIComponent(sanitized.slice(markerIndex + marker.length));
+};
+
+const buildAvatarStoragePath = (userId: string, file: File) => {
+  const cleanName = sanitizeSingleLineText(file.name, 120).toLowerCase();
+  const extensionFromName = cleanName.includes(".")
+    ? cleanName.split(".").pop()
+    : "";
+  const extensionFromType = file.type.startsWith("image/")
+    ? file.type.replace("image/", "")
+    : "";
+  const extension = extensionFromName || extensionFromType || "jpg";
+  const uniqueId = Math.random().toString(36).slice(2, 10);
+  return `${sanitizeCode(userId, 120)}/${Date.now()}-${uniqueId}.${sanitizeCode(extension, 12) || "jpg"}`;
+};
 
 // ─── Demo tickets ─────────────────────────────────────────────────────────────
 
@@ -233,36 +208,42 @@ const PageHeader = ({
   title,
   desc,
   onBack,
-  action
+  action,
+  backLabel
 }: {
   overline?: string;
   title: string;
   desc?: string;
   onBack: () => void;
   action?: React.ReactNode;
-}) => (
-  <div className="flex items-start justify-between gap-5 mb-6">
-    <div>
-      <button
-        onClick={onBack}
-        className="inline-flex items-center gap-2 mb-3 text-[11px] font-bold tracking-[0.22em] uppercase text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ChevronLeft className="h-3.5 w-3.5" />
-        Volver
-      </button>
-      {overline && <Overline className="mb-2">{overline}</Overline>}
-      <h1 className="text-[2rem] leading-[1.1] font-serif text-foreground mb-2">
-        {title}
-      </h1>
-      {desc && (
-        <p className="text-sm leading-relaxed text-muted-foreground max-w-[600px]">
-          {desc}
-        </p>
-      )}
+  backLabel?: string;
+}) => {
+  const { t } = useTranslation("support");
+  const label = backLabel ?? t("pageHeader.back");
+  return (
+    <div className="flex items-start justify-between gap-5 mb-6">
+      <div>
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 mb-3 text-[11px] font-bold tracking-[0.22em] uppercase text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          {label}
+        </button>
+        {overline && <Overline className="mb-2">{overline}</Overline>}
+        <h1 className="text-[2rem] leading-[1.1] font-serif text-foreground mb-2">
+          {title}
+        </h1>
+        {desc && (
+          <p className="text-sm leading-relaxed text-muted-foreground max-w-[600px]">
+            {desc}
+          </p>
+        )}
+      </div>
+      {action}
     </div>
-    {action}
-  </div>
-);
+  );
+};
 
 const inputCls =
   "w-full border border-border/70 rounded-xl px-4 py-3 text-sm text-foreground bg-background dark:bg-card outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10 disabled:opacity-60 disabled:cursor-not-allowed";
@@ -276,11 +257,12 @@ const TabBar = ({
   active: TabName;
   onChange: (t: TabName) => void;
 }) => {
+  const { t } = useTranslation("profile");
   const tabs: { id: TabName; label: string }[] = [
-    { id: "profile", label: "Mi perfil" },
-    { id: "help", label: "Centro de ayuda" },
-    { id: "contact", label: "Contactar" },
-    { id: "tickets", label: "Mis consultas" }
+    { id: "profile", label: t("tabs.profile") },
+    { id: "help", label: t("tabs.help") },
+    { id: "contact", label: t("tabs.contact") },
+    { id: "tickets", label: t("tabs.tickets") }
   ];
   return (
     <div className="flex flex-wrap gap-x-6 border-b border-border mb-6">
@@ -301,14 +283,153 @@ const TabBar = ({
   );
 };
 
+type FaqVote = "up" | "down";
+
+const isFaqVote = (value: unknown): value is FaqVote =>
+  value === "up" || value === "down";
+
+const VoteRow = ({ faqId }: { faqId: string }) => {
+  const { user } = useAuth();
+  const [vote, setVote] = useState<FaqVote | null>(null);
+  const [pop, setPop] = useState<FaqVote | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setVote(null);
+    setIsLoading(false);
+
+    if (!user || !faqId) return;
+    let cancelled = false;
+
+    const loadVote = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("faq_votes")
+        .select("vote")
+        .eq("user_id", user.id)
+        .eq("faq_id", faqId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setVote(!error && isFaqVote(data?.vote) ? data.vote : null);
+      setIsLoading(false);
+    };
+
+    void loadVote();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, faqId]);
+
+  const handleVote = async (next: FaqVote) => {
+    if (!user || isLoading) return;
+
+    const previousVote = vote;
+    const nextVote = vote === next ? null : next;
+    setVote(nextVote);
+    setPop(next);
+    setTimeout(() => setPop(null), 200);
+
+    setIsLoading(true);
+    try {
+      if (nextVote === null) {
+        const { error } = await supabase
+          .from("faq_votes")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("faq_id", faqId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("faq_votes").upsert(
+          {
+            user_id: user.id,
+            faq_id: faqId,
+            vote: nextVote
+          },
+          { onConflict: "user_id,faq_id" }
+        );
+        if (error) throw error;
+      }
+    } catch {
+      setVote(previousVote);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => void handleVote("up")}
+        disabled={isLoading}
+        className={`p-1.5 rounded-full transition-all duration-200 hover:bg-secondary/60 disabled:opacity-60 ${
+          vote === "up"
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground"
+        } ${pop === "up" ? "scale-125" : "scale-100"}`}
+      >
+        <ThumbsUp className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => void handleVote("down")}
+        disabled={isLoading}
+        className={`p-1.5 rounded-full transition-all duration-200 hover:bg-secondary/60 disabled:opacity-60 ${
+          vote === "down"
+            ? "text-destructive"
+            : "text-muted-foreground hover:text-foreground"
+        } ${pop === "down" ? "scale-125" : "scale-100"}`}
+      >
+        <ThumbsDown className="h-4 w-4" />
+      </button>
+    </div>
+  );
+};
+
 // ─── HELP CENTER ──────────────────────────────────────────────────────────────
 
+type FaqCat = "account" | "billing" | "tests" | "ia" | "incidents";
+
+const GROUP_CAT_MAP: Record<string, FaqCat> = {
+  "account-access": "account",
+  "subscription-billing": "billing",
+  "tests-progress": "tests",
+  "ai-explanations": "ia",
+  incidents: "incidents"
+};
+
 const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
+  const { t } = useTranslation("support");
   const [cat, setCat] = useState<string>("all");
   const [query, setQuery] = useState("");
 
+  const faqCategories = [
+    { id: "all", label: t("faq.categories.all") },
+    { id: "account", label: t("faq.categories.account") },
+    { id: "billing", label: t("faq.categories.billing") },
+    { id: "tests", label: t("faq.categories.tests") },
+    { id: "ia", label: t("faq.categories.ai") },
+    { id: "incidents", label: t("faq.categories.incidents") }
+  ] as const;
+
+  const faqs = useMemo(() => {
+    const groups = t("faq.groups", { returnObjects: true }) as Array<{
+      id: string;
+      label: string;
+      items: Array<{ id: string; question: string; answer: string }>;
+    }>;
+    return groups.flatMap((g) =>
+      g.items.map((item) => ({
+        faqId: item.id,
+        cat: GROUP_CAT_MAP[g.id] ?? "account",
+        groupLabel: g.label,
+        q: item.question,
+        a: item.answer
+      }))
+    );
+  }, [t]);
+
   const filtered = useMemo(() => {
-    return FAQS.filter((f) => {
+    return faqs.filter((f) => {
       if (cat !== "all" && f.cat !== cat) return false;
       if (query.trim()) {
         const q = query.toLowerCase();
@@ -316,7 +437,7 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
       }
       return true;
     });
-  }, [cat, query]);
+  }, [cat, query, faqs]);
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5 items-start">
@@ -331,20 +452,21 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
             }}
           />
           <div className="relative z-10">
-            <Overline className="mb-2.5">Centro de ayuda</Overline>
+            <Overline className="mb-2.5">
+              {t("helpCenter.hero.overline")}
+            </Overline>
             <h1 className="text-[2rem] leading-[1.1] font-serif text-foreground mb-1.5">
-              ¿En qué podemos ayudarte?
+              {t("helpCenter.hero.title")}
             </h1>
             <p className="text-sm text-muted-foreground mb-4 max-w-[540px]">
-              Busca en preguntas frecuentes o escríbenos. Respondemos en menos
-              de 24 horas hábiles.
+              {t("helpCenter.hero.description")}
             </p>
             <div className="flex items-center gap-2.5 border border-border/70 rounded-[14px] px-4 py-3 bg-background dark:bg-card/60 max-w-[540px]">
               <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ej: ¿Cómo cancelo mi suscripción?"
+                placeholder={t("helpCenter.hero.searchPlaceholder")}
                 className="flex-1 border-none outline-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground"
               />
               {query && (
@@ -352,7 +474,7 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
                   onClick={() => setQuery("")}
                   className="text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Limpiar
+                  {t("helpCenter.hero.clear")}
                 </button>
               )}
             </div>
@@ -361,7 +483,7 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
 
         {/* Category chips */}
         <div className="flex flex-wrap gap-2">
-          {FAQ_CATEGORIES.map((c) => {
+          {faqCategories.map((c) => {
             const active = cat === c.id;
             return (
               <button
@@ -387,10 +509,10 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
                 <Search className="h-5 w-5" />
               </div>
               <p className="text-sm font-bold text-foreground mb-1">
-                No encontramos resultados para "{query}"
+                {t("helpCenter.emptyResults.title", { query })}
               </p>
               <p className="text-sm text-muted-foreground mb-4">
-                Escríbenos y un humano del equipo te ayudará.
+                {t("helpCenter.emptyResults.description")}
               </p>
               <CustomButton
                 type="button"
@@ -400,7 +522,7 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
                 onClick={() => go("contact")}
               >
                 <Send className="h-3.5 w-3.5" />
-                Contactar
+                {t("helpCenter.emptyResults.cta")}
               </CustomButton>
             </div>
           ) : (
@@ -414,21 +536,16 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
                   <AccordionTrigger className="py-4 text-left text-sm font-semibold text-foreground hover:no-underline gap-3">
                     <span className="flex-1">{f.q}</span>
                     <span className="text-[10px] font-bold tracking-[0.18em] uppercase text-muted-foreground flex-none">
-                      {FAQ_CATEGORIES.find((c) => c.id === f.cat)?.label}
+                      {f.groupLabel}
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="pb-4 pl-1 text-sm text-muted-foreground leading-relaxed">
                     {f.a}
-                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/60">
+                    <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/60">
                       <span className="text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-                        ¿Útil?
+                        {t("helpCenter.usefulQuestion")}
                       </span>
-                      <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        👍
-                      </button>
-                      <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        👎
-                      </button>
+                      <VoteRow faqId={f.faqId} />
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -441,9 +558,11 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
       {/* Right sidebar */}
       <div className="flex flex-col gap-4 xl:sticky xl:top-6">
         <Panel className="p-5">
-          <Overline className="mb-3">¿No encuentras respuesta?</Overline>
+          <Overline className="mb-3">
+            {t("helpCenter.sidebar.noAnswer")}
+          </Overline>
           <h3 className="text-[1.2rem] font-serif text-foreground mb-3 leading-snug">
-            Habla con una persona.
+            {t("helpCenter.sidebar.talkToPerson")}
           </h3>
           <div
             onClick={() => go("contact")}
@@ -454,11 +573,11 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold text-foreground flex items-center gap-2">
-                Formulario de contacto
+                {t("helpCenter.sidebar.contactForm")}
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
               </div>
               <div className="text-[11px] text-muted-foreground">
-                Respondemos en menos de 24h
+                {t("helpCenter.sidebar.responseTime")}
               </div>
             </div>
           </div>
@@ -471,7 +590,7 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
                 support@ibericaoposiciones.es
               </div>
               <div className="text-[11px] text-muted-foreground">
-                Respuesta en menos de 24h
+                {t("helpCenter.sidebar.emailResponseTime")}
               </div>
             </div>
           </div>
@@ -484,37 +603,41 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
             onClick={() => go("contact")}
           >
             <Send className="h-3.5 w-3.5" />
-            Abrir consulta
+            {t("helpCenter.sidebar.openQuery")}
           </CustomButton>
         </Panel>
 
         <Panel className="p-5">
-          <Overline className="mb-2">Mis consultas</Overline>
+          <Overline className="mb-2">
+            {t("helpCenter.sidebar.myQueries")}
+          </Overline>
           <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
-            Tienes{" "}
-            <strong className="text-foreground">1 conversación abierta</strong>{" "}
-            y 2 resueltas.
+            <Trans
+              i18nKey="support:helpCenter.sidebar.openConversations"
+              components={{ 1: <strong className="text-foreground" /> }}
+            />
           </p>
           <button
             onClick={() => go("tickets")}
             className="inline-flex items-center gap-1.5 text-primary text-[11px] font-bold tracking-[0.18em] uppercase hover:opacity-80 transition-opacity"
           >
-            Ver historial completo <ChevronRight className="h-3.5 w-3.5" />
+            {t("helpCenter.sidebar.viewFullHistory")}{" "}
+            <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </Panel>
 
         <Panel className="p-4">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-bold tracking-[0.22em] uppercase text-muted-foreground">
-              Estado del sistema
+              {t("systemStatus.title")}
             </span>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-green-600 dark:text-green-400">
               <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,0.2)]" />
-              Operativo
+              {t("systemStatus.operational")}
             </span>
           </div>
           <p className="text-[12px] text-muted-foreground leading-relaxed">
-            Todos los servicios funcionan con normalidad.
+            {t("systemStatus.allServicesNormal")}
           </p>
         </Panel>
       </div>
@@ -531,7 +654,7 @@ const ProfileHub = ({
   go: (r: RouteName) => void;
   openDeleteModal: () => void;
 }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, locale } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation("profile");
   const shouldLoad = Boolean(user?.id);
@@ -545,7 +668,7 @@ const ProfileHub = ({
   const { data: billingIssue } = useUserBillingIssueQuery(
     shouldLoad ? user?.id : null
   );
-  const { data: oppositionOptions = [] } = useOppositionOptionsQuery("es");
+  const { data: oppositionOptions = [] } = useOppositionOptionsQuery(locale);
   const { data: dashboardBundle, isLoading: isDashboardStatsLoading } =
     useQuery({
       queryKey: user?.id
@@ -566,7 +689,7 @@ const ProfileHub = ({
   const oppositionId = String(profileDetails?.preferred_opposition_id ?? "");
   const oppositionName =
     resolveOppositionNameById(oppositionId, oppositionOptions) ||
-    "Sin oposición seleccionada";
+    t("profileView.noOpposition");
   const initials =
     `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "U";
   const isPaid = isPaidPlan(planState);
@@ -637,7 +760,7 @@ const ProfileHub = ({
             </div>
             <div className="flex-1 min-w-0">
               <Overline className="mb-1.5">
-                {isPaid ? "Plan profesional" : "Plan gratuito"}
+                {isPaid ? t("profileView.planPro") : t("profileView.planFree")}
               </Overline>
               <h2 className="text-[1.4rem] font-serif text-foreground mb-1 leading-snug">
                 {firstName} {lastName}
@@ -652,7 +775,7 @@ const ProfileHub = ({
               className="flex-shrink-0"
               onClick={() => go("edit-profile")}
             >
-              Editar
+              {t("profileView.edit")}
             </CustomButton>
           </div>
         </Panel>
@@ -660,35 +783,29 @@ const ProfileHub = ({
         {/* Field rows */}
         <Panel className="py-1 overflow-hidden">
           <FieldRow
-            label="Nombre completo"
+            label={t("profileView.fullName")}
             value={`${firstName} ${lastName}`.trim() || "—"}
           />
-          <FieldRow label="Correo electrónico" value={email || "—"} />
-          <FieldRow label="Oposición objetivo" value={oppositionName} last />
+          <FieldRow label={t("profileView.email")} value={email || "—"} />
+          <FieldRow
+            label={t("profileView.opposition")}
+            value={oppositionName}
+            last
+          />
         </Panel>
 
         {/* Action cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <ActionCard
             icon={<Lock className="h-4 w-4" />}
-            title="Cambiar contraseña"
-            desc="Mantén tu cuenta segura."
+            title={t("profileView.actionCards.changePassword")}
+            desc={t("profileView.actionCards.changePasswordDesc")}
             onClick={() => go("change-password")}
           />
           <ActionCard
-            icon={<Bell className="h-4 w-4" />}
-            title="Notificaciones"
-            desc="Configura tus preferencias de email."
-          />
-          <ActionCard
-            icon={<CreditCard className="h-4 w-4" />}
-            title="Suscripción y facturación"
-            desc={isPaid ? "Plan profesional activo." : "Plan gratuito."}
-          />
-          <ActionCard
             icon={<Shield className="h-4 w-4" />}
-            title="Privacidad y datos"
-            desc="Exportar o eliminar tu información."
+            title={t("profileView.actionCards.privacy")}
+            desc={t("profileView.actionCards.privacyDesc")}
             onClick={() => go("privacy")}
           />
         </div>
@@ -697,24 +814,36 @@ const ProfileHub = ({
       {/* Right sidebar */}
       <div className="flex flex-col gap-4 xl:sticky xl:top-6">
         <Panel className="p-5">
-          <Overline className="mb-4">Tu actividad</Overline>
-          <StatRow label="Tests completados" value={completedTestsValue} />
-          <StatRow label="Media global" value={globalAverageValue} />
-          <StatRow label="Precisión media" value={averageAccuracyValue} last />
-        </Panel>
-        <Panel className="p-5 bg-foreground border-0 dark:bg-card dark:border dark:border-border/70">
-          <Overline className="text-white/50 dark:text-primary mb-2.5">
-            {isPaid ? "Plan profesional" : "Plan gratuito"}
+          <Overline className="mb-4">
+            {t("profileView.activity.title")}
           </Overline>
-          <h3 className="text-[1.2rem] font-serif text-white dark:text-foreground mb-2 leading-snug">
+          <StatRow
+            label={t("profileView.activity.completedTests")}
+            value={completedTestsValue}
+          />
+          <StatRow
+            label={t("profileView.activity.globalAverage")}
+            value={globalAverageValue}
+          />
+          <StatRow
+            label={t("profileView.activity.averageAccuracy")}
+            value={averageAccuracyValue}
+            last
+          />
+        </Panel>
+        <Panel className="p-5">
+          <Overline className="text-primary mb-2.5">
+            {isPaid ? t("profileView.planPro") : t("profileView.planFree")}
+          </Overline>
+          <h3 className="text-[1.2rem] font-serif text-foreground mb-2 leading-snug">
             {isPaid
-              ? "Tienes todo desbloqueado."
-              : "Actualiza para desbloquear todo."}
+              ? t("profileView.planPanel.proTitle")
+              : t("profileView.planPanel.freeTitle")}
           </h3>
-          <p className="text-[12px] text-white/60 dark:text-muted-foreground mb-4 leading-relaxed">
+          <p className="text-[12px] text-muted-foreground mb-4 leading-relaxed">
             {isPaid
-              ? "Tests ilimitados, AsistenteIA y temario completo."
-              : "Accede a tests ilimitados y al AsistenteIA."}
+              ? t("profileView.planPanel.proDesc")
+              : t("profileView.planPanel.freeDesc")}
           </p>
           <button
             type="button"
@@ -722,7 +851,7 @@ const ProfileHub = ({
               void handleManagePlan();
             }}
             disabled={isOpeningPaymentPortal}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 dark:border-border bg-white/6 dark:bg-secondary text-white dark:text-foreground text-[11px] font-bold tracking-[0.22em] uppercase cursor-pointer transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-secondary text-foreground text-[11px] font-bold tracking-[0.22em] uppercase cursor-pointer transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isOpeningPaymentPortal && (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -747,24 +876,27 @@ const FieldRow = ({
   value: string;
   last?: boolean;
   onEdit?: () => void;
-}) => (
-  <div
-    className={`flex items-center px-6 py-4 ${last ? "" : "border-b border-border/60"}`}
-  >
-    <div className="w-44 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground flex-shrink-0">
-      {label}
+}) => {
+  const { t } = useTranslation("profile");
+  return (
+    <div
+      className={`flex items-center px-6 py-4 ${last ? "" : "border-b border-border/60"}`}
+    >
+      <div className="w-44 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground flex-shrink-0">
+        {label}
+      </div>
+      <div className="flex-1 text-sm text-foreground">{value}</div>
+      {onEdit && (
+        <button
+          onClick={onEdit}
+          className="text-[11px] font-bold tracking-[0.18em] uppercase text-primary hover:opacity-70 transition-opacity"
+        >
+          {t("fieldRow.edit")}
+        </button>
+      )}
     </div>
-    <div className="flex-1 text-sm text-foreground">{value}</div>
-    {onEdit && (
-      <button
-        onClick={onEdit}
-        className="text-[11px] font-bold tracking-[0.18em] uppercase text-primary hover:opacity-70 transition-opacity"
-      >
-        Editar
-      </button>
-    )}
-  </div>
-);
+  );
+};
 
 const ActionCard = ({
   icon,
@@ -844,11 +976,13 @@ const EditProfile = ({
   showToast: (msg: string) => void;
 }) => {
   const { user, profile, locale, applyLocale, refreshProfile } = useAuth();
+  const { t } = useTranslation("profile");
   const queryClient = useQueryClient();
   const { data: oppositionOptions = [] } = useOppositionOptionsQuery(locale);
   const { data: profileDetails } = useProfileDetailsQuery(
     user?.id ? user.id : null
   );
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const [firstName, setFirstName] = useState(profile?.firstName ?? "");
   const [lastName, setLastName] = useState(profile?.lastName ?? "");
@@ -858,26 +992,167 @@ const EditProfile = ({
   const [oppositionId, setOppositionId] = useState(
     String(profileDetails?.preferred_opposition_id ?? "")
   );
+  const [savedOppositionId, setSavedOppositionId] = useState(
+    String(profileDetails?.preferred_opposition_id ?? "")
+  );
+  const [avatarUrl, setAvatarUrl] = useState(
+    sanitizeAvatarForMetadata(profileDetails?.avatar_url ?? "")
+  );
+  const [persistedAvatarUrl, setPersistedAvatarUrl] = useState(
+    sanitizeAvatarForMetadata(profileDetails?.avatar_url ?? "")
+  );
+  const [isAvatarUpdating, setIsAvatarUpdating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isOppositionConfirmOpen, setIsOppositionConfirmOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const oppositionChangeLocked =
+    profileDetails?.has_changed_opposition === true;
+  const oppositionIsChanging =
+    !oppositionChangeLocked &&
+    oppositionId !== savedOppositionId &&
+    Boolean(oppositionId);
+
   useEffect(() => {
-    if (profileDetails?.preferred_opposition_id)
+    if (profileDetails?.preferred_opposition_id) {
       setOppositionId(String(profileDetails.preferred_opposition_id));
+      setSavedOppositionId(String(profileDetails.preferred_opposition_id));
+    }
+    const nextAvatarUrl = sanitizeAvatarForMetadata(
+      profileDetails?.avatar_url ?? ""
+    );
+    setAvatarUrl(nextAvatarUrl);
+    setPersistedAvatarUrl(nextAvatarUrl);
+    if (profileDetails?.locale)
+      setDraftLocale(profileDetails.locale as AppLocale);
   }, [profileDetails]);
+
+  const initials =
+    `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "U";
+  const hasAvatar = Boolean(sanitizeAvatarForMetadata(avatarUrl));
+
+  const handleOpenAvatarFilePicker = () => {
+    if (!avatarInputRef.current || isAvatarUpdating) return;
+    avatarInputRef.current.value = "";
+    avatarInputRef.current.click();
+  };
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
+      showToast(t("editProfile.toasts.invalidFormat"));
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      showToast(t("editProfile.toasts.imageTooLarge"));
+      event.target.value = "";
+      return;
+    }
+
+    if (!user) {
+      showToast(t("editProfile.toasts.invalidSession"));
+      event.target.value = "";
+      return;
+    }
+
+    setIsAvatarUpdating(true);
+    try {
+      const previousAvatarPath = extractAvatarStoragePath(persistedAvatarUrl);
+      const uploadedAvatarPath = buildAvatarStoragePath(user.id, file);
+
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(uploadedAvatarPath, file, {
+          cacheControl: "3600",
+          contentType: file.type || undefined,
+          upsert: false
+        });
+
+      if (uploadError) {
+        showToast(t("editProfile.toasts.uploadFailed"));
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(AVATAR_BUCKET)
+        .getPublicUrl(uploadedAvatarPath);
+      const nextAvatarUrl = sanitizeAvatarForMetadata(publicUrlData.publicUrl);
+
+      const { error: saveError } = await supabase.from("profiles").upsert(
+        {
+          user_id: user.id,
+          avatar_url: nextAvatarUrl,
+          locale: draftLocale
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (saveError) {
+        await supabase.storage.from(AVATAR_BUCKET).remove([uploadedAvatarPath]);
+        showToast(t("editProfile.toasts.avatarSaveFailed"));
+        return;
+      }
+
+      if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath)
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
+
+      setAvatarUrl(nextAvatarUrl);
+      setPersistedAvatarUrl(nextAvatarUrl);
+      await queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      await refreshProfile();
+      showToast(t("editProfile.toasts.avatarUpdated"));
+    } finally {
+      setIsAvatarUpdating(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user || isAvatarUpdating || !hasAvatar) return;
+
+    setIsAvatarUpdating(true);
+    try {
+      const previousAvatarPath = extractAvatarStoragePath(persistedAvatarUrl);
+      const { error: saveError } = await supabase.from("profiles").upsert(
+        {
+          user_id: user.id,
+          avatar_url: null,
+          locale: draftLocale
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (saveError) {
+        showToast(t("editProfile.toasts.avatarRemoveFailed"));
+        return;
+      }
+
+      if (previousAvatarPath)
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
+
+      setAvatarUrl("");
+      setPersistedAvatarUrl("");
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+      await queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      await refreshProfile();
+      showToast(t("editProfile.toasts.avatarRemoved"));
+    } finally {
+      setIsAvatarUpdating(false);
+    }
+  };
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!firstName.trim()) e.firstName = "El nombre es obligatorio.";
-    if (!lastName.trim()) e.lastName = "El apellido es obligatorio.";
+    if (!firstName.trim()) e.firstName = t("editProfile.toasts.nameRequired");
+    if (!lastName.trim()) e.lastName = t("editProfile.toasts.lastNameRequired");
     return e;
   };
 
-  const handleSave = async () => {
-    const e = validate();
-    setErrors(e);
-    if (Object.keys(e).length) return;
-
+  const doSave = async (markOppositionChanged: boolean) => {
     if (!user) return;
     setSaving(true);
     try {
@@ -892,40 +1167,126 @@ const EditProfile = ({
           last_name: cleanLast,
           full_name: `${cleanFirst} ${cleanLast}`.trim(),
           preferred_opposition_id: cleanOpp || null,
-          locale: draftLocale
+          avatar_url: sanitizeAvatarForMetadata(avatarUrl) || null,
+          locale: draftLocale,
+          ...(markOppositionChanged ? { has_changed_opposition: true } : {})
         },
         { onConflict: "user_id" }
       );
 
       if (error) {
-        showToast("Error al guardar los cambios.");
+        showToast(t("editProfile.toasts.saveFailed"));
         return;
       }
 
-      if (draftLocale !== locale) await applyLocale(draftLocale);
+      await applyLocale(draftLocale);
       await queryClient.invalidateQueries({ queryKey: ["profiles"] });
       await refreshProfile();
-      showToast("Perfil actualizado correctamente.");
+      showToast(t("editProfile.toasts.saved"));
       go("profile");
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSave = async () => {
+    const e = validate();
+    setErrors(e);
+    if (Object.keys(e).length) return;
+
+    if (oppositionIsChanging) {
+      setIsOppositionConfirmOpen(true);
+      return;
+    }
+
+    await doSave(false);
+  };
+
+  const handleConfirmOppositionChange = async () => {
+    setIsOppositionConfirmOpen(false);
+    await doSave(true);
+  };
+
   return (
     <div className="max-w-[760px]">
       <PageHeader
-        overline="Perfil"
-        title="Editar tu información"
-        desc="Mantén tus datos al día. Algunos cambios se reflejan de inmediato en toda la aplicación."
+        overline={t("editProfile.overline")}
+        title={t("editProfile.title")}
+        desc={t("editProfile.desc")}
+        backLabel={t("common:actions.cancel")}
         onBack={() => go("profile")}
       />
 
       <Panel className="p-8">
+        <div className="mb-7 flex flex-col gap-4 border-b border-border/60 pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary text-2xl font-bold text-primary-foreground">
+              {hasAvatar ? (
+                <img
+                  src={avatarUrl}
+                  alt={t("editProfile.avatarAlt")}
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">
+                {t("editProfile.avatarAlt")}
+              </p>
+              <p className="text-[12px] text-muted-foreground">
+                {t("editProfile.avatarFormat")}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <CustomButton
+              type="button"
+              styleType="menu"
+              radius="full"
+              size="sm"
+              disabled={isAvatarUpdating || saving}
+              onClick={handleOpenAvatarFilePicker}
+            >
+              <Camera className="h-4 w-4" />
+              {isAvatarUpdating
+                ? t("editProfile.changingPhoto")
+                : t("editProfile.changePhoto")}
+            </CustomButton>
+            {hasAvatar && (
+              <CustomButton
+                type="button"
+                styleType="ghost"
+                radius="full"
+                size="sm"
+                disabled={isAvatarUpdating || saving}
+                onClick={() => {
+                  void handleRemoveAvatar();
+                }}
+              >
+                {t("editProfile.removePhoto")}
+              </CustomButton>
+            )}
+          </div>
+
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            onChange={(event) => {
+              void handleAvatarChange(event);
+            }}
+          />
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
           <div>
             <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-              Nombre
+              {t("editProfile.fieldName")}
             </label>
             <input
               value={firstName}
@@ -941,7 +1302,7 @@ const EditProfile = ({
           </div>
           <div>
             <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-              Apellidos
+              {t("editProfile.fieldLastName")}
             </label>
             <input
               value={lastName}
@@ -960,7 +1321,7 @@ const EditProfile = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
           <div>
             <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-              Correo electrónico
+              {t("editProfile.fieldEmail")}
             </label>
             <input
               value={profile?.email ?? ""}
@@ -970,7 +1331,7 @@ const EditProfile = ({
           </div>
           <div>
             <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-              Idioma de la app
+              {t("editProfile.fieldLocale")}
             </label>
             <CustomSelect
               value={draftLocale}
@@ -979,33 +1340,42 @@ const EditProfile = ({
               }
               className={`${inputCls} cursor-pointer`}
             >
-              <option value="es">Español (España)</option>
-              <option value="en">English</option>
+              <option value="es">{t("common:locale.es")}</option>
+              <option value="en">{t("common:locale.en")}</option>
             </CustomSelect>
           </div>
         </div>
 
         <div className="mb-6">
           <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-            Oposición objetivo
+            {t("editProfile.fieldOpposition")}
           </label>
-          <CustomSelect
-            value={oppositionId}
-            onChange={(e) => setOppositionId(e.target.value)}
-            className={`${inputCls} cursor-pointer`}
-          >
-            <option value="">Selecciona una oposición</option>
-            {oppositionOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
-              </option>
-            ))}
-          </CustomSelect>
+          {oppositionChangeLocked ? (
+            <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-secondary/30 px-4 py-3">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {t("editProfile.oppositionLocked")}
+              </p>
+            </div>
+          ) : (
+            <CustomSelect
+              value={oppositionId}
+              onChange={(e) => setOppositionId(e.target.value)}
+              className={`${inputCls} cursor-pointer`}
+            >
+              <option value="">{t("editProfile.selectOpposition")}</option>
+              {oppositionOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.name}
+                </option>
+              ))}
+            </CustomSelect>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-5 border-t border-border/60">
           <span className="text-[12px] text-muted-foreground">
-            Los cambios se guardan en tu cuenta personal.
+            {t("editProfile.changesNote")}
           </span>
           <div className="flex gap-2.5">
             <CustomButton
@@ -1015,7 +1385,7 @@ const EditProfile = ({
               size="sm"
               onClick={() => go("profile")}
             >
-              Cancelar
+              {t("editProfile.cancel")}
             </CustomButton>
             <CustomButton
               type="button"
@@ -1023,13 +1393,36 @@ const EditProfile = ({
               radius="full"
               size="sm"
               disabled={saving}
-              onClick={handleSave}
+              onClick={() => {
+                void handleSave();
+              }}
             >
-              {saving ? "Guardando…" : "Guardar cambios"}
+              {saving ? t("editProfile.saving") : t("editProfile.save")}
             </CustomButton>
           </div>
         </div>
       </Panel>
+
+      <ConfirmActionDialog
+        open={isOppositionConfirmOpen}
+        onOpenChange={setIsOppositionConfirmOpen}
+        title={t("editProfile.dialog.title")}
+        description={t("editProfile.dialog.description", {
+          name:
+            resolveOppositionNameById(oppositionId, oppositionOptions) ||
+            oppositionId
+        })}
+        warning={t("editProfile.dialog.warning")}
+        confirmLabel={
+          saving
+            ? t("editProfile.dialog.changing")
+            : t("editProfile.dialog.confirm")
+        }
+        cancelLabel={t("editProfile.dialog.cancel")}
+        confirmStyle="destructive"
+        isLoading={saving}
+        onConfirm={handleConfirmOppositionChange}
+      />
     </div>
   );
 };
@@ -1043,6 +1436,7 @@ const ChangePassword = ({
   go: (r: RouteName) => void;
   showToast: (msg: string) => void;
 }) => {
+  const { t } = useTranslation("profile");
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -1056,9 +1450,12 @@ const ChangePassword = ({
     sym: /[^A-Za-z0-9]/.test(pwd)
   };
   const passed = Object.values(checks).filter(Boolean).length;
-  const strength = ["Débil", "Aceptable", "Buena", "Excelente"][
-    Math.max(0, passed - 1)
-  ];
+  const strength = [
+    t("changePassword.strengthWeak"),
+    t("changePassword.strengthFair"),
+    t("changePassword.strengthGood"),
+    t("changePassword.strengthStrong")
+  ][Math.max(0, passed - 1)];
   const strengthColor = [
     "bg-destructive",
     "bg-amber-400",
@@ -1068,8 +1465,8 @@ const ChangePassword = ({
 
   const handleSave = async () => {
     const e: Record<string, string> = {};
-    if (passed < 3) e.pwd = "La contraseña no cumple los requisitos mínimos.";
-    if (pwd !== confirm) e.confirm = "Las contraseñas no coinciden.";
+    if (passed < 3) e.pwd = t("changePassword.errors.minRequirements");
+    if (pwd !== confirm) e.confirm = t("changePassword.errors.mismatch");
     setErrors(e);
     if (Object.keys(e).length) return;
 
@@ -1077,12 +1474,10 @@ const ChangePassword = ({
     try {
       const { error } = await supabase.auth.updateUser({ password: pwd });
       if (error) {
-        showToast("Error al actualizar la contraseña.");
+        showToast(t("changePassword.toasts.saveFailed"));
         return;
       }
-      showToast(
-        "Contraseña actualizada. Te hemos enviado un email de confirmación."
-      );
+      showToast(t("changePassword.toasts.saved"));
       go("profile");
     } finally {
       setSaving(false);
@@ -1090,25 +1485,26 @@ const ChangePassword = ({
   };
 
   const reqItems = [
-    { ok: checks.len, text: "8 caracteres o más" },
-    { ok: checks.upper, text: "Mayúsculas y minúsculas" },
-    { ok: checks.num, text: "Al menos un número" },
-    { ok: checks.sym, text: "Al menos un símbolo" }
+    { ok: checks.len, text: t("changePassword.reqLength") },
+    { ok: checks.upper, text: t("changePassword.reqUpperLower") },
+    { ok: checks.num, text: t("changePassword.reqNumber") },
+    { ok: checks.sym, text: t("changePassword.reqSymbol") }
   ];
 
   return (
     <div className="max-w-[560px]">
       <PageHeader
-        overline="Seguridad"
-        title="Cambiar contraseña"
-        desc="Por seguridad, cerraremos las demás sesiones activas tras el cambio."
+        overline={t("changePassword.overline")}
+        title={t("changePassword.title")}
+        desc={t("changePassword.desc")}
+        backLabel={t("common:actions.cancel")}
         onBack={() => go("profile")}
       />
 
       <Panel className="p-8">
         <div className="mb-5">
           <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-            Nueva contraseña
+            {t("changePassword.fieldNew")}
           </label>
           <div className="relative">
             <input
@@ -1119,7 +1515,7 @@ const ChangePassword = ({
               spellCheck={false}
               value={pwd}
               onChange={(e) => setPwd(e.target.value)}
-              placeholder="Mínimo 8 caracteres"
+              placeholder={t("changePassword.fieldNewPlaceholder")}
               className={`${inputCls} pr-10`}
             />
             <button
@@ -1163,7 +1559,7 @@ const ChangePassword = ({
                       : "text-destructive"
               }`}
             >
-              Seguridad: {strength}
+              {t("changePassword.strengthPrefix")}: {strength}
             </span>
             <div className="grid grid-cols-2 gap-2 mt-3">
               {reqItems.map((r) => (
@@ -1189,7 +1585,7 @@ const ChangePassword = ({
 
         <div className="mb-6">
           <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-            Confirmar contraseña
+            {t("changePassword.fieldConfirm")}
           </label>
           <input
             type={showPwd ? "text" : "password"}
@@ -1199,7 +1595,7 @@ const ChangePassword = ({
             spellCheck={false}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Repite la contraseña"
+            placeholder={t("changePassword.fieldConfirmPlaceholder")}
             className={inputCls}
           />
           {errors.confirm && (
@@ -1213,9 +1609,7 @@ const ChangePassword = ({
         <div className="p-4 rounded-[14px] bg-amber-50 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-700/30 flex gap-3 items-start mb-6">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
           <p className="text-[12px] text-amber-700 dark:text-amber-300 leading-relaxed">
-            Cuando cambies la contraseña, se cerrarán las sesiones en otros
-            dispositivos. Tendrás que volver a iniciar sesión donde lo
-            necesites.
+            {t("changePassword.sessionWarning")}
           </p>
         </div>
 
@@ -1227,7 +1621,7 @@ const ChangePassword = ({
             size="sm"
             onClick={() => go("profile")}
           >
-            Cancelar
+            {t("changePassword.cancel")}
           </CustomButton>
           <CustomButton
             type="button"
@@ -1237,7 +1631,7 @@ const ChangePassword = ({
             disabled={saving}
             onClick={handleSave}
           >
-            {saving ? "Guardando…" : "Actualizar contraseña"}
+            {saving ? t("changePassword.saving") : t("changePassword.save")}
           </CustomButton>
         </div>
       </Panel>
@@ -1254,74 +1648,102 @@ const Privacy = ({
   go: (r: RouteName) => void;
   openDeleteModal: () => void;
 }) => {
+  const { toast } = useToast();
+  const { t } = useTranslation(["profile", "support"]);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: profileDetails } = useProfileDetailsQuery(
+    user?.id ? user.id : null
+  );
   const [perms, setPerms] = useState({
     news: true,
-    analytics: true,
-    personalization: true,
-    testimonials: false
+    analytics: true
   });
+  const [savingNewsPreference, setSavingNewsPreference] = useState(false);
+
+  useEffect(() => {
+    setPerms((current) => ({
+      ...current,
+      news: profileDetails?.product_updates_email_enabled ?? true
+    }));
+  }, [profileDetails?.product_updates_email_enabled]);
+
+  const handleNewsPreferenceChange = async (nextValue: boolean) => {
+    if (!user || savingNewsPreference) return;
+
+    const previousValue = perms.news;
+    setPerms((current) => ({ ...current, news: nextValue }));
+    setSavingNewsPreference(true);
+
+    const { error } = await supabase.from("profiles").upsert(
+      {
+        user_id: user.id,
+        product_updates_email_enabled: nextValue
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (error) {
+      setPerms((current) => ({ ...current, news: previousValue }));
+      toast({ title: t("privacy.toasts.saveFailed") });
+    } else await queryClient.invalidateQueries({ queryKey: ["profiles"] });
+
+    setSavingNewsPreference(false);
+  };
 
   return (
     <div className="max-w-[760px]">
       <PageHeader
-        overline="Privacidad y datos"
-        title="Tus datos, bajo tu control"
-        desc="Cumplimos íntegramente el Reglamento General de Protección de Datos (RGPD). Aquí puedes ejercer todos tus derechos."
+        overline={t("privacy.overline")}
+        title={t("privacy.title")}
+        desc={t("privacy.desc")}
+        backLabel={t("common:actions.cancel")}
         onBack={() => go("profile")}
       />
 
       {/* Permissions */}
       <Panel className="p-7 mb-4">
         <h3 className="text-base font-bold text-foreground mb-1.5">
-          Permisos y comunicaciones
+          {t("privacy.permissionsTitle")}
         </h3>
         <p className="text-[13px] text-muted-foreground mb-4 leading-relaxed">
-          Controla cómo usamos tus datos. Estos cambios son inmediatos.
+          {t("privacy.permissionsDesc")}
         </p>
         <PermToggle
-          title="Email de novedades del producto"
-          desc="Nuevos tests, mejoras del asistente y cambios importantes."
+          title={t("privacy.toggleNews")}
+          desc={t("privacy.toggleNewsDesc")}
           on={perms.news}
-          onChange={(v) => setPerms((p) => ({ ...p, news: v }))}
+          onChange={(v) => {
+            void handleNewsPreferenceChange(v);
+          }}
+          disabled={savingNewsPreference || !user}
         />
         <PermToggle
-          title="Análisis de uso anónimo"
-          desc="Nos ayuda a mejorar tests y ranking de respuestas."
+          title={t("privacy.toggleAnalytics")}
+          desc={t("privacy.toggleAnalyticsDesc")}
           on={perms.analytics}
           onChange={(v) => setPerms((p) => ({ ...p, analytics: v }))}
-        />
-        <PermToggle
-          title="Personalización por IA"
-          desc="Usar tu historial para sugerirte temario y tests adaptados."
-          on={perms.personalization}
-          onChange={(v) => setPerms((p) => ({ ...p, personalization: v }))}
-        />
-        <PermToggle
-          title="Compartir mis testimonios"
-          desc="Mostrar tus reseñas en la web pública (con tu nombre)."
-          on={perms.testimonials}
-          onChange={(v) => setPerms((p) => ({ ...p, testimonials: v }))}
           last
         />
       </Panel>
 
       {/* Danger zone */}
       <Panel className="p-7 border-destructive/25">
-        <Overline className="text-destructive mb-2.5">Zona crítica</Overline>
+        <Overline className="text-destructive mb-2.5">
+          {t("privacy.dangerZone")}
+        </Overline>
         <div className="flex gap-4 items-start">
           <div className="w-11 h-11 rounded-[12px] bg-destructive/10 flex items-center justify-center text-destructive flex-shrink-0">
             <Trash2 className="h-5 w-5" />
           </div>
           <div className="flex-1">
             <h3 className="text-base font-bold text-foreground mb-1.5">
-              Eliminar mi cuenta
+              {t("privacy.deleteTitle")}
             </h3>
             <p className="text-[13px] text-muted-foreground leading-relaxed mb-4 max-w-[540px]">
-              Borraremos permanentemente tu progreso, historial, conversaciones
-              y datos personales en un máximo de 72 horas. Las facturas se
-              conservan por obligación fiscal.{" "}
+              {t("support:accountDeletion.dangerDescription")}{" "}
               <strong className="text-foreground">
-                Esta acción no se puede deshacer.
+                {t("support:accountDeletion.irreversible")}
               </strong>
             </p>
             <CustomButton
@@ -1332,7 +1754,7 @@ const Privacy = ({
               onClick={openDeleteModal}
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Eliminar cuenta…
+              {t("privacy.deleteCta")}
             </CustomButton>
           </div>
         </div>
@@ -1346,12 +1768,14 @@ const PermToggle = ({
   desc,
   on,
   onChange,
+  disabled = false,
   last
 }: {
   title: string;
   desc: string;
   on: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
   last?: boolean;
 }) => (
   <div
@@ -1365,12 +1789,13 @@ const PermToggle = ({
     </div>
     <button
       type="button"
+      disabled={disabled}
       onClick={() => onChange(!on)}
       className={`w-10 h-6 rounded-full border p-0.5 transition-colors flex-shrink-0 ${
         on
           ? "border-primary bg-primary"
           : "border-border bg-muted-foreground/20 dark:border-border/70 dark:bg-black/45"
-      }`}
+      } disabled:cursor-not-allowed disabled:opacity-60`}
     >
       <div
         className={`w-5 h-5 rounded-full transition-transform ${
@@ -1387,18 +1812,19 @@ const PermToggle = ({
 
 const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  const { user, profile, locale } = useAuth();
+  const { t } = useTranslation(["profile", "support"]);
   const profileName =
     `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim();
   const profileEmail = profile?.email ?? user?.email ?? "";
 
   type Topic = SupportContactCategory;
   const topics: { id: Topic; label: string }[] = [
-    { id: "account", label: "Mi cuenta" },
-    { id: "billing", label: "Facturación" },
-    { id: "tests", label: "Error en un test" },
-    { id: "ai", label: "AsistenteIA" },
-    { id: "technical", label: "Otro asunto" }
+    { id: "account", label: t("profile:contactTab.topics.account") },
+    { id: "billing", label: t("profile:contactTab.topics.billing") },
+    { id: "tests", label: t("profile:contactTab.topics.tests") },
+    { id: "ai", label: t("profile:contactTab.topics.ai") },
+    { id: "technical", label: t("profile:contactTab.topics.technical") }
   ];
 
   const [topic, setTopic] = useState<Topic>("billing");
@@ -1410,9 +1836,9 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!subject.trim()) e.subject = "Añade un asunto breve.";
+    if (!subject.trim()) e.subject = t("profile:contactTab.errors.subject");
     if (message.trim().length < 20)
-      e.message = "Cuéntanos un poco más (mínimo 20 caracteres).";
+      e.message = t("profile:contactTab.errors.message");
     return e;
   };
 
@@ -1442,7 +1868,7 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
       const result = await submitSupportContactForm({
         ...sanitized,
         metadata: {
-          locale: "es",
+          locale,
           pathname: window.location.pathname,
           submittedAt: new Date().toISOString(),
           userAgent: navigator.userAgent,
@@ -1452,24 +1878,21 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
 
       if (result.status === "unconfigured") {
         toast({
-          title: "Formulario recibido",
-          description:
-            "Hemos recibido tu consulta. Te responderemos en menos de 24 horas hábiles."
+          title: t("profile:contactTab.toasts.receivedTitle"),
+          description: t("profile:contactTab.toasts.sentDesc")
         });
       } else {
         toast({
-          title: "Consulta enviada",
-          description:
-            "Hemos recibido tu consulta. Te responderemos en menos de 24 horas hábiles."
+          title: t("profile:contactTab.toasts.sentTitle"),
+          description: t("profile:contactTab.toasts.sentDesc")
         });
       }
       setSent(true);
     } catch {
       toast({
         variant: "destructive",
-        title: "Error al enviar",
-        description:
-          "No se pudo enviar tu consulta. Por favor, inténtalo de nuevo."
+        title: t("profile:contactTab.toasts.errorTitle"),
+        description: t("profile:contactTab.toasts.errorDesc")
       });
     } finally {
       setSending(false);
@@ -1482,14 +1905,14 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
         <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mx-auto mb-4">
           <Check className="h-7 w-7" />
         </div>
-        <Overline className="mb-2">Ticket creado</Overline>
+        <Overline className="mb-2">
+          {t("profile:contactTab.successOverline")}
+        </Overline>
         <h2 className="text-[1.6rem] font-serif text-foreground mb-2">
-          Mensaje enviado
+          {t("profile:contactTab.successTitle")}
         </h2>
         <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-          Hemos recibido tu consulta. Recibirás respuesta en{" "}
-          <strong className="text-foreground">menos de 24 horas hábiles</strong>{" "}
-          en {profileEmail}.
+          {t("profile:contactTab.successDesc", { email: profileEmail })}
         </p>
         <div className="flex gap-2.5 justify-center">
           <CustomButton
@@ -1503,7 +1926,7 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
               setMessage("");
             }}
           >
-            Enviar otra
+            {t("profile:contactTab.sendAnother")}
           </CustomButton>
           <CustomButton
             type="button"
@@ -1512,7 +1935,7 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
             size="sm"
             onClick={() => go("tickets")}
           >
-            Ver mis consultas
+            {t("profile:contactTab.viewTickets")}
           </CustomButton>
         </div>
       </Panel>
@@ -1522,17 +1945,18 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5 items-start">
       <Panel className="p-8">
-        <Overline className="mb-2.5">Contactar con soporte</Overline>
+        <Overline className="mb-2.5">
+          {t("profile:contactTab.overline")}
+        </Overline>
         <h2 className="text-[1.6rem] font-serif text-foreground mb-2 leading-snug">
-          Cuéntanos qué necesitas.
+          {t("profile:contactTab.title")}
         </h2>
         <p className="text-[13px] text-muted-foreground mb-7 leading-relaxed max-w-[520px]">
-          Cuanto más detalle nos des, antes podremos resolverlo. Respondemos en
-          menos de 24 horas hábiles.
+          {t("profile:contactTab.desc")}
         </p>
 
         <p className="block mb-3 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-          Tema de la consulta
+          {t("profile:contactTab.topicLabel")}
         </p>
         <div className="flex flex-wrap gap-2 mb-6">
           {topics.map((t) => (
@@ -1552,12 +1976,12 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
 
         <div className="mb-5">
           <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-            Asunto
+            {t("profile:contactTab.fieldSubject")}
           </label>
           <CustomInput
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Resumen breve de tu consulta"
+            placeholder={t("profile:contactTab.fieldSubjectPlaceholder")}
             className={`min-h-11 rounded-2xl border-border/70 bg-background/80 px-4 shadow-sm transition-all focus-visible:ring-primary/25 focus-visible:ring-offset-2`}
           />
           {errors.subject && (
@@ -1571,7 +1995,7 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
         <div className="mb-6">
           <div className="flex justify-between mb-2">
             <label className="text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
-              Mensaje
+              {t("profile:contactTab.fieldMessage")}
             </label>
             <span className="text-[11px] text-muted-foreground">
               {message.length}/2000
@@ -1580,7 +2004,7 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
           <CustomTextarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Describe lo que ha pasado, cuándo y qué esperabas ver. Si es un error técnico, indica navegador y dispositivo."
+            placeholder={t("profile:contactTab.fieldMessagePlaceholder")}
             rows={6}
             maxLength={2000}
             className={`min-h-11 rounded-2xl border-border/70 bg-background/80 px-4 shadow-sm transition-all focus-visible:ring-primary/25 focus-visible:ring-offset-2 min-h-[160px] py-3 resize-y`}
@@ -1592,8 +2016,7 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
             </p>
           )}
           <p className="mt-1.5 text-[11px] text-muted-foreground">
-            Adjuntaremos datos de tu sesión automáticamente para acelerar la
-            respuesta.
+            {t("profile:contactTab.autoSession")}
           </p>
         </div>
 
@@ -1605,7 +2028,7 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
             size="sm"
             onClick={() => go("help")}
           >
-            Cancelar
+            {t("profile:contactTab.cancel")}
           </CustomButton>
           <CustomButton
             type="button"
@@ -1616,11 +2039,11 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
             onClick={handleSubmit}
           >
             {sending ? (
-              "Enviando…"
+              t("profile:contactTab.sending")
             ) : (
               <>
                 <Send className="h-3.5 w-3.5" />
-                Enviar consulta
+                {t("profile:contactTab.send")}
               </>
             )}
           </CustomButton>
@@ -1629,18 +2052,17 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
 
       <div className="flex flex-col gap-4 xl:sticky xl:top-6">
         <Panel className="p-5">
-          <Overline className="mb-3">Antes de escribirnos</Overline>
+          <Overline className="mb-3">
+            {t("profile:contactTab.sidebarOverline")}
+          </Overline>
           <p className="text-[13px] text-muted-foreground mb-3 leading-relaxed">
-            Estos artículos resuelven el{" "}
-            <strong className="text-foreground">80%</strong> de las consultas
-            que recibimos.
+            {t("profile:contactTab.sidebarDesc", { pct: 80 })}
           </p>
-          {[
-            "Renovación y cancelación del plan",
-            "Reportar un error en un test",
-            "Recuperar la contraseña",
-            "Exportar mis datos (RGPD)"
-          ].map((item, i, arr) => (
+          {(
+            t("profile:contactTab.sidebarLinks", {
+              returnObjects: true
+            }) as string[]
+          ).map((item, i, arr) => (
             <div
               key={item}
               onClick={() => go("help")}
@@ -1657,11 +2079,13 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
         </Panel>
 
         <Panel className="p-5">
-          <Overline className="mb-2">Disponibilidad</Overline>
+          <Overline className="mb-2">
+            {t("profile:contactTab.availabilityTitle")}
+          </Overline>
           <p className="text-[12px] text-muted-foreground mb-3 leading-relaxed">
             {supportChannelAvailability.contact
-              ? "El formulario de contacto está activo. Respondemos en menos de 24 horas hábiles."
-              : "El formulario de contacto no está disponible en este momento. Contáctanos por email."}
+              ? t("profile:contactTab.availabilityActive")
+              : t("profile:contactTab.availabilityInactive")}
           </p>
           <div className="text-[12px] font-semibold text-foreground">
             support@ibericaoposiciones.es
@@ -1681,20 +2105,21 @@ const Tickets = ({
   go: (r: RouteName) => void;
   onOpenTicket: (ticketId: string) => void;
 }) => {
+  const { t } = useTranslation("support");
   const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
 
   const filters: { id: typeof filter; label: string; count: number }[] = [
-    { id: "all", label: "Todos", count: DEMO_TICKETS.length },
+    { id: "all", label: t("tickets.filters.all"), count: DEMO_TICKETS.length },
     {
       id: "open",
-      label: "Abiertos",
+      label: t("tickets.filters.open"),
       count: DEMO_TICKETS.filter(
         (t) => t.status === "open" || t.status === "awaiting"
       ).length
     },
     {
       id: "resolved",
-      label: "Resueltos",
+      label: t("tickets.filters.resolved"),
       count: DEMO_TICKETS.filter((t) => t.status === "resolved").length
     }
   ];
@@ -1711,16 +2136,16 @@ const Tickets = ({
     { label: string; className: string }
   > = {
     open: {
-      label: "En curso",
+      label: t("tickets.status.open"),
       className: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"
     },
     awaiting: {
-      label: "Esperando tu resp.",
+      label: t("tickets.status.awaiting"),
       className:
         "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
     },
     resolved: {
-      label: "Resuelto",
+      label: t("tickets.status.resolved"),
       className:
         "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
     }
@@ -1730,12 +2155,12 @@ const Tickets = ({
     <div className="max-w-[980px]">
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <Overline className="mb-2">Mis consultas</Overline>
+          <Overline className="mb-2">{t("tickets.overline")}</Overline>
           <h1 className="text-[2rem] leading-[1.1] font-serif text-foreground">
-            Historial de tickets
+            {t("tickets.pageTitle")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Aquí están todas tus conversaciones con soporte.
+            {t("tickets.subtitle")}
           </p>
         </div>
         <CustomButton
@@ -1747,7 +2172,7 @@ const Tickets = ({
           onClick={() => go("contact")}
         >
           <Plus className="h-3.5 w-3.5" />
-          Nueva consulta
+          {t("tickets.newQuery")}
         </CustomButton>
       </div>
 
@@ -1782,10 +2207,10 @@ const Tickets = ({
             <MessageSquare className="h-6 w-6" />
           </div>
           <h3 className="text-[1.3rem] font-serif text-foreground mb-1.5">
-            Sin consultas en esta categoría
+            {t("tickets.empty.title")}
           </h3>
           <p className="text-[13px] text-muted-foreground mb-4">
-            Cuando contactes con soporte, las conversaciones aparecerán aquí.
+            {t("tickets.empty.description")}
           </p>
           <CustomButton
             type="button"
@@ -1795,7 +2220,7 @@ const Tickets = ({
             onClick={() => go("contact")}
           >
             <Plus className="h-3.5 w-3.5" />
-            Abrir consulta
+            {t("tickets.empty.cta")}
           </CustomButton>
         </Panel>
       ) : (
@@ -1830,9 +2255,13 @@ const Tickets = ({
                       {ticket.subject}
                     </div>
                     <div className="text-[12px] text-muted-foreground flex gap-3 flex-wrap">
-                      <span>{ticket.messages} mensajes</span>
+                      <span>
+                        {t("tickets.meta.messages", { count: ticket.messages })}
+                      </span>
                       <span>·</span>
-                      <span>Actualizado {ticket.lastUpdate}</span>
+                      <span>
+                        {t("tickets.meta.updated", { date: ticket.lastUpdate })}
+                      </span>
                       {ticket.rating && (
                         <>
                           <span>·</span>
@@ -1864,16 +2293,19 @@ const SupportChat = ({
   go: (r: RouteName) => void;
   ticket?: SupportTicket;
 }) => {
+  const { t } = useTranslation("support");
   const [message, setMessage] = useState("");
-  const subject = ticket?.subject ?? "Consulta de soporte";
-  const attachmentName = `Soporte_${ticket?.id.replace("#", "") ?? "ticket"}.pdf`;
+  const subject = ticket?.subject ?? t("supportChat.fallbackSubject");
+  const attachmentName = `${t("supportChat.attachmentPrefix")}_${ticket?.id.replace("#", "") ?? "ticket"}.pdf`;
 
   return (
     <div className="max-w-[880px]">
       <PageHeader
-        overline="Soporte"
-        title="Chat con soporte"
-        desc={`Conversacion asociada a ${ticket?.id ?? "tu ticket"}. La transcripcion se guarda en tus tickets.`}
+        overline={t("supportChat.overline")}
+        title={t("supportChat.title")}
+        desc={t("supportChat.desc", {
+          ticketId: ticket?.id ?? t("supportChat.fallbackTicket")
+        })}
         onBack={() => go("tickets")}
       />
 
@@ -1886,15 +2318,15 @@ const SupportChat = ({
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-foreground">
-                Lucia Hernandez · Soporte nivel 2
+                Lucia Hernandez · {t("supportChat.level2")}
               </p>
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
-                En linea · responde en ~2 min
+                {t("supportChat.online")}
               </p>
             </div>
           </div>
           <CustomButton type="button" styleType="menu" radius="full" size="sm">
-            Finalizar
+            {t("supportChat.endChat")}
           </CustomButton>
         </header>
 
@@ -1955,14 +2387,14 @@ const SupportChat = ({
           <button
             type="button"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            aria-label="Adjuntar archivo"
+            aria-label={t("supportChat.attachFile")}
           >
             <Paperclip className="h-4 w-4" />
           </button>
           <input
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            placeholder="Escribe un mensaje..."
+            placeholder={t("supportChat.placeholder")}
             className="h-10 min-w-0 flex-1 rounded-full border border-border/70 bg-background px-4 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
           />
           <CustomButton
@@ -1972,14 +2404,13 @@ const SupportChat = ({
             size="sm"
           >
             <Send className="h-3.5 w-3.5" />
-            Enviar
+            {t("supportChat.send")}
           </CustomButton>
         </footer>
       </Panel>
 
       <p className="mt-3 text-center text-[11px] text-muted-foreground">
-        Adjuntamos automaticamente datos de tu sesion y plan para acelerar la
-        respuesta.
+        {t("supportChat.footerNote")}
       </p>
     </div>
   );
@@ -1992,8 +2423,10 @@ const DeleteAccountModal = ({
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirmed: () => void;
+  onConfirmed: () => Promise<void>;
 }) => {
+  const { toast } = useToast();
+  const { t } = useTranslation("support");
   const [step, setStep] = useState(1);
   const [reason, setReason] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -2007,27 +2440,36 @@ const DeleteAccountModal = ({
     }
   }, [open]);
 
-  const reasons = [
-    "He aprobado mi oposición 🎉",
-    "El precio es elevado",
-    "Faltan funciones que necesito",
-    "He encontrado otra plataforma",
-    "No le doy uso suficiente",
-    "Otro motivo"
-  ];
-
   const finalize = async () => {
     setWorking(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setWorking(false);
-    onClose();
-    onConfirmed();
+    try {
+      await softDeleteAccount(reason);
+      onClose();
+      await onConfirmed();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message.trim()
+          : "";
+      toast({
+        variant: "destructive",
+        title: t("accountDeletion.toasts.errorTitle"),
+        description:
+          errorMessage && errorMessage !== "account_delete_failed"
+            ? errorMessage
+            : t("accountDeletion.toasts.errorDescription")
+      });
+    } finally {
+      setWorking(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[560px] rounded-[1.5rem] p-0 overflow-hidden border border-border/70">
-        <DialogTitle className="sr-only">Eliminar cuenta</DialogTitle>
+        <DialogTitle className="sr-only">
+          {t("deleteAccount.title")}
+        </DialogTitle>
 
         {step === 1 && (
           <div className="p-9">
@@ -2035,53 +2477,40 @@ const DeleteAccountModal = ({
               <AlertTriangle className="h-5 w-5" />
             </div>
             <h2 className="text-[1.5rem] font-serif text-foreground mb-2">
-              ¿Seguro que quieres eliminar tu cuenta?
+              {t("deleteAccount.description")}
             </h2>
             <p className="text-[14px] text-muted-foreground leading-relaxed mb-5">
-              Esta acción es{" "}
-              <strong className="text-foreground">irreversible</strong>. Antes
-              de continuar, queremos asegurarnos de que entiendes lo que
-              perderás.
+              {t("deleteAccount.warning")}
             </p>
             <div className="rounded-[14px] border border-border/60 mb-5 overflow-hidden">
-              {[
-                {
-                  icon: <BookOpen className="h-3.5 w-3.5" />,
-                  label: "Tu historial de tests y progreso acumulado"
-                },
-                {
-                  icon: <MessageSquare className="h-3.5 w-3.5" />,
-                  label: "Tu historial completo con AsistenteIA"
-                },
-                {
-                  icon: <Clock className="h-3.5 w-3.5" />,
-                  label: "Tus sesiones de estudio registradas"
-                },
-                {
-                  icon: <CreditCard className="h-3.5 w-3.5" />,
-                  label: "Tu plan activo (no se reembolsa)",
-                  last: true
-                }
-              ].map((item, i) => (
+              {(
+                t("deleteAccount.items", { returnObjects: true }) as string[]
+              ).map((item, i, arr) => (
                 <div
                   key={i}
                   className={`flex items-center gap-3 px-4 py-3 ${
-                    item.last ? "" : "border-b border-border/60"
+                    i === arr.length - 1 ? "" : "border-b border-border/60"
                   }`}
                 >
                   <span className="w-7 h-7 rounded-[8px] bg-destructive/10 text-destructive flex items-center justify-center flex-shrink-0">
-                    {item.icon}
+                    {i === 0 ? (
+                      <BookOpen className="h-3.5 w-3.5" />
+                    ) : i === 1 ? (
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    ) : i === 2 ? (
+                      <Clock className="h-3.5 w-3.5" />
+                    ) : (
+                      <CreditCard className="h-3.5 w-3.5" />
+                    )}
                   </span>
                   <span className="text-[13px] text-foreground font-semibold">
-                    {item.label}
+                    {item}
                   </span>
                 </div>
               ))}
             </div>
             <div className="p-3 rounded-[12px] bg-muted text-[12px] text-muted-foreground leading-relaxed mb-6">
-              <strong className="text-foreground">¿Solo quieres pausar?</strong>{" "}
-              Puedes cancelar la renovación y mantener tu cuenta gratuita con
-              todo tu progreso intacto.
+              {t("deleteAccount.pauseHint")}
             </div>
             <div className="flex gap-2.5 justify-end">
               <CustomButton
@@ -2091,7 +2520,7 @@ const DeleteAccountModal = ({
                 size="sm"
                 onClick={onClose}
               >
-                Mantener cuenta
+                {t("deleteAccount.keepAccount")}
               </CustomButton>
               <CustomButton
                 type="button"
@@ -2100,7 +2529,7 @@ const DeleteAccountModal = ({
                 size="sm"
                 onClick={() => setStep(2)}
               >
-                Continuar eliminación
+                {t("deleteAccount.continueDelete")}
               </CustomButton>
             </div>
           </div>
@@ -2108,15 +2537,19 @@ const DeleteAccountModal = ({
 
         {step === 2 && (
           <div className="p-9">
-            <Overline className="text-destructive mb-2.5">Paso 2 de 3</Overline>
+            <Overline className="text-destructive mb-2.5">
+              {t("deleteAccount.step2Overline")}
+            </Overline>
             <h2 className="text-[1.4rem] font-serif text-foreground mb-2">
-              ¿Por qué te vas?
+              {t("deleteAccount.step2Title")}
             </h2>
             <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
-              Tu respuesta nos ayuda a mejorar. Es opcional pero muy valiosa.
+              {t("deleteAccount.step2Desc")}
             </p>
             <div className="flex flex-col gap-2 mb-6">
-              {reasons.map((r) => (
+              {(
+                t("deleteAccount.reasons", { returnObjects: true }) as string[]
+              ).map((r) => (
                 <label
                   key={r}
                   className={`flex items-center gap-3 px-4 py-3 rounded-[12px] border cursor-pointer transition-all text-[13px] font-semibold ${
@@ -2144,7 +2577,7 @@ const DeleteAccountModal = ({
                 size="sm"
                 onClick={() => setStep(1)}
               >
-                Atrás
+                {t("deleteAccount.back")}
               </CustomButton>
               <CustomButton
                 type="button"
@@ -2153,7 +2586,7 @@ const DeleteAccountModal = ({
                 size="sm"
                 onClick={() => setStep(3)}
               >
-                Continuar
+                {t("deleteAccount.step2Continue")}
               </CustomButton>
             </div>
           </div>
@@ -2162,26 +2595,30 @@ const DeleteAccountModal = ({
         {step === 3 && (
           <div className="p-9">
             <Overline className="text-destructive mb-2.5">
-              Paso 3 de 3 · confirmación final
+              {t("deleteAccount.step3Overline")}
             </Overline>
             <h2 className="text-[1.4rem] font-serif text-foreground mb-2">
-              Última confirmación
+              {t("deleteAccount.step3Title")}
             </h2>
             <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
-              Para confirmar, escribe{" "}
-              <strong className="text-foreground">ELIMINAR</strong> a
-              continuación. Procesaremos la solicitud en las próximas 72 horas.
+              {t("accountDeletion.finalConfirmationPrefix")}{" "}
+              <strong className="text-foreground">
+                {t("deleteAccount.confirmWord")}
+              </strong>
+              {t("accountDeletion.finalConfirmationSuffix")}
             </p>
             <input
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Escribe ELIMINAR"
+              placeholder={t("deleteAccount.placeholder")}
               className={`${inputCls} mb-2 ${
-                confirm === "ELIMINAR" ? "border-destructive" : ""
+                confirm === t("deleteAccount.confirmWord")
+                  ? "border-destructive"
+                  : ""
               } font-mono tracking-[0.18em]`}
             />
             <p className="text-[11px] text-muted-foreground mb-6">
-              Mayúsculas, sin espacios.
+              {t("deleteAccount.hint")}
             </p>
             <div className="flex justify-between">
               <CustomButton
@@ -2191,17 +2628,19 @@ const DeleteAccountModal = ({
                 size="sm"
                 onClick={() => setStep(2)}
               >
-                Atrás
+                {t("deleteAccount.back")}
               </CustomButton>
               <CustomButton
                 type="button"
                 styleType="destructive"
                 radius="full"
                 size="sm"
-                disabled={confirm !== "ELIMINAR" || working}
+                disabled={confirm !== t("deleteAccount.confirmWord") || working}
                 onClick={finalize}
               >
-                {working ? "Procesando…" : "Eliminar mi cuenta"}
+                {working
+                  ? t("deleteAccount.processing")
+                  : t("deleteAccount.confirm")}
               </CustomButton>
             </div>
           </div>
@@ -2231,6 +2670,8 @@ const HUB_ROUTES = new Set<RouteName>([
 
 const Support = () => {
   const { toast } = useToast();
+  const { t } = useTranslation("support");
+  const { forceLogout } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = normalizeTab(searchParams.get(TAB_PARAM));
   const [subRoute, setSubRoute] = useState<RouteState | null>(null);
@@ -2309,13 +2750,13 @@ const Support = () => {
       <DeleteAccountModal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        onConfirmed={() =>
+        onConfirmed={async () => {
           toast({
-            title: "Solicitud recibida",
-            description:
-              "Tu cuenta se eliminará en 72h. Recibirás confirmación por email."
-          })
-        }
+            title: t("accountDeletion.toasts.successTitle"),
+            description: t("accountDeletion.toasts.successDescription")
+          });
+          await forceLogout("account_soft_deleted");
+        }}
       />
     </div>
   );
