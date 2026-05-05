@@ -33,5 +33,19 @@
     "securityNote": "For security reasons, this link can be used only once and may expire after a limited time.",
     "footerPrimary": "Recover access and get back to your dashboard without losing your pace.",
     "footerSecondary": "If you notice activity you do not recognize, review your sign-in details before continuing."
+  },
+  "supportTicketReply": {
+    "previewText": "The team has replied to your support ticket.",
+    "eyebrow": "Support reply",
+    "title": "Your ticket has a new reply",
+    "paragraphs": [
+      "The team has replied to ticket __TICKET_CODE__ about \"__TICKET_SUBJECT__\".",
+      "Open the ticket chat to review the reply and continue the conversation if you need to add more information."
+    ],
+    "actionLabel": "Open ticket",
+    "fallbackLabel": "If the button does not work, copy this link and paste it into your browser.",
+    "securityNote": "You receive this email because support notifications are enabled. You can change this preference from your profile.",
+    "footerPrimary": "We keep your request in the same thread so all context stays organized.",
+    "footerSecondary": "Internal notifications will also appear in your dashboard bell."
   }
 }

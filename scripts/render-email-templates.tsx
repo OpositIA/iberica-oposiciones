@@ -8,8 +8,11 @@ import AuthConfirmationEmail, {
 import AuthRecoveryEmail, {
   type AuthRecoveryEmailProps
 } from "../src/emails/auth-recovery";
+import SupportTicketReplyEmail, {
+  type SupportTicketReplyEmailProps
+} from "../src/emails/support-ticket-reply";
 
-type EmailSectionKey = "confirmation" | "recovery";
+type EmailSectionKey = "confirmation" | "recovery" | "supportTicketReply";
 
 interface SharedCopy {
   brandName: string;
@@ -35,6 +38,7 @@ interface EmailTranslations {
   shared: SharedCopy;
   confirmation: SectionCopy;
   recovery: SectionCopy;
+  supportTicketReply: SectionCopy;
 }
 
 const projectRoot = process.cwd();
@@ -125,6 +129,13 @@ const main = async () => {
     en,
     "{{ .ConfirmationURL }}"
   );
+  const supportTicketReplyProps: SupportTicketReplyEmailProps =
+    buildTemplateProps(
+      "supportTicketReply",
+      es,
+      en,
+      "{{ .SiteURL }}/soporte?tab=tickets&ticket={{ .Data.ticket_id }}"
+    );
 
   await Promise.all([
     writeTemplate(
@@ -134,6 +145,10 @@ const main = async () => {
     writeTemplate(
       "reset-password.html",
       <AuthRecoveryEmail {...recoveryProps} />
+    ),
+    writeTemplate(
+      "support-ticket-reply.html",
+      <SupportTicketReplyEmail {...supportTicketReplyProps} />
     )
   ]);
 };

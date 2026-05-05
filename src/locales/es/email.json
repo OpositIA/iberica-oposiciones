@@ -33,5 +33,19 @@
     "securityNote": "Por seguridad, este enlace es de un solo uso y puede expirar tras un tiempo limitado.",
     "footerPrimary": "Recupera el acceso y vuelve a tu panel con el mismo ritmo de estudio.",
     "footerSecondary": "Si detectas actividad que no reconoces, revisa tus datos de acceso antes de continuar."
+  },
+  "supportTicketReply": {
+    "previewText": "El equipo ha respondido a tu ticket de soporte.",
+    "eyebrow": "Respuesta de soporte",
+    "title": "Tu ticket tiene una nueva respuesta",
+    "paragraphs": [
+      "El equipo ha respondido al ticket __TICKET_CODE__ sobre \"__TICKET_SUBJECT__\".",
+      "Puedes abrir el chat del ticket para revisar la respuesta y continuar la conversacion si necesitas aportar mas informacion."
+    ],
+    "actionLabel": "Abrir ticket",
+    "fallbackLabel": "Si el boton no funciona, copia este enlace y pegalo en tu navegador.",
+    "securityNote": "Recibes este correo porque tienes activadas las notificaciones de soporte. Puedes cambiar esta preferencia desde tu perfil.",
+    "footerPrimary": "Seguimos tu consulta desde el mismo hilo para mantener todo el contexto ordenado.",
+    "footerSecondary": "Las notificaciones internas tambien apareceran en tu campana del panel."
   }
 }

@@ -28,6 +28,16 @@
       "lightTitle": "Modo claro",
       "darkTitle": "Modo oscuro"
     },
+    "notifications": {
+      "open": "Abrir notificaciones",
+      "title": "Notificaciones",
+      "unreadCount": "{{count}} sin leer",
+      "allRead": "Todo al dia",
+      "markAllRead": "Marcar leidas",
+      "empty": "No tienes notificaciones.",
+      "supportReplyTitle": "Respuesta en {{ticketCode}}",
+      "supportReplyFallback": "Ticket de soporte"
+    },
     "closeSidebar": "Cerrar sidebar",
     "collapseSidebar": "Contraer sidebar",
     "expandSidebar": "Expandir sidebar",
@@ -134,6 +144,19 @@
       "opening": "Abriendo portal...",
       "managePlansCta": "Ver planes"
     },
+    "notifications": {
+      "cardTitle": "Notificaciones",
+      "cardDescription": "Configura tus avisos de soporte.",
+      "overline": "Notificaciones",
+      "title": "Preferencias de avisos",
+      "description": "Elige que canales quieres usar para enterarte de las respuestas importantes.",
+      "emailTitle": "Correo electronico",
+      "emailChannel": "Canal externo",
+      "supportTicketReplyLabel": "Avisarme por correo cuando staff responda a un ticket",
+      "supportTicketReplyDescription": "Recibe un correo cuando el equipo responda a uno de tus tickets de soporte.",
+      "saved": "Preferencia de notificaciones guardada.",
+      "saveFailed": "No se pudo guardar la preferencia."
+    },
     "dialog": {
       "title": "Confirmar cambio de oposicion",
       "description": "Vas a cambiar tu oposicion activa a \"{{opposition}}\". Quieres continuar?",
@@ -198,13 +221,13 @@
     "changesNote": "Los cambios se guardan en tu cuenta personal.",
     "cancel": "Cancelar",
     "save": "Guardar cambios",
-    "saving": "Guardando…",
+    "saving": "Guardando...",
     "dialog": {
       "title": "Confirmar cambio de oposición",
       "description": "Vas a cambiar tu oposición activa a \"{{name}}\". ¿Quieres continuar?",
       "warning": "Esta es tu única oportunidad de cambiar de oposición. Una vez confirmado no podrás volver a modificarla.",
       "confirm": "Confirmar cambio",
-      "changing": "Guardando…",
+      "changing": "Guardando...",
       "cancel": "Cancelar"
     },
     "toasts": {
@@ -220,6 +243,10 @@
       "lastNameRequired": "El apellido es obligatorio.",
       "saveFailed": "Error al guardar los cambios.",
       "saved": "Perfil actualizado correctamente."
+    },
+    "locales": {
+      "es": "Español (España)",
+      "en": "English"
     }
   },
   "changePassword": {
@@ -267,7 +294,9 @@
     "deleteCta": "Eliminar cuenta",
     "toasts": {
       "saveFailed": "Error al guardar los cambios."
-    }
+    },
+    "deleteDescription": "Borraremos permanentemente tu progreso, historial, conversaciones y datos personales en un maximo de 72 horas. Las facturas se conservan por obligacion fiscal.",
+    "deleteWarning": "Esta accion no se puede deshacer."
   },
   "contactTab": {
     "overline": "Contactar con soporte",

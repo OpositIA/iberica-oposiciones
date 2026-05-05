@@ -494,7 +494,8 @@
     "meta": {
       "messages": "{{count}} messages",
       "updated": "Updated {{date}}"
-    }
+    },
+    "unreadDivider": "Unread messages"
   },
   "supportChat": {
     "overline": "Support",
@@ -568,10 +569,8 @@
     "placeholder": "Type DELETE",
     "hint": "Uppercase, no spaces.",
     "back": "Back",
-    "step2Continue": "Continue",
     "confirm": "Delete my account",
-    "confirmWord": "DELETE",
-    "processing": "Processing…"
+    "processing": "Processing..."
   },
   "accountDeletion": {
     "dangerDescription": "We will mark your profile as deleted, sign you out, and release your email so you can register again from scratch. Invoices are kept for tax obligations.",

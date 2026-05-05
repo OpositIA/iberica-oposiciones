@@ -1,6 +1,7 @@
 import logoPrincipal from "@/assets/logo-principal.png";
 import { useAuth } from "@/auth/AuthProvider";
 import BrandLogo from "@/components/BrandLogo";
+import NotificationsButton from "@/components/NotificationsButton";
 import WorkspaceTour, {
   type WorkspaceTourHandle
 } from "@/components/onboarding/WorkspaceTour";
@@ -514,6 +515,7 @@ const AuthenticatedSidebarLayout = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                <NotificationsButton />
                 <ThemeToggleButton />
                 <UserActionsDropdown
                   onOpenTour={() => workspaceTourRef.current?.start()}

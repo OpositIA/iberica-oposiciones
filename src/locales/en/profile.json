@@ -28,6 +28,16 @@
       "lightTitle": "Light mode",
       "darkTitle": "Dark mode"
     },
+    "notifications": {
+      "open": "Open notifications",
+      "title": "Notifications",
+      "unreadCount": "{{count}} unread",
+      "allRead": "All caught up",
+      "markAllRead": "Mark read",
+      "empty": "You have no notifications.",
+      "supportReplyTitle": "Reply in {{ticketCode}}",
+      "supportReplyFallback": "Support ticket"
+    },
     "closeSidebar": "Close sidebar",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
@@ -133,6 +143,19 @@
       "cta": "Manage subscription",
       "opening": "Opening portal...",
       "managePlansCta": "View plans"
+    },
+    "notifications": {
+      "cardTitle": "Notifications",
+      "cardDescription": "Configure support alerts.",
+      "overline": "Notifications",
+      "title": "Alert preferences",
+      "description": "Choose which channels you want for important replies.",
+      "emailTitle": "Email",
+      "emailChannel": "External channel",
+      "supportTicketReplyLabel": "Email me when staff replies to a ticket",
+      "supportTicketReplyDescription": "Receive an email when the team replies to one of your support tickets.",
+      "saved": "Notification preference saved.",
+      "saveFailed": "Could not save the preference."
     },
     "dialog": {
       "title": "Confirm exam track change",
@@ -389,13 +412,13 @@
     "changesNote": "Changes are saved to your personal account.",
     "cancel": "Cancel",
     "save": "Save changes",
-    "saving": "Saving…",
+    "saving": "Saving...",
     "dialog": {
       "title": "Confirm exam track change",
       "description": "You are about to change your active exam track to \"{{name}}\". Do you want to continue?",
       "warning": "This is your only opportunity to change your exam track. Once confirmed, it cannot be modified again.",
       "confirm": "Confirm change",
-      "changing": "Saving…",
+      "changing": "Saving...",
       "cancel": "Cancel"
     },
     "toasts": {
@@ -411,6 +434,10 @@
       "lastNameRequired": "Last name is required.",
       "saveFailed": "Error saving changes.",
       "saved": "Profile updated successfully."
+    },
+    "locales": {
+      "es": "Spanish (Spain)",
+      "en": "English"
     }
   },
   "changePassword": {
@@ -458,7 +485,9 @@
     "deleteCta": "Delete account",
     "toasts": {
       "saveFailed": "Error saving changes."
-    }
+    },
+    "deleteDescription": "We will permanently delete your progress, history, conversations, and personal data within 72 hours. Invoices are kept for tax obligations.",
+    "deleteWarning": "This action cannot be undone."
   },
   "contactTab": {
     "overline": "Contact support",

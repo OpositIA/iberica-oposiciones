@@ -67,7 +67,7 @@ const UserActionsDropdown = ({
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
-    await requestActiveQuickTestPause().catch(() => false);
+    void requestActiveQuickTestPause().catch(() => false);
     await forceLogout("manual_sign_out");
     setIsSigningOut(false);
   };

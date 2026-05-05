@@ -472,9 +472,10 @@
     "allServicesNormal": "Todos los servicios funcionan con normalidad."
   },
   "tickets": {
+    "unreadDivider": "Mensajes no leídos",
     "overline": "Mis consultas",
     "pageTitle": "Historial de tickets",
-    "subtitle": "Aquí están todas tus conversaciones con soporte.",
+    "subtitle": "Aqui estan todas tus conversaciones con soporte.",
     "newQuery": "Nueva consulta",
     "filters": {
       "all": "Todos",
@@ -483,12 +484,12 @@
     },
     "status": {
       "open": "En curso",
-      "awaiting": "Esperando tu resp.",
+      "awaiting": "Esperando tu respuesta",
       "resolved": "Resuelto"
     },
     "empty": {
-      "title": "Sin consultas en esta categoría",
-      "description": "Cuando contactes con soporte, las conversaciones aparecerán aquí.",
+      "title": "Sin consultas en esta categoria",
+      "description": "Cuando contactes con soporte, las conversaciones apareceran aqui.",
       "cta": "Abrir consulta"
     },
     "meta": {
@@ -568,21 +569,19 @@
     "placeholder": "Escribe ELIMINAR",
     "hint": "Mayúsculas, sin espacios.",
     "back": "Atrás",
-    "step2Continue": "Continuar",
     "confirm": "Eliminar mi cuenta",
-    "confirmWord": "ELIMINAR",
-    "processing": "Procesando…"
+    "processing": "Procesando..."
   },
   "accountDeletion": {
-    "dangerDescription": "Marcaremos tu perfil como eliminado, cerraremos la sesi\u00f3n y liberaremos tu email para que puedas registrarte de nuevo desde cero. Las facturas se conservan por obligaci\u00f3n fiscal.",
-    "irreversible": "Esta acci\u00f3n no se puede deshacer.",
+    "dangerDescription": "Marcaremos tu perfil como eliminado, cerraremos la sesión y liberaremos tu email para que puedas registrarte de nuevo desde cero. Las facturas se conservan por obligación fiscal.",
+    "irreversible": "Esta acción no se puede deshacer.",
     "finalConfirmationPrefix": "Para confirmar, escribe",
-    "finalConfirmationSuffix": " a continuaci\u00f3n. Tu perfil se marcar\u00e1 como eliminado y se cerrar\u00e1 la sesi\u00f3n inmediatamente.",
+    "finalConfirmationSuffix": " a continuación. Tu perfil se marcará como eliminado y se cerrará la sesión inmediatamente.",
     "toasts": {
       "successTitle": "Cuenta eliminada",
-      "successDescription": "La cuenta se ha marcado como eliminada y se ha cerrado la sesi\u00f3n.",
+      "successDescription": "La cuenta se ha marcado como eliminada y se ha cerrado la sesión.",
       "errorTitle": "No se pudo eliminar la cuenta",
-      "errorDescription": "Int\u00e9ntalo de nuevo en unos minutos."
+      "errorDescription": "Inténtalo de nuevo en unos minutos."
     }
   },
   "validation": {
