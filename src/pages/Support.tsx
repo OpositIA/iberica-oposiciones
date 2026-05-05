@@ -10,6 +10,7 @@ import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
 import CustomTextarea from "@/components/ui/custom-textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { resolveOppositionNameById } from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale, type AppLocale } from "@/i18n/locales";
@@ -27,14 +28,26 @@ import {
 } from "@/queries/subscriptionQueries";
 import { fetchQuickTestsDashboardBundle } from "@/queries/testQueries";
 import {
-  submitSupportContactForm,
-  supportChannelAvailability
-} from "@/support/supportApi";
-import {
   sanitizeSupportContactForm,
   type SupportContactCategory,
   type SupportContactFormValues
 } from "@/support/supportForms";
+import {
+  createSupportTicket,
+  fetchMySupportTicketDetail,
+  fetchMySupportTicketMessages,
+  fetchMySupportTickets,
+  markSupportTicketRead,
+  removeSupportTicketImages,
+  replyToSupportTicket,
+  resolveMySupportTicket,
+  supportTicketsQueryKeys,
+  syncSupportTicketToTelegram,
+  uploadSupportTicketImages,
+  type SupportTicketAttachment,
+  type SupportTicketMessage,
+  type SupportTicketStatus
+} from "@/support/supportTicketsApi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -45,10 +58,8 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
-  Download,
   Eye,
   EyeOff,
-  FileText,
   Loader2,
   Lock,
   Mail,
@@ -60,7 +71,16 @@ import {
   Shield,
   Trash2
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
@@ -71,6 +91,7 @@ type RouteName =
   | TabName
   | "edit-profile"
   | "change-password"
+  | "notifications"
   | "privacy"
   | "support-chat";
 type RouteState = { name: RouteName; ticketId?: string };
@@ -151,49 +172,55 @@ const FAQS: { cat: FaqCat; q: string; a: string }[] = [
   }
 ];
 
-// ─── Demo tickets ─────────────────────────────────────────────────────────────
+// ─── Support tickets ──────────────────────────────────────────────────────────
 
 type TicketStatus = "open" | "awaiting" | "resolved";
 
-type SupportTicket = {
-  id: string;
-  subject: string;
-  topic: string;
-  status: TicketStatus;
-  lastUpdate: string;
-  messages: number;
-  unread?: boolean;
-  rating?: number;
+const SUPPORT_TOPIC_LABELS: Record<SupportContactCategory, string> = {
+  account: "Cuenta",
+  billing: "Facturación",
+  tests: "Tests",
+  ai: "AsistenteIA",
+  technical: "Otro asunto"
 };
 
-const DEMO_TICKETS: SupportTicket[] = [
-  {
-    id: "#OP-2148",
-    subject: "Problema con la facturación del mes",
-    topic: "Facturación",
-    status: "open",
-    lastUpdate: "hace 12 min",
-    messages: 3,
-    unread: true
-  },
-  {
-    id: "#OP-2102",
-    subject: "Pregunta marcada incorrectamente en test",
-    topic: "Tests",
-    status: "awaiting",
-    lastUpdate: "hace 2 días",
-    messages: 6
-  },
-  {
-    id: "#OP-2087",
-    subject: "Cambio de datos de perfil",
-    topic: "Cuenta",
-    status: "resolved",
-    lastUpdate: "hace 5 días",
-    messages: 4,
-    rating: 5
-  }
-];
+const mapTicketStatus = (status: SupportTicketStatus): TicketStatus => {
+  if (status === "awaiting_user") return "awaiting";
+  return status;
+};
+
+const formatRelativeDate = (value: string) => {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+
+  const diffMs = timestamp - Date.now();
+  const diffMinutes = Math.round(diffMs / (60 * 1000));
+  const absMinutes = Math.abs(diffMinutes);
+  const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+
+  if (absMinutes < 60) return rtf.format(diffMinutes, "minute");
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) return rtf.format(diffHours, "hour");
+
+  const diffDays = Math.round(diffHours / 24);
+  if (Math.abs(diffDays) < 30) return rtf.format(diffDays, "day");
+
+  const diffMonths = Math.round(diffDays / 30);
+  if (Math.abs(diffMonths) < 12) return rtf.format(diffMonths, "month");
+
+  const diffYears = Math.round(diffMonths / 12);
+  return rtf.format(diffYears, "year");
+};
+
+const formatAttachmentSize = (sizeBytes: number | null) => {
+  if (!sizeBytes || sizeBytes <= 0) return "";
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const isImageAttachment = (attachment: SupportTicketAttachment) =>
+  attachment.mimeType.startsWith("image/");
 
 // ─── Small primitives ─────────────────────────────────────────────────────────
 
@@ -677,8 +704,9 @@ const ProfileHub = ({
           />
           <ActionCard
             icon={<Bell className="h-4 w-4" />}
-            title="Notificaciones"
-            desc="Configura tus preferencias de email."
+            title={t("myProfile.notifications.cardTitle")}
+            desc={t("myProfile.notifications.cardDescription")}
+            onClick={() => go("notifications")}
           />
           <ActionCard
             icon={<CreditCard className="h-4 w-4" />}
@@ -833,6 +861,100 @@ const StatRow = ({
     <span className="font-serif text-[1.3rem] text-foreground">{value}</span>
   </div>
 );
+
+// ─── NOTIFICATIONS PREFERENCES ────────────────────────────────────────────────
+
+const NotificationsPreferences = ({
+  go,
+  showToast
+}: {
+  go: (r: RouteName) => void;
+  showToast: (msg: string) => void;
+}) => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("profile");
+  const shouldLoad = Boolean(user?.id);
+  const { data: profileDetails, isFetching } = useProfileDetailsQuery(
+    shouldLoad ? user?.id : null
+  );
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setEmailEnabled(
+      profileDetails?.support_ticket_reply_email_enabled !== false
+    );
+  }, [profileDetails?.support_ticket_reply_email_enabled]);
+
+  const handleEmailPreferenceChange = async (checked: boolean) => {
+    if (!user?.id || isSaving) return;
+
+    setEmailEnabled(checked);
+    setIsSaving(true);
+
+    const { error } = await supabase.from("profiles").upsert(
+      {
+        user_id: user.id,
+        support_ticket_reply_email_enabled: checked
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (error) {
+      setEmailEnabled(!checked);
+      showToast(t("myProfile.notifications.saveFailed"));
+      setIsSaving(false);
+      return;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    showToast(t("myProfile.notifications.saved"));
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="max-w-[760px]">
+      <PageHeader
+        overline={t("myProfile.notifications.overline")}
+        title={t("myProfile.notifications.title")}
+        desc={t("myProfile.notifications.description")}
+        onBack={() => go("profile")}
+      />
+
+      <Panel className="overflow-hidden">
+        <div className="flex items-start justify-between gap-5 p-6">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-secondary text-primary">
+                <Mail className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">
+                  {t("myProfile.notifications.emailTitle")}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {t("myProfile.notifications.emailChannel")}
+                </p>
+              </div>
+            </div>
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+              {t("myProfile.notifications.supportTicketReplyDescription")}
+            </p>
+          </div>
+          <Switch
+            checked={emailEnabled}
+            disabled={isFetching || isSaving}
+            onCheckedChange={(checked) => {
+              void handleEmailPreferenceChange(checked);
+            }}
+            aria-label={t("myProfile.notifications.supportTicketReplyLabel")}
+          />
+        </div>
+      </Panel>
+    </div>
+  );
+};
 
 // ─── EDIT PROFILE ─────────────────────────────────────────────────────────────
 
@@ -1388,6 +1510,7 @@ const PermToggle = ({
 const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
   const profileName =
     `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim();
   const profileEmail = profile?.email ?? user?.email ?? "";
@@ -1439,30 +1562,31 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
         message
       };
       const sanitized = sanitizeSupportContactForm(values);
-      const result = await submitSupportContactForm({
-        ...sanitized,
-        metadata: {
+      const createdTicket = await createSupportTicket({
+        category: topic,
+        subject: sanitized.context,
+        message: sanitized.message,
+        requestContext: {
           locale: "es",
           pathname: window.location.pathname,
           submittedAt: new Date().toISOString(),
           userAgent: navigator.userAgent,
-          userId: user?.id ?? null
+          userId: user?.id ?? null,
+          email: profileEmail,
+          name: profileName
         }
       });
-
-      if (result.status === "unconfigured") {
-        toast({
-          title: "Formulario recibido",
-          description:
-            "Hemos recibido tu consulta. Te responderemos en menos de 24 horas hábiles."
-        });
-      } else {
-        toast({
-          title: "Consulta enviada",
-          description:
-            "Hemos recibido tu consulta. Te responderemos en menos de 24 horas hábiles."
-        });
-      }
+      await syncSupportTicketToTelegram(createdTicket.id).catch(
+        () => undefined
+      );
+      await queryClient.invalidateQueries({
+        queryKey: supportTicketsQueryKeys.list(user?.id)
+      });
+      toast({
+        title: "Consulta enviada",
+        description:
+          "Hemos recibido tu consulta. Te responderemos en menos de 24 horas hábiles."
+      });
       setSent(true);
     } catch {
       toast({
@@ -1659,9 +1783,8 @@ const ContactTab = ({ go }: { go: (r: RouteName) => void }) => {
         <Panel className="p-5">
           <Overline className="mb-2">Disponibilidad</Overline>
           <p className="text-[12px] text-muted-foreground mb-3 leading-relaxed">
-            {supportChannelAvailability.contact
-              ? "El formulario de contacto está activo. Respondemos en menos de 24 horas hábiles."
-              : "El formulario de contacto no está disponible en este momento. Contáctanos por email."}
+            El formulario de contacto está activo. Respondemos en menos de 24
+            horas hábiles.
           </p>
           <div className="text-[12px] font-semibold text-foreground">
             support@ibericaoposiciones.es
@@ -1681,30 +1804,121 @@ const Tickets = ({
   go: (r: RouteName) => void;
   onOpenTicket: (ticketId: string) => void;
 }) => {
+  const { session, user } = useAuth();
+  const sessionAccessToken = session?.access_token;
   const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
+  const queryClient = useQueryClient();
+  const ticketNodeRefs = useRef(new Map<string, HTMLDivElement>());
+  const ticketLayoutSnapshotRef = useRef(new Map<string, DOMRect>());
+  const listRefetchPromiseRef = useRef<Promise<unknown> | null>(null);
+  const { data: tickets = [], isLoading } = useQuery({
+    queryKey: supportTicketsQueryKeys.list(user?.id),
+    queryFn: fetchMySupportTickets,
+    enabled: Boolean(user?.id),
+    staleTime: 15_000
+  });
+
+  useEffect(() => {
+    if (!user?.id || !sessionAccessToken) return;
+
+    supabase.realtime.setAuth(sessionAccessToken);
+    const refetchTicketList = () => {
+      if (listRefetchPromiseRef.current) return;
+
+      listRefetchPromiseRef.current = queryClient
+        .refetchQueries({
+          queryKey: supportTicketsQueryKeys.list(user.id)
+        })
+        .finally(() => {
+          listRefetchPromiseRef.current = null;
+        });
+    };
+
+    const channel = supabase
+      .channel(`support-tickets:${user.id}`, {
+        config: {
+          private: true
+        }
+      })
+      .on("broadcast", { event: "INSERT" }, () => {
+        refetchTicketList();
+      })
+      .on("broadcast", { event: "UPDATE" }, () => {
+        refetchTicketList();
+      })
+      .on("broadcast", { event: "DELETE" }, () => {
+        refetchTicketList();
+      })
+      .subscribe();
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [queryClient, sessionAccessToken, user?.id]);
 
   const filters: { id: typeof filter; label: string; count: number }[] = [
-    { id: "all", label: "Todos", count: DEMO_TICKETS.length },
+    { id: "all", label: "Todos", count: tickets.length },
     {
       id: "open",
       label: "Abiertos",
-      count: DEMO_TICKETS.filter(
-        (t) => t.status === "open" || t.status === "awaiting"
-      ).length
+      count: tickets.filter((ticket) => ticket.status !== "resolved").length
     },
     {
       id: "resolved",
       label: "Resueltos",
-      count: DEMO_TICKETS.filter((t) => t.status === "resolved").length
+      count: tickets.filter((ticket) => ticket.status === "resolved").length
     }
   ];
 
-  const list = DEMO_TICKETS.filter((t) => {
+  const list = tickets.filter((ticket) => {
     if (filter === "all") return true;
-    if (filter === "open")
-      return t.status === "open" || t.status === "awaiting";
-    return t.status === "resolved";
+    if (filter === "open") return ticket.status !== "resolved";
+    return ticket.status === "resolved";
   });
+  const ticketListLayoutSignature = list
+    .map(
+      (ticket) =>
+        `${ticket.id}:${ticket.lastMessageAt}:${ticket.messageCount}:${ticket.unread}`
+    )
+    .join("|");
+
+  useLayoutEffect(() => {
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const nextSnapshot = new Map<string, DOMRect>();
+
+    ticketNodeRefs.current.forEach((node, ticketId) => {
+      const currentRect = node.getBoundingClientRect();
+      const previousRect = ticketLayoutSnapshotRef.current.get(ticketId);
+      nextSnapshot.set(ticketId, currentRect);
+
+      if (reduceMotion || !previousRect) return;
+
+      const deltaX = previousRect.left - currentRect.left;
+      const deltaY = previousRect.top - currentRect.top;
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) return;
+
+      node.animate(
+        [
+          {
+            transform: `translate(${deltaX}px, ${deltaY}px)`,
+            filter: "brightness(1.04)"
+          },
+          {
+            transform: "translate(0, 0)",
+            filter: "brightness(1)"
+          }
+        ],
+        {
+          duration: 360,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+        }
+      );
+    });
+
+    ticketLayoutSnapshotRef.current = nextSnapshot;
+  }, [ticketListLayoutSignature]);
 
   const STATUS_STYLES: Record<
     TicketStatus,
@@ -1776,7 +1990,11 @@ const Tickets = ({
         ))}
       </div>
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <Panel className="p-14 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </Panel>
+      ) : list.length === 0 ? (
         <Panel className="p-14 text-center">
           <div className="w-14 h-14 rounded-[18px] bg-muted flex items-center justify-center mx-auto mb-4 text-muted-foreground">
             <MessageSquare className="h-6 w-6" />
@@ -1801,52 +2019,65 @@ const Tickets = ({
       ) : (
         <div className="flex flex-col gap-3">
           {list.map((ticket) => {
-            const s = STATUS_STYLES[ticket.status];
+            const s = STATUS_STYLES[mapTicketStatus(ticket.status)];
             return (
-              <Panel
+              <div
                 key={ticket.id}
-                onClick={() => onOpenTicket(ticket.id)}
-                className="p-5 cursor-pointer hover:-translate-y-0.5 hover:border-primary/30 transition-all"
+                ref={(node) => {
+                  if (node) {
+                    ticketNodeRefs.current.set(ticket.id, node);
+                    return;
+                  }
+
+                  ticketNodeRefs.current.delete(ticket.id);
+                }}
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                      <span className="text-[11px] font-bold text-muted-foreground tracking-[0.14em]">
-                        {ticket.id}
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] ${s.className}`}
-                      >
-                        {s.label}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        · {ticket.topic}
-                      </span>
-                      {ticket.unread && (
-                        <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_0_3px_rgba(249,115,22,0.15)]" />
-                      )}
+                <Panel
+                  onClick={() => onOpenTicket(ticket.id)}
+                  className="p-5 cursor-pointer hover:-translate-y-0.5 hover:border-primary/30 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                        <span className="text-[11px] font-bold text-muted-foreground tracking-[0.14em]">
+                          {ticket.code}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] ${s.className}`}
+                        >
+                          {s.label}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          · {SUPPORT_TOPIC_LABELS[ticket.category]}
+                        </span>
+                        {ticket.unread && (
+                          <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_0_3px_rgba(249,115,22,0.15)]" />
+                        )}
+                      </div>
+                      <div className="text-sm font-bold text-foreground mb-1.5">
+                        {ticket.subject}
+                      </div>
+                      <div className="text-[12px] text-muted-foreground flex gap-3 flex-wrap">
+                        <span>{ticket.messageCount} mensajes</span>
+                        <span>·</span>
+                        <span>
+                          Actualizado {formatRelativeDate(ticket.lastMessageAt)}
+                        </span>
+                        {ticket.rating && (
+                          <>
+                            <span>·</span>
+                            <span className="text-primary">
+                              {"★".repeat(ticket.rating)}
+                              {"☆".repeat(5 - ticket.rating)}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm font-bold text-foreground mb-1.5">
-                      {ticket.subject}
-                    </div>
-                    <div className="text-[12px] text-muted-foreground flex gap-3 flex-wrap">
-                      <span>{ticket.messages} mensajes</span>
-                      <span>·</span>
-                      <span>Actualizado {ticket.lastUpdate}</span>
-                      {ticket.rating && (
-                        <>
-                          <span>·</span>
-                          <span className="text-primary">
-                            {"★".repeat(ticket.rating)}
-                            {"☆".repeat(5 - ticket.rating)}
-                          </span>
-                        </>
-                      )}
-                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </div>
-              </Panel>
+                </Panel>
+              </div>
             );
           })}
         </div>
@@ -1855,25 +2086,475 @@ const Tickets = ({
   );
 };
 
-// ─── DELETE ACCOUNT MODAL ─────────────────────────────────────────────────────
+type PendingImageAttachment = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
+
+const TicketMessageAttachments = ({
+  attachments,
+  align = "left"
+}: {
+  attachments: SupportTicketAttachment[];
+  align?: "left" | "right";
+}) => {
+  if (!attachments.length) return null;
+
+  return (
+    <div
+      className={`mt-3 grid gap-2 ${
+        attachments.length > 1 ? "grid-cols-2" : "grid-cols-1"
+      } ${align === "right" ? "justify-items-end" : ""}`}
+    >
+      {attachments.map((attachment) => {
+        if (isImageAttachment(attachment) && attachment.signedUrl) {
+          const isLandscape =
+            attachment.imageWidth !== null &&
+            attachment.imageHeight !== null &&
+            attachment.imageWidth > attachment.imageHeight;
+
+          return (
+            <a
+              key={attachment.id}
+              href={attachment.signedUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={`block max-w-full overflow-hidden rounded-2xl border border-border/60 bg-background/50 ${
+                isLandscape ? "w-full sm:max-w-[420px]" : "w-fit max-w-[240px]"
+              }`}
+            >
+              <img
+                src={attachment.signedUrl}
+                alt={attachment.fileName}
+                className="block max-h-[260px] max-w-full object-contain"
+                loading="lazy"
+              />
+            </a>
+          );
+        }
+
+        return (
+          <a
+            key={attachment.id}
+            href={attachment.signedUrl ?? "#"}
+            target="_blank"
+            rel="noreferrer"
+            className="flex min-w-[180px] items-center gap-3 rounded-2xl border border-border/60 bg-background/60 px-3 py-3"
+          >
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-primary">
+              <Paperclip className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-foreground">
+                {attachment.fileName}
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                {formatAttachmentSize(attachment.fileSizeBytes)}
+              </span>
+            </span>
+          </a>
+        );
+      })}
+    </div>
+  );
+};
 
 const SupportChat = ({
   go,
-  ticket
+  ticketId
 }: {
   go: (r: RouteName) => void;
-  ticket?: SupportTicket;
+  ticketId?: string;
 }) => {
   const [message, setMessage] = useState("");
-  const subject = ticket?.subject ?? "Consulta de soporte";
-  const attachmentName = `Soporte_${ticket?.id.replace("#", "") ?? "ticket"}.pdf`;
+  const [pendingImages, setPendingImages] = useState<PendingImageAttachment[]>(
+    []
+  );
+  const { session, user } = useAuth();
+  const sessionAccessToken = session?.access_token;
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const unreadMarkerRef = useRef<HTMLDivElement | null>(null);
+  const pendingImagesRef = useRef<PendingImageAttachment[]>([]);
+  const initialScrollTicketRef = useRef<string | null>(null);
+  const initialMessageIdsRef = useRef<Set<string | number> | null>(null);
+  const markedReadTicketRef = useRef<string | null>(null);
+  const optimisticMessageIdRef = useRef(-1);
+  const readSyncPromiseRef = useRef<Promise<unknown> | null>(null);
+  const ticketRefreshPromiseRef = useRef<Promise<unknown> | null>(null);
+  const [sending, setSending] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [initialReadCursor, setInitialReadCursor] = useState<{
+    ticketId: string;
+    value: string | null;
+  } | null>(null);
+  const { t } = useTranslation("support");
+  const { data: ticket, isLoading: isTicketLoading } = useQuery({
+    queryKey: supportTicketsQueryKeys.detail(ticketId),
+    queryFn: () => fetchMySupportTicketDetail(ticketId as string),
+    enabled: Boolean(ticketId),
+    staleTime: 15_000
+  });
+  const { data: messages = [], isLoading: isMessagesLoading } = useQuery({
+    queryKey: supportTicketsQueryKeys.messages(ticketId),
+    queryFn: () => fetchMySupportTicketMessages(ticketId as string),
+    enabled: Boolean(ticketId)
+  });
+
+  useEffect(() => {
+    if (!ticketId) {
+      setInitialReadCursor(null);
+      return;
+    }
+
+    initialScrollTicketRef.current = null;
+    initialMessageIdsRef.current = null;
+    markedReadTicketRef.current = null;
+  }, [ticketId]);
+
+  useEffect(() => {
+    if (!ticketId || !ticket) return;
+    if (initialReadCursor?.ticketId === ticketId) return;
+
+    setInitialReadCursor({
+      ticketId,
+      value: ticket.userLastReadAt
+    });
+  }, [initialReadCursor?.ticketId, ticket, ticketId]);
+
+  useEffect(() => {
+    pendingImagesRef.current = pendingImages;
+  }, [pendingImages]);
+
+  useEffect(
+    () => () => {
+      pendingImagesRef.current.forEach((attachment) =>
+        URL.revokeObjectURL(attachment.previewUrl)
+      );
+    },
+    []
+  );
+
+  const hasInitialReadCursor = initialReadCursor?.ticketId === ticketId;
+  const firstUnreadMessageId = useMemo(() => {
+    if (!hasInitialReadCursor) return null;
+
+    const readCursor = initialReadCursor.value;
+    const initialMessageIds = initialMessageIdsRef.current;
+    return (
+      messages.find(
+        (ticketMessage) =>
+          ticketMessage.authorRole === "staff" &&
+          (!initialMessageIds || initialMessageIds.has(ticketMessage.id)) &&
+          (!readCursor ||
+            new Date(ticketMessage.createdAt).getTime() >
+              new Date(readCursor).getTime())
+      )?.id ?? null
+    );
+  }, [hasInitialReadCursor, initialReadCursor?.value, messages]);
+
+  useLayoutEffect(() => {
+    const node = messagesContainerRef.current;
+    if (!node || !ticketId || isMessagesLoading || !hasInitialReadCursor)
+      return;
+
+    if (initialScrollTicketRef.current === ticketId) {
+      node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+      return;
+    }
+
+    const unreadMarker = unreadMarkerRef.current;
+    if (unreadMarker) unreadMarker.scrollIntoView({ block: "center" });
+    else node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
+
+    initialScrollTicketRef.current = ticketId;
+    initialMessageIdsRef.current = new Set(
+      messages.map((ticketMessage) => ticketMessage.id)
+    );
+  }, [
+    firstUnreadMessageId,
+    hasInitialReadCursor,
+    isMessagesLoading,
+    messages,
+    messages.length,
+    ticketId
+  ]);
+
+  useEffect(() => {
+    if (
+      !ticketId ||
+      isMessagesLoading ||
+      initialScrollTicketRef.current !== ticketId ||
+      markedReadTicketRef.current === ticketId
+    )
+      return;
+
+    markedReadTicketRef.current = ticketId;
+    readSyncPromiseRef.current = markSupportTicketRead(ticketId).finally(() => {
+      readSyncPromiseRef.current = null;
+    });
+  }, [isMessagesLoading, messages.length, ticketId]);
+
+  useEffect(() => {
+    if (
+      !ticketId ||
+      isMessagesLoading ||
+      initialScrollTicketRef.current !== ticketId ||
+      messages.length === 0 ||
+      !initialMessageIdsRef.current ||
+      readSyncPromiseRef.current
+    )
+      return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.authorRole !== "staff") return;
+    if (initialMessageIdsRef.current.has(lastMessage.id)) return;
+
+    setInitialReadCursor({ ticketId, value: new Date().toISOString() });
+    initialMessageIdsRef.current.add(lastMessage.id);
+    readSyncPromiseRef.current = markSupportTicketRead(ticketId).finally(() => {
+      readSyncPromiseRef.current = null;
+    });
+  }, [isMessagesLoading, messages, ticketId]);
+
+  useEffect(() => {
+    if (!ticketId || !sessionAccessToken) return;
+
+    const refreshTicketState = () => {
+      if (ticketRefreshPromiseRef.current) return;
+
+      ticketRefreshPromiseRef.current = Promise.allSettled([
+        queryClient.refetchQueries({
+          queryKey: supportTicketsQueryKeys.messages(ticketId)
+        }),
+        queryClient.refetchQueries({
+          queryKey: supportTicketsQueryKeys.detail(ticketId)
+        }),
+        queryClient.refetchQueries({
+          queryKey: supportTicketsQueryKeys.list(user?.id)
+        })
+      ]).finally(() => {
+        ticketRefreshPromiseRef.current = null;
+      });
+    };
+
+    supabase.realtime.setAuth(sessionAccessToken);
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const subscribeTimer = window.setTimeout(() => {
+      const channelName = `support-ticket:${ticketId}`;
+
+      channel = supabase
+        .channel(channelName, {
+          config: {
+            private: true
+          }
+        })
+        .on("broadcast", { event: "INSERT" }, () => {
+          refreshTicketState();
+        })
+        .on("broadcast", { event: "UPDATE" }, () => {
+          refreshTicketState();
+        })
+        .on("broadcast", { event: "DELETE" }, () => {
+          refreshTicketState();
+        })
+        .subscribe();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(subscribeTimer);
+      if (channel) void channel.unsubscribe();
+    };
+  }, [queryClient, sessionAccessToken, ticketId, user?.id]);
+
+  const statusStyles: Record<
+    TicketStatus,
+    { label: string; className: string }
+  > = {
+    open: {
+      label: "En curso",
+      className: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"
+    },
+    awaiting: {
+      label: "Esperando tu resp.",
+      className:
+        "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+    },
+    resolved: {
+      label: "Resuelto",
+      className:
+        "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+    }
+  };
+
+  const currentStatus = ticket ? mapTicketStatus(ticket.status) : "open";
+
+  const clearPendingImages = useCallback(() => {
+    setPendingImages((current) => {
+      current.forEach((attachment) =>
+        URL.revokeObjectURL(attachment.previewUrl)
+      );
+      return [];
+    });
+  }, []);
+
+  const handleFilesSelected = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = Array.from(event.target.files ?? []).filter(
+        (file) => file.type.startsWith("image/")
+      );
+
+      if (!selectedFiles.length) return;
+
+      setUploadError(null);
+      setPendingImages((current) => {
+        const next = [...current];
+        for (const file of selectedFiles.slice(
+          0,
+          Math.max(0, 6 - current.length)
+        )) {
+          next.push({
+            id: crypto.randomUUID(),
+            file,
+            previewUrl: URL.createObjectURL(file)
+          });
+        }
+        return next;
+      });
+
+      event.target.value = "";
+    },
+    []
+  );
+
+  const removePendingImage = useCallback((attachmentId: string) => {
+    setPendingImages((current) => {
+      const target = current.find(
+        (attachment) => attachment.id === attachmentId
+      );
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((attachment) => attachment.id !== attachmentId);
+    });
+  }, []);
+
+  const handleSend = async () => {
+    const nextMessage = message.trim();
+    if (!ticketId || (!nextMessage && pendingImages.length === 0) || !user?.id)
+      return;
+
+    const now = new Date().toISOString();
+    const optimisticMessage: SupportTicketMessage | null = nextMessage
+      ? {
+          id: optimisticMessageIdRef.current--,
+          ticketId,
+          authorRole: "user",
+          body: nextMessage,
+          sourceChannel: "web",
+          createdAt: now,
+          attachments: []
+        }
+      : null;
+    const previousMessages = queryClient.getQueryData<SupportTicketMessage[]>(
+      supportTicketsQueryKeys.messages(ticketId)
+    );
+
+    setSending(true);
+    setUploadError(null);
+    setInitialReadCursor({ ticketId, value: now });
+    markedReadTicketRef.current = ticketId;
+    setMessage("");
+
+    if (optimisticMessage) {
+      queryClient.setQueryData<SupportTicketMessage[]>(
+        supportTicketsQueryKeys.messages(ticketId),
+        (current = []) => [...current, optimisticMessage]
+      );
+    }
+
+    let uploadedAttachments: Awaited<
+      ReturnType<typeof uploadSupportTicketImages>
+    > = [];
+    try {
+      uploadedAttachments = await uploadSupportTicketImages({
+        userId: user.id,
+        ticketId,
+        files: pendingImages.map((attachment) => attachment.file)
+      });
+      await replyToSupportTicket(ticketId, nextMessage, uploadedAttachments);
+      await syncSupportTicketToTelegram(ticketId).catch(() => undefined);
+      clearPendingImages();
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: supportTicketsQueryKeys.messages(ticketId)
+        }),
+        queryClient.invalidateQueries({
+          queryKey: supportTicketsQueryKeys.detail(ticketId)
+        }),
+        queryClient.invalidateQueries({
+          queryKey: supportTicketsQueryKeys.list(user?.id)
+        })
+      ]);
+    } catch (error) {
+      if (uploadedAttachments.length) {
+        await removeSupportTicketImages(
+          uploadedAttachments.map((attachment) => attachment.storagePath)
+        ).catch(() => undefined);
+      }
+      setUploadError(
+        error instanceof Error ? error.message : "No se pudo enviar el mensaje."
+      );
+      queryClient.setQueryData(
+        supportTicketsQueryKeys.messages(ticketId),
+        previousMessages ?? []
+      );
+      setMessage(nextMessage);
+    } finally {
+      setSending(false);
+    }
+  };
+  const canSendMessage =
+    Boolean(ticketId) &&
+    (message.trim().length > 0 || pendingImages.length > 0);
+
+  const handleMessageKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+
+    event.preventDefault();
+    if (sending || !canSendMessage) return;
+    void handleSend();
+  };
+
+  const handleResolve = async () => {
+    if (!ticketId || ticket?.status === "resolved") return;
+
+    setResolving(true);
+    try {
+      await resolveMySupportTicket(ticketId);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: supportTicketsQueryKeys.detail(ticketId)
+        }),
+        queryClient.invalidateQueries({
+          queryKey: supportTicketsQueryKeys.list(user?.id)
+        })
+      ]);
+    } finally {
+      setResolving(false);
+    }
+  };
 
   return (
     <div className="max-w-[880px]">
       <PageHeader
         overline="Soporte"
         title="Chat con soporte"
-        desc={`Conversacion asociada a ${ticket?.id ?? "tu ticket"}. La transcripcion se guarda en tus tickets.`}
+        desc={`Conversacion asociada a ${ticket?.code ?? "tu ticket"}. La transcripcion se guarda en tus tickets.`}
         onBack={() => go("tickets")}
       />
 
@@ -1881,99 +2562,198 @@ const SupportChat = ({
         <header className="flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-              L
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-emerald-500" />
+              IO
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-foreground">
-                Lucia Hernandez · Soporte nivel 2
+                support@ibericaoposiciones.es
               </p>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
-                En linea · responde en ~2 min
+              <p
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] ${statusStyles[currentStatus].className}`}
+              >
+                {statusStyles[currentStatus].label}
               </p>
             </div>
           </div>
-          <CustomButton type="button" styleType="menu" radius="full" size="sm">
+          <CustomButton
+            type="button"
+            styleType="menu"
+            radius="full"
+            size="sm"
+            disabled={resolving || ticket?.status === "resolved"}
+            onClick={() => {
+              void handleResolve();
+            }}
+          >
+            {resolving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : null}
             Finalizar
           </CustomButton>
         </header>
 
-        <div className="h-[390px] overflow-y-auto px-5 py-5">
-          <div className="mb-5 max-w-[70%] rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm leading-relaxed text-foreground shadow-[0_18px_45px_-34px_rgba(15,23,42,0.45)]">
-            Hola, soy Lucia. Estoy revisando el ticket{" "}
-            <span className="font-semibold">{ticket?.id}</span> sobre{" "}
-            <span className="font-semibold">{subject}</span>. En que puedo
-            ayudarte?
-            <p className="mt-2 text-[11px] text-muted-foreground">10:32</p>
-          </div>
-
-          <div className="mb-6 ml-auto max-w-[78%] rounded-2xl bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_45px_-32px_hsl(var(--primary)/0.8)]">
-            Hola, tengo una duda sobre este ticket. Necesito revisar los
-            detalles y saber como continuar.
-            <p className="mt-2 text-right text-[11px] text-primary-foreground/75">
-              10:33
-            </p>
-          </div>
-
-          <div className="mb-5 flex items-end gap-3">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-              L
-            </span>
-            <div className="max-w-[72%] rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm leading-relaxed text-foreground shadow-[0_18px_45px_-34px_rgba(15,23,42,0.45)]">
-              Lo reviso ahora. Te dejo aqui la ultima referencia vinculada a la
-              consulta para que la tengas a mano.
-              <p className="mt-2 text-[11px] text-muted-foreground">10:34</p>
+        <div
+          ref={messagesContainerRef}
+          className="h-[390px] overflow-y-auto px-5 py-5"
+        >
+          {isTicketLoading || isMessagesLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          </div>
+          ) : (
+            messages.map((ticketMessage) => {
+              const timeLabel = new Date(
+                ticketMessage.createdAt
+              ).toLocaleTimeString("es-ES", {
+                hour: "2-digit",
+                minute: "2-digit"
+              });
+              const showUnreadMarker =
+                ticketMessage.id === firstUnreadMessageId;
 
-          <div className="flex items-end gap-3">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-              L
-            </span>
-            <div className="max-w-[76%] rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm leading-relaxed text-foreground shadow-[0_18px_45px_-34px_rgba(15,23,42,0.45)]">
-              La informacion del ticket esta correctamente registrada. Si
-              necesitas ampliar el caso, responde por aqui y quedara guardado en
-              la transcripcion.
-              <div className="mt-3 flex items-center gap-3 rounded-xl bg-muted/60 p-3">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background text-primary">
-                  <FileText className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">
-                    {attachmentName}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">118 KB</p>
-                </div>
-                <Download className="h-4 w-4 shrink-0 text-primary" />
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">10:35</p>
-            </div>
-          </div>
+              if (ticketMessage.authorRole === "user") {
+                return (
+                  <Fragment key={ticketMessage.id}>
+                    {showUnreadMarker && (
+                      <div
+                        ref={unreadMarkerRef}
+                        className="mb-5 flex items-center gap-3"
+                      >
+                        <span className="h-px flex-1 bg-border/70" />
+                        <span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
+                          {t("tickets.unreadDivider")}
+                        </span>
+                        <span className="h-px flex-1 bg-border/70" />
+                      </div>
+                    )}
+                    <div className="mb-4 ml-auto flex w-fit min-w-[4.75rem] max-w-[min(78%,34rem)] flex-col rounded-[1.35rem] rounded-br-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground shadow-[0_18px_45px_-32px_hsl(var(--primary)/0.8)]">
+                      {ticketMessage.body ? (
+                        <p className="whitespace-pre-wrap break-words">
+                          {ticketMessage.body}
+                        </p>
+                      ) : null}
+                      <TicketMessageAttachments
+                        attachments={ticketMessage.attachments}
+                        align="right"
+                      />
+                      <p className="mt-1.5 self-end text-[11px] leading-none text-primary-foreground/75">
+                        {timeLabel}
+                      </p>
+                    </div>
+                  </Fragment>
+                );
+              }
+
+              return (
+                <Fragment key={ticketMessage.id}>
+                  {showUnreadMarker && (
+                    <div
+                      ref={unreadMarkerRef}
+                      className="mb-5 flex items-center gap-3"
+                    >
+                      <span className="h-px flex-1 bg-border/70" />
+                      <span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
+                        {t("tickets.unreadDivider")}
+                      </span>
+                      <span className="h-px flex-1 bg-border/70" />
+                    </div>
+                  )}
+                  <div className="mb-5 flex items-end gap-3">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      IO
+                    </span>
+                    <div className="flex w-fit min-w-[4.75rem] max-w-[min(78%,34rem)] flex-col rounded-[1.35rem] rounded-bl-md border border-border/70 bg-background px-4 py-2.5 text-sm leading-relaxed text-foreground shadow-[0_18px_45px_-34px_rgba(15,23,42,0.45)]">
+                      {ticketMessage.body ? (
+                        <p className="whitespace-pre-wrap break-words">
+                          {ticketMessage.body}
+                        </p>
+                      ) : null}
+                      <TicketMessageAttachments
+                        attachments={ticketMessage.attachments}
+                      />
+                      <p className="mt-1.5 self-start text-[11px] leading-none text-muted-foreground">
+                        {timeLabel}
+                      </p>
+                    </div>
+                  </div>
+                </Fragment>
+              );
+            })
+          )}
         </div>
 
-        <footer className="flex items-center gap-3 border-t border-border/70 px-5 py-4">
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            aria-label="Adjuntar archivo"
-          >
-            <Paperclip className="h-4 w-4" />
-          </button>
-          <input
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="Escribe un mensaje..."
-            className="h-10 min-w-0 flex-1 rounded-full border border-border/70 bg-background px-4 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
-          />
-          <CustomButton
-            type="button"
-            styleType="primary"
-            radius="full"
-            size="sm"
-          >
-            <Send className="h-3.5 w-3.5" />
-            Enviar
-          </CustomButton>
+        <footer className="border-t border-border/70 px-5 py-4">
+          {pendingImages.length > 0 ? (
+            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+              {pendingImages.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-muted"
+                >
+                  <img
+                    src={attachment.previewUrl}
+                    alt={attachment.file.name}
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePendingImage(attachment.id)}
+                    className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm"
+                    aria-label="Eliminar imagen"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {uploadError ? (
+            <p className="mb-3 text-[12px] text-destructive">{uploadError}</p>
+          ) : null}
+
+          <div className="flex items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={handleFilesSelected}
+            />
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label="Adjuntar archivo"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+            <input
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              onKeyDown={handleMessageKeyDown}
+              placeholder="Escribe un mensaje..."
+              className="h-10 min-w-0 flex-1 rounded-full border border-border/70 bg-background px-4 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+            />
+            <CustomButton
+              type="button"
+              styleType="primary"
+              radius="full"
+              size="sm"
+              disabled={sending || !canSendMessage}
+              onClick={() => {
+                void handleSend();
+              }}
+            >
+              {sending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              Enviar
+            </CustomButton>
+          </div>
         </footer>
       </Panel>
 
@@ -1984,6 +2764,8 @@ const SupportChat = ({
     </div>
   );
 };
+
+// ─── DELETE ACCOUNT MODAL ─────────────────────────────────────────────────────
 
 const DeleteAccountModal = ({
   open,
@@ -2214,6 +2996,7 @@ const DeleteAccountModal = ({
 // ─── ROOT COMPONENT ───────────────────────────────────────────────────────────
 
 const TAB_PARAM = "tab";
+const TICKET_PARAM = "ticket";
 const VALID_TABS = new Set<TabName>(["help", "profile", "contact", "tickets"]);
 const DEFAULT_TAB: TabName = "profile";
 
@@ -2233,34 +3016,84 @@ const Support = () => {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = normalizeTab(searchParams.get(TAB_PARAM));
-  const [subRoute, setSubRoute] = useState<RouteState | null>(null);
+  const ticketParam = sanitizeCode(searchParams.get(TICKET_PARAM), 80);
+  const [subRoute, setSubRoute] = useState<RouteState | null>(() =>
+    activeTab === "tickets" && ticketParam
+      ? { name: "support-chat", ticketId: ticketParam }
+      : null
+  );
+  const isClearingTicketParamRef = useRef(false);
+  const isOpeningTicketParamRef = useRef(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const go = useCallback(
     (r: RouteName) => {
       if (HUB_ROUTES.has(r)) {
+        isClearingTicketParamRef.current = true;
+        isOpeningTicketParamRef.current = false;
         setSubRoute(null);
         const next = new URLSearchParams(searchParams);
         next.set(TAB_PARAM, r);
+        next.delete(TICKET_PARAM);
         setSearchParams(next, { replace: true });
-      } else setSubRoute({ name: r });
+      } else {
+        setSubRoute({ name: r });
+        const next = new URLSearchParams(searchParams);
+        next.delete(TICKET_PARAM);
+        setSearchParams(next, { replace: true });
+      }
     },
     [searchParams, setSearchParams]
   );
 
   const setTab = useCallback(
     (t: TabName) => {
+      isClearingTicketParamRef.current = true;
+      isOpeningTicketParamRef.current = false;
       setSubRoute(null);
       const next = new URLSearchParams(searchParams);
       next.set(TAB_PARAM, t);
+      next.delete(TICKET_PARAM);
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams]
   );
 
-  const openTicket = useCallback((ticketId: string) => {
-    setSubRoute({ name: "support-chat", ticketId });
-  }, []);
+  const openTicket = useCallback(
+    (ticketId: string) => {
+      isClearingTicketParamRef.current = false;
+      isOpeningTicketParamRef.current = true;
+      setSubRoute({ name: "support-chat", ticketId });
+      const next = new URLSearchParams(searchParams);
+      next.set(TAB_PARAM, "tickets");
+      next.set(TICKET_PARAM, ticketId);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
+
+  useEffect(() => {
+    if (!ticketParam) {
+      if (isOpeningTicketParamRef.current) return;
+      isClearingTicketParamRef.current = false;
+      if (subRoute?.name === "support-chat") setSubRoute(null);
+      return;
+    }
+
+    isOpeningTicketParamRef.current = false;
+    if (isClearingTicketParamRef.current) return;
+
+    if (activeTab === "tickets" && ticketParam) {
+      setSubRoute((current) =>
+        current?.name === "support-chat" && current.ticketId === ticketParam
+          ? current
+          : { name: "support-chat", ticketId: ticketParam }
+      );
+      return;
+    }
+
+    if (subRoute?.name === "support-chat") setSubRoute(null);
+  }, [activeTab, subRoute?.name, ticketParam]);
 
   const showToast = useCallback(
     (msg: string) => {
@@ -2273,11 +3106,6 @@ const Support = () => {
     subRoute && !HUB_ROUTES.has(subRoute.name)
       ? activeTab
       : ((subRoute?.name as TabName) ?? activeTab);
-  const selectedTicket = useMemo(
-    () => DEMO_TICKETS.find((ticket) => ticket.id === subRoute?.ticketId),
-    [subRoute?.ticketId]
-  );
-
   const isSubScreen = subRoute !== null;
 
   return (
@@ -2290,11 +3118,14 @@ const Support = () => {
       {isSubScreen && subRoute.name === "change-password" && (
         <ChangePassword go={go} showToast={showToast} />
       )}
+      {isSubScreen && subRoute.name === "notifications" && (
+        <NotificationsPreferences go={go} showToast={showToast} />
+      )}
       {isSubScreen && subRoute.name === "privacy" && (
         <Privacy go={go} openDeleteModal={() => setDeleteModalOpen(true)} />
       )}
       {isSubScreen && subRoute.name === "support-chat" && (
-        <SupportChat go={go} ticket={selectedTicket} />
+        <SupportChat go={go} ticketId={subRoute.ticketId} />
       )}
 
       {!isSubScreen && activeTab === "help" && <HelpCenter go={go} />}

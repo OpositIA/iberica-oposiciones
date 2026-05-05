@@ -463,5 +463,8 @@
     "nameMin": "Escribe al menos 2 caracteres.",
     "messageMin": "Describe la incidencia con algo más de detalle.",
     "reportDescriptionMin": "Resume el problema con al menos un poco más de contexto."
+  },
+  "tickets": {
+    "unreadDivider": "Mensajes no leídos"
   }
 }

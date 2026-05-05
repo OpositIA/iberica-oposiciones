@@ -31,3 +31,6 @@ verify_jwt = false
 
 [functions.get-syllabus-pdf]
 verify_jwt = false
+
+[functions.support-telegram]
+verify_jwt = false

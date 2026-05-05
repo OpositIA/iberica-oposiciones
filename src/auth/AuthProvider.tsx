@@ -251,6 +251,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       nextSession: Session,
       source: AuthChangeEvent | "init"
     ) => {
+      supabase.realtime.setAuth(nextSession.access_token);
       const fingerprint = `${nextSession.user.id}:${nextSession.expires_at ?? "unknown"}`;
       if (
         hydratedSessionFingerprintRef.current === fingerprint &&
@@ -323,6 +324,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     const onInvalidSession = (reason: string) => {
       if (!isMounted) return;
       authLog("Sesion invalida detectada", { reason });
+      supabase.realtime.setAuth();
       setLoggedOutState();
       clearSupabaseAuthStorage();
     };
@@ -366,6 +368,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         if (event === "SIGNED_OUT") {
           if (!isMounted) return;
           const isSilentGoogleRegisterExit = consumeGoogleRegisterSilentExit();
+          supabase.realtime.setAuth();
           setLoggedOutState();
           clearGoogleSignupSessionActive();
           clearGoogleRegisterResolutionPending();

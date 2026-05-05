@@ -463,5 +463,8 @@
     "nameMin": "Use at least 2 characters.",
     "messageMin": "Describe the issue with a bit more detail.",
     "reportDescriptionMin": "Summarize the issue with at least a little more context."
+  },
+  "tickets": {
+    "unreadDivider": "Unread messages"
   }
 }

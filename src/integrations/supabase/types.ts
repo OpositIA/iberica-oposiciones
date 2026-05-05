@@ -287,6 +287,7 @@ export type Database = {
           locale: string;
           preferred_opposition: string | null;
           preferred_opposition_id: string | null;
+          support_ticket_reply_email_enabled: boolean;
           updated_at: string;
           user_id: string;
         };
@@ -301,6 +302,7 @@ export type Database = {
           locale?: string;
           preferred_opposition?: string | null;
           preferred_opposition_id?: string | null;
+          support_ticket_reply_email_enabled?: boolean;
           updated_at?: string;
           user_id: string;
         };
@@ -315,6 +317,7 @@ export type Database = {
           locale?: string;
           preferred_opposition?: string | null;
           preferred_opposition_id?: string | null;
+          support_ticket_reply_email_enabled?: boolean;
           updated_at?: string;
           user_id?: string;
         };
@@ -371,6 +374,36 @@ export type Database = {
           sort_order?: number;
           tier?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_notifications: {
+        Row: {
+          created_at: string;
+          entity_id: string | null;
+          id: string;
+          payload: Json;
+          read_at: string | null;
+          type: "support_ticket_reply";
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          entity_id?: string | null;
+          id?: string;
+          payload?: Json;
+          read_at?: string | null;
+          type: "support_ticket_reply";
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          entity_id?: string | null;
+          id?: string;
+          payload?: Json;
+          read_at?: string | null;
+          type?: "support_ticket_reply";
+          user_id?: string;
         };
         Relationships: [];
       };
@@ -579,6 +612,25 @@ export type Database = {
           used: number;
         }[];
       };
+      create_support_ticket: {
+        Args: {
+          p_category: string;
+          p_issue_type?: string | null;
+          p_message: string;
+          p_request_context?: Json;
+          p_source_channel?: string;
+          p_subject: string;
+        };
+        Returns: {
+          category: string;
+          created_at: string;
+          last_message_at: string;
+          status: string;
+          subject: string;
+          ticket_code: string;
+          ticket_id: string;
+        }[];
+      };
       get_ai_daily_limit: {
         Args: {
           p_user_id: string;
@@ -596,6 +648,54 @@ export type Database = {
           limit: number;
           remaining: number;
           used: number;
+        }[];
+      };
+      get_my_support_ticket_detail: {
+        Args: {
+          p_ticket_id: string;
+        };
+        Returns: {
+          category: string;
+          created_at: string;
+          last_message_at: string;
+          rating: number | null;
+          resolved_at: string | null;
+          status: string;
+          subject: string;
+          ticket_code: string;
+          ticket_id: string;
+          updated_at: string;
+          user_last_read_at: string | null;
+        }[];
+      };
+      get_my_support_ticket_messages: {
+        Args: {
+          p_ticket_id: string;
+        };
+        Returns: {
+          attachments: Json;
+          author_role: "user" | "staff" | "system";
+          body: string;
+          created_at: string;
+          message_id: number;
+          source_channel: "web" | "telegram" | "email" | "system";
+          ticket_id: string;
+        }[];
+      };
+      get_my_support_tickets: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          category: string;
+          created_at: string;
+          last_message_at: string;
+          message_count: number;
+          rating: number | null;
+          status: string;
+          subject: string;
+          ticket_code: string;
+          ticket_id: string;
+          unread: boolean;
+          updated_at: string;
         }[];
       };
       get_quick_test_question_limit: {
@@ -662,6 +762,31 @@ export type Database = {
           subscription_status: string;
           tier: string;
         }[];
+      };
+      mark_support_ticket_read: {
+        Args: {
+          p_ticket_id: string;
+        };
+        Returns: boolean;
+      };
+      reply_to_support_ticket: {
+        Args: {
+          p_attachments?: Json;
+          p_message: string;
+          p_source_channel?: string;
+          p_ticket_id: string;
+        };
+        Returns: {
+          created_at: string;
+          message_id: number;
+          ticket_id: string;
+        }[];
+      };
+      resolve_my_support_ticket: {
+        Args: {
+          p_ticket_id: string;
+        };
+        Returns: boolean;
       };
     };
     Enums: {
