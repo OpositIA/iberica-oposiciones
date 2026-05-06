@@ -17,7 +17,7 @@ import {
   useNotificationsQuery
 } from "@/queries/notificationQueries";
 import { Bell } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
@@ -46,6 +46,7 @@ const NotificationsButton = ({ className }: NotificationsButtonProps) => {
   const { t, i18n } = useTranslation(["profile"]);
   const { user } = useAuth();
   const { data: notifications = [] } = useNotificationsQuery(user?.id);
+  const [open, setOpen] = useState(false);
   const markReadMutation = useMarkNotificationReadMutation(user?.id);
   const markAllReadMutation = useMarkAllNotificationsReadMutation(user?.id);
   const unreadCount = notifications.filter(
@@ -59,7 +60,7 @@ const NotificationsButton = ({ className }: NotificationsButtonProps) => {
   );
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
@@ -134,6 +135,7 @@ const NotificationsButton = ({ className }: NotificationsButtonProps) => {
                   onClick={() => {
                     if (!notification.readAt)
                       markReadMutation.mutate(notification.id);
+                    setOpen(false);
                   }}
                 >
                   <span

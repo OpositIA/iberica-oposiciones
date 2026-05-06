@@ -462,6 +462,95 @@ const sendSupportTicketReplyEmail = async ({
   }
 };
 
+const claimDailySupportReplyEmail = async ({
+  serviceClient,
+  ticket
+}: {
+  serviceClient: ReturnType<typeof createServiceClient>;
+  ticket: SupportTicketRow;
+}) => {
+  const deliveryDay = new Date().toISOString().slice(0, 10);
+  const { data, error } = await serviceClient
+    .from("support_ticket_reply_email_deliveries")
+    .upsert(
+      {
+        ticket_id: ticket.id,
+        user_id: ticket.user_id,
+        delivery_day: deliveryDay
+      },
+      {
+        onConflict: "ticket_id,user_id,delivery_day",
+        ignoreDuplicates: true
+      }
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`support_reply_email_claim_failed:${error.message}`);
+  }
+
+  return sanitizeCode((data as { id?: unknown } | null)?.id, 120) || null;
+};
+
+const releaseDailySupportReplyEmailClaim = async ({
+  serviceClient,
+  deliveryId
+}: {
+  serviceClient: ReturnType<typeof createServiceClient>;
+  deliveryId: string;
+}) => {
+  const { error } = await serviceClient
+    .from("support_ticket_reply_email_deliveries")
+    .delete()
+    .eq("id", deliveryId);
+
+  if (error) {
+    throw new Error(
+      `support_reply_email_claim_release_failed:${error.message}`
+    );
+  }
+};
+
+const sendSupportTicketReplyEmailOncePerDay = async ({
+  serviceClient,
+  ticket,
+  profile
+}: {
+  serviceClient: ReturnType<typeof createServiceClient>;
+  ticket: SupportTicketRow;
+  profile: ProfileRow | null;
+}) => {
+  const apiKey = getEnv("BREVO_API_KEY");
+  const recipient = sanitizeSingleLineText(profile?.email, 180);
+
+  if (!apiKey || !recipient) return;
+  if (profile?.support_ticket_reply_email_enabled === false) return;
+
+  const deliveryId = await claimDailySupportReplyEmail({
+    serviceClient,
+    ticket
+  });
+  if (!deliveryId) return;
+
+  try {
+    await sendSupportTicketReplyEmail({ ticket, profile });
+  } catch (error) {
+    await releaseDailySupportReplyEmailClaim({
+      serviceClient,
+      deliveryId
+    }).catch((releaseError) => {
+      console.error(
+        "support_reply_email_claim_release_failed",
+        releaseError instanceof Error
+          ? releaseError.message
+          : String(releaseError)
+      );
+    });
+    throw error;
+  }
+};
+
 const createTelegramTopicForTicket = async ({
   serviceClient,
   ticket,
@@ -1148,7 +1237,11 @@ const handleTelegramWebhook = async (req: Request) => {
       serviceClient,
       userId: ticket.user_id
     });
-    await sendSupportTicketReplyEmail({ ticket, profile }).catch((error) => {
+    await sendSupportTicketReplyEmailOncePerDay({
+      serviceClient,
+      ticket,
+      profile
+    }).catch((error) => {
       console.error(
         "support_reply_email_failed",
         error instanceof Error ? error.message : String(error)

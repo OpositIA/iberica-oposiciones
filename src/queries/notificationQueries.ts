@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 export type UserNotification = {
   id: string;
@@ -52,6 +53,7 @@ export const fetchMyNotifications = async (): Promise<UserNotification[]> => {
   const { data, error } = await supabase
     .from("user_notifications")
     .select("id, type, entity_id, payload, read_at, created_at")
+    .is("read_at", null)
     .order("created_at", { ascending: false })
     .limit(8);
 
@@ -70,7 +72,7 @@ export const markNotificationRead = async (notificationId: string) => {
 
   const { error } = await supabase
     .from("user_notifications")
-    .update({ read_at: new Date().toISOString() })
+    .delete()
     .eq("id", sanitizedId)
     .is("read_at", null);
 
@@ -80,7 +82,7 @@ export const markNotificationRead = async (notificationId: string) => {
 export const markAllNotificationsRead = async () => {
   const { error } = await supabase
     .from("user_notifications")
-    .update({ read_at: new Date().toISOString() })
+    .delete()
     .is("read_at", null);
 
   if (error) throw error;
@@ -89,14 +91,49 @@ export const markAllNotificationsRead = async () => {
 export const useNotificationsQuery = (
   userId: string | null | undefined,
   enabled = true
-) =>
-  useQuery({
+) => {
+  const queryClient = useQueryClient();
+  const refetchPromiseRef = useRef<Promise<unknown> | null>(null);
+
+  useEffect(() => {
+    if (!userId || !enabled) return;
+
+    const refetchNotifications = () => {
+      if (refetchPromiseRef.current) return;
+
+      refetchPromiseRef.current = queryClient
+        .refetchQueries({
+          queryKey: notificationQueryKeys.list(userId)
+        })
+        .finally(() => {
+          refetchPromiseRef.current = null;
+        });
+    };
+
+    const channel = supabase
+      .channel(`user-notifications:${userId}`, {
+        config: {
+          private: true
+        }
+      })
+      .on("broadcast", { event: "INSERT" }, refetchNotifications)
+      .on("broadcast", { event: "UPDATE" }, refetchNotifications)
+      .on("broadcast", { event: "DELETE" }, refetchNotifications)
+      .subscribe();
+
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [enabled, queryClient, userId]);
+
+  return useQuery({
     queryKey: notificationQueryKeys.list(userId),
     queryFn: fetchMyNotifications,
     enabled: Boolean(userId) && enabled,
     refetchInterval: 30_000,
     staleTime: 15_000
   });
+};
 
 export const useMarkNotificationReadMutation = (
   userId: string | null | undefined
