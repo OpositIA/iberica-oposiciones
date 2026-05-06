@@ -80,7 +80,7 @@ const ProfileStudy = () => {
   return (
     <Reveal
       as="section"
-      className="relative h-full min-h-0 overflow-hidden rounded-[1.75rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9))] shadow-[0_24px_70px_-58px_rgba(15,23,42,0.52)] dark:border-border/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.94))] dark:shadow-[0_30px_80px_-62px_rgba(0,0,0,0.84)]"
+      className="relative h-full min-h-0 overflow-hidden rounded-[1rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9))] shadow-[0_24px_70px_-58px_rgba(15,23,42,0.52)] dark:border-border/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.94))] dark:shadow-[0_30px_80px_-62px_rgba(0,0,0,0.84)]"
       duration={620}
       variant="gentle"
     >

@@ -43,6 +43,7 @@ import {
   Camera,
   CreditCard,
   Loader2,
+  Lock,
   Pencil,
   Save,
   Trash2,
@@ -186,6 +187,8 @@ const MiPerfil = () => {
   const fieldClassName =
     "h-12 rounded-2xl border-border/70 bg-background/80 px-4 shadow-sm transition-all duration-200 focus-visible:ring-primary/25 focus-visible:ring-offset-2";
 
+  const oppositionChangeLocked =
+    profileDetails?.has_changed_opposition === true;
   const hasAvatar = Boolean(sanitizeAvatarForMetadata(profile.avatarUrl));
   const hasPaymentMethodManagement =
     isPaidPlan(planState) || Boolean(billingIssue);
@@ -548,6 +551,7 @@ const MiPerfil = () => {
         user_id: user.id,
         preferred_opposition_id: nextOppositionId,
         preferred_opposition: nextOppositionCode,
+        has_changed_opposition: true,
         locale
       },
       { onConflict: "user_id" }
@@ -839,45 +843,56 @@ const MiPerfil = () => {
               t("profile:myProfile.oppositionSection.undefined")}
           </p>
 
-          <label className="mb-2 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
-            {t("profile:myProfile.oppositionSection.newOpposition")}
-          </label>
-          <CustomSelect
-            value={profile.preferredOppositionId}
-            onChange={(e) =>
-              setProfile((prev) => ({
-                ...prev,
-                preferredOppositionId: e.target.value
-              }))
-            }
-            className={`w-full ${fieldClassName}`}
-          >
-            <option value="">
-              {t("profile:myProfile.oppositionSection.selectOption")}
-            </option>
-            {oppositionOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </CustomSelect>
+          {oppositionChangeLocked ? (
+            <div className="mt-2 flex items-start gap-2.5 rounded-xl border border-border/60 bg-secondary/30 px-4 py-3">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {t("profile:myProfile.oppositionSection.lockedDescription")}
+              </p>
+            </div>
+          ) : (
+            <>
+              <label className="mb-2 mt-4 block text-xs font-semibold tracking-[0.22em] uppercase text-muted-foreground">
+                {t("profile:myProfile.oppositionSection.newOpposition")}
+              </label>
+              <CustomSelect
+                value={profile.preferredOppositionId}
+                onChange={(e) =>
+                  setProfile((prev) => ({
+                    ...prev,
+                    preferredOppositionId: e.target.value
+                  }))
+                }
+                className={`w-full ${fieldClassName}`}
+              >
+                <option value="">
+                  {t("profile:myProfile.oppositionSection.selectOption")}
+                </option>
+                {oppositionOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </CustomSelect>
 
-          <p className="mt-3 text-xs text-muted-foreground">
-            {t("profile:myProfile.oppositionSection.description")}
-          </p>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {t("profile:myProfile.oppositionSection.description")}
+              </p>
 
-          <CustomButton
-            type="button"
-            onClick={handleOpenOppositionDialog}
-            disabled={isChangingOpposition}
-            styleType="destructive"
-            radius="full"
-            className="mt-4"
-          >
-            {isChangingOpposition
-              ? t("profile:myProfile.oppositionSection.changing")
-              : t("profile:myProfile.oppositionSection.change")}
-          </CustomButton>
+              <CustomButton
+                type="button"
+                onClick={handleOpenOppositionDialog}
+                disabled={isChangingOpposition}
+                styleType="destructive"
+                radius="full"
+                className="mt-4"
+              >
+                {isChangingOpposition
+                  ? t("profile:myProfile.oppositionSection.changing")
+                  : t("profile:myProfile.oppositionSection.change")}
+              </CustomButton>
+            </>
+          )}
         </div>
       </Reveal>
 
@@ -946,6 +961,7 @@ const MiPerfil = () => {
         description={t("profile:myProfile.dialog.description", {
           opposition: getOppositionName(profile.preferredOppositionId)
         })}
+        warning={t("profile:myProfile.dialog.warning")}
         confirmLabel={
           isChangingOpposition
             ? t("profile:myProfile.dialog.changing")

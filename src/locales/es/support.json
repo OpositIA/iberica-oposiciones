@@ -1,4 +1,7 @@
 {
+  "pageHeader": {
+    "back": "Volver"
+  },
   "page": {
     "badge": "Soporte",
     "title": "Ayuda clara para cuenta, tests e IA",
@@ -109,12 +112,49 @@
           "description": "En una plataforma de oposiciones con IA, detectar errores concretos es más útil que describir el problema de forma genérica."
         }
       ]
+    },
+    "hero": {
+      "overline": "Centro de ayuda",
+      "title": "¿En qué podemos ayudarte?",
+      "description": "Busca en preguntas frecuentes o escríbenos. Respondemos en menos de 24 horas hábiles.",
+      "searchPlaceholder": "Ej: ¿Cómo cancelo mi suscripción?",
+      "clear": "Limpiar"
+    },
+    "emptyResults": {
+      "title": "No encontramos resultados para \"{{query}}\"",
+      "description": "Escríbenos y un humano del equipo te ayudará.",
+      "cta": "Contactar"
+    },
+    "usefulQuestion": "¿Útil?",
+    "sidebar": {
+      "noAnswer": "¿No encuentras respuesta?",
+      "talkToPerson": "Habla con una persona.",
+      "contactForm": "Formulario de contacto",
+      "responseTime": "Respondemos en menos de 24h",
+      "emailResponseTime": "Respuesta en menos de 24h",
+      "openQuery": "Abrir consulta",
+      "myQueries": "Mis consultas",
+      "openConversationsPrefix": "Tienes",
+      "openConversationsOpen_one": "{{count}} conversación abierta",
+      "openConversationsOpen_other": "{{count}} conversaciones abiertas",
+      "openConversationsConnector": "y",
+      "openConversationsResolved_one": "{{count}} resuelta.",
+      "openConversationsResolved_other": "{{count}} resueltas.",
+      "viewFullHistory": "Ver historial completo"
     }
   },
   "faq": {
     "title": "Preguntas frecuentes",
     "description": "Consultas realistas de una app de preparación con IA, organizadas por el área que más impacto tiene en el estudio.",
     "allCategories": "Todas",
+    "categories": {
+      "all": "Todas",
+      "account": "Cuenta",
+      "billing": "Facturación",
+      "tests": "Tests",
+      "ai": "Asistente IA",
+      "incidents": "Errores o incidencias"
+    },
     "groups": [
       {
         "id": "account-access",
@@ -431,6 +471,54 @@
       "unconfiguredDescription": "El formulario está listo, pero este entorno todavía no tiene configurado el canal de recepción de reportes."
     }
   },
+  "systemStatus": {
+    "title": "Estado del sistema",
+    "operational": "Operativo",
+    "allServicesNormal": "Todos los servicios funcionan con normalidad."
+  },
+  "tickets": {
+    "unreadDivider": "Mensajes no leídos",
+    "overline": "Mis consultas",
+    "pageTitle": "Historial de tickets",
+    "subtitle": "Aqui estan todas tus conversaciones con soporte.",
+    "newQuery": "Nueva consulta",
+    "filters": {
+      "all": "Todos",
+      "open": "Abiertos",
+      "resolved": "Resueltos"
+    },
+    "status": {
+      "open": "En curso",
+      "awaiting": "Esperando tu respuesta",
+      "resolved": "Resuelto"
+    },
+    "empty": {
+      "title": "Sin consultas en esta categoria",
+      "description": "Cuando contactes con soporte, las conversaciones apareceran aqui.",
+      "cta": "Abrir consulta"
+    },
+    "meta": {
+      "messages": "{{count}} mensajes",
+      "updated": "Actualizado {{date}}"
+    }
+  },
+  "supportChat": {
+    "overline": "Soporte",
+    "title": "Chat con soporte",
+    "desc": "Conversación asociada a {{ticketId}}. La transcripción se guarda en tus tickets.",
+    "online": "En línea · responde en ~2 min",
+    "endChat": "Finalizar",
+    "attachFile": "Adjuntar archivo",
+    "removeImage": "Eliminar imagen",
+    "placeholder": "Escribe un mensaje...",
+    "send": "Enviar",
+    "sendFailed": "No se pudo enviar el mensaje.",
+    "fallbackSubject": "Consulta de soporte",
+    "attachmentPrefix": "Soporte",
+    "fallbackTicket": "tu ticket",
+    "level2": "Soporte nivel 2",
+    "footerNote": "Adjuntamos automáticamente datos de tu sesión y plan para acelerar la respuesta."
+  },
   "aboutAi": {
     "title": "Sobre la IA",
     "description": "La IA está pensada para ayudarte a estudiar mejor, no para sustituir la revisión crítica del contenido.",
@@ -455,6 +543,52 @@
       "title": "Mensaje importante",
       "description": "Las explicaciones asistidas por IA pueden no ser perfectas. Si detectas algo incorrecto o dudoso, puedes contrastarlo y reportarlo desde esta misma sección.",
       "cta": "Ir a reportes"
+    }
+  },
+  "deleteAccount": {
+    "title": "Eliminar cuenta",
+    "description": "¿Seguro que quieres eliminar tu cuenta?",
+    "warning": "Esta acción es irreversible. Antes de continuar, queremos asegurarnos de que entiendes lo que perderás.",
+    "pauseHint": "¿Solo quieres pausar? Puedes cancelar la renovación y mantener tu cuenta gratuita con todo tu progreso intacto.",
+    "items": [
+      "Tu historial de tests y progreso acumulado",
+      "Tu historial completo con AsistenteIA",
+      "Tus sesiones de estudio registradas",
+      "Tu plan activo (no se reembolsa)"
+    ],
+    "keepAccount": "Mantener cuenta",
+    "continueDelete": "Continuar eliminación",
+    "confirmWord": "ELIMINAR",
+    "step2Continue": "Continuar",
+    "reasons": [
+      "He aprobado mi oposición 🎉",
+      "El precio es elevado",
+      "Faltan funciones que necesito",
+      "He encontrado otra plataforma",
+      "No le doy uso suficiente",
+      "Otro motivo"
+    ],
+    "step2Overline": "Paso 2 de 3",
+    "step2Title": "¿Por qué te vas?",
+    "step2Desc": "Tu respuesta nos ayuda a mejorar. Es opcional pero muy valiosa.",
+    "step3Overline": "Paso 3 de 3 · confirmación final",
+    "step3Title": "Última confirmación",
+    "placeholder": "Escribe ELIMINAR",
+    "hint": "Mayúsculas, sin espacios.",
+    "back": "Atrás",
+    "confirm": "Eliminar mi cuenta",
+    "processing": "Procesando..."
+  },
+  "accountDeletion": {
+    "dangerDescription": "Marcaremos tu perfil como eliminado, cerraremos la sesión y liberaremos tu email para que puedas registrarte de nuevo desde cero. Las facturas se conservan por obligación fiscal.",
+    "irreversible": "Esta acción no se puede deshacer.",
+    "finalConfirmationPrefix": "Para confirmar, escribe",
+    "finalConfirmationSuffix": " a continuación. Tu perfil se marcará como eliminado y se cerrará la sesión inmediatamente.",
+    "toasts": {
+      "successTitle": "Cuenta eliminada",
+      "successDescription": "La cuenta se ha marcado como eliminada y se ha cerrado la sesión.",
+      "errorTitle": "No se pudo eliminar la cuenta",
+      "errorDescription": "Inténtalo de nuevo en unos minutos."
     }
   },
   "validation": {

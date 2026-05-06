@@ -46,7 +46,7 @@
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 200 98% 39%;
 
-    --scrollbar-track: 214 28% 96%;
+    --scrollbar-track: 216 45% 98%;
     --scrollbar-thumb: 215 16% 74%;
     --scrollbar-thumb-hover: 215 18% 60%;
     --skeleton-base: 214 28% 88%;
@@ -95,9 +95,9 @@
     --sidebar-border: 215 22% 21%;
     --sidebar-ring: 198 93% 60%;
 
-    --scrollbar-track: 214 20% 12%;
-    --scrollbar-thumb: 215 14% 34%;
-    --scrollbar-thumb-hover: 215 18% 44%;
+    --scrollbar-track: 214 19% 7%;
+    --scrollbar-thumb: 215 14% 72%;
+    --scrollbar-thumb-hover: 215 16% 82%;
     --skeleton-base: 215 18% 20%;
     --skeleton-highlight: 215 18% 30%;
     --skeleton-soft: 215 16% 17%;
@@ -124,7 +124,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--scrollbar-thumb)) transparent;
+    scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
   }
 }
 
@@ -142,7 +142,7 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: hsl(var(--scrollbar-track));
 }
 
 ::-webkit-scrollbar-thumb {
@@ -157,7 +157,7 @@
 }
 
 ::-webkit-scrollbar-corner {
-  background: transparent;
+  background: hsl(var(--scrollbar-track));
 }
 
 @layer components {

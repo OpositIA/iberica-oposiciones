@@ -1081,11 +1081,25 @@ const resolveLinkedQuickTest = (
   return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 };
 
-const resolveHistoryStatus = (
-  score: number
-): "excellent" | "approved" | "reinforce" => {
-  if (score > 8) return "excellent";
-  if (score < 5) return "reinforce";
+export const resolveQuickTestHistoryStatus = ({
+  score,
+  scoreScaleMax,
+  scoreScaleMin = 0,
+  passingScore
+}: {
+  score: number;
+  scoreScaleMax: number;
+  scoreScaleMin?: number;
+  passingScore?: number | null;
+}): "excellent" | "approved" | "reinforce" => {
+  const scaleRange = Math.max(0, scoreScaleMax - scoreScaleMin);
+  const fallbackPassingScore = scoreScaleMin + scaleRange * 0.5;
+  const effectivePassingScore =
+    normalizeNullableNumber(passingScore) ?? fallbackPassingScore;
+  const excellentThreshold = scoreScaleMin + scaleRange * 0.8;
+
+  if (score > excellentThreshold) return "excellent";
+  if (score < effectivePassingScore) return "reinforce";
   return "approved";
 };
 
@@ -1132,10 +1146,13 @@ const mapCompletedAttemptToHistoryRecord = (
       : 1;
 
   const oppositionId = sanitizeCode(linkedQuickTest.opposition_id, 160);
+  const testConfig = oppositionId
+    ? (configByOppositionId.get(oppositionId) ?? null)
+    : null;
   const evaluated = evaluateQuickTestAttempt(
     linkedQuickTest.questions,
     row.selected_answers,
-    oppositionId ? (configByOppositionId.get(oppositionId) ?? null) : null
+    testConfig
   );
 
   return {
@@ -1148,7 +1165,12 @@ const mapCompletedAttemptToHistoryRecord = (
     correctCount: evaluated.correctCount,
     durationMinutes,
     questionCount: evaluated.totalQuestions,
-    status: resolveHistoryStatus(evaluated.score)
+    status: resolveQuickTestHistoryStatus({
+      score: evaluated.score,
+      scoreScaleMax: evaluated.scoreScaleMax,
+      scoreScaleMin: normalizeNullableNumber(testConfig?.scoreMin) ?? 0,
+      passingScore: testConfig?.passingScore
+    })
   };
 };
 
@@ -1302,10 +1324,13 @@ export const fetchQuickTestHistoryPage = async ({
           : 1;
 
       const oppositionId = sanitizeCode(linkedQuickTest.opposition_id, 160);
+      const testConfig = oppositionId
+        ? (configByOppositionId.get(oppositionId) ?? null)
+        : null;
       const evaluated = evaluateQuickTestAttempt(
         linkedQuickTest.questions,
         row.selected_answers,
-        oppositionId ? (configByOppositionId.get(oppositionId) ?? null) : null
+        testConfig
       );
 
       return {
@@ -1319,7 +1344,12 @@ export const fetchQuickTestHistoryPage = async ({
         correctCount: evaluated.correctCount,
         durationMinutes,
         questionCount: evaluated.totalQuestions,
-        status: resolveHistoryStatus(evaluated.score)
+        status: resolveQuickTestHistoryStatus({
+          score: evaluated.score,
+          scoreScaleMax: evaluated.scoreScaleMax,
+          scoreScaleMin: normalizeNullableNumber(testConfig?.scoreMin) ?? 0,
+          passingScore: testConfig?.passingScore
+        })
       } satisfies QuickTestHistoryRecord;
     })
     .filter((item): item is QuickTestHistoryRecord => Boolean(item));

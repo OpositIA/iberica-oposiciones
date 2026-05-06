@@ -17,7 +17,6 @@ import {
   CircleUserRound,
   FileText,
   LayoutDashboard,
-  LifeBuoy,
   LogOut,
   NotebookText,
   Sparkles,
@@ -68,7 +67,7 @@ const UserActionsDropdown = ({
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
-    await requestActiveQuickTestPause().catch(() => false);
+    void requestActiveQuickTestPause().catch(() => false);
     await forceLogout("manual_sign_out");
     setIsSigningOut(false);
   };
@@ -150,12 +149,6 @@ const UserActionsDropdown = ({
           <Link to="/perfil/asistente-ia" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
             {t("profile:layout.menuItems.ia")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className={dropdownActionClassName}>
-          <Link to="/perfil/soporte" className="flex items-center gap-2">
-            <LifeBuoy className="h-4 w-4" />
-            {t("profile:layout.menuItems.support")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={dropdownActionClassName}>

@@ -62,15 +62,15 @@ const ProfileSyllabusDownload = () => {
     refetch
   } = useCurrentSyllabusDownloadOfferQuery(normalizedSubtopicFileId);
 
-  const { data: opposition } = useResolvedOppositionQuery({
-    preferredOppositionId: offer?.opposition_id,
-    preferredOppositionName: null,
-    locale: i18n.resolvedLanguage,
-    enabled: Boolean(offer?.opposition_id)
-  });
+  const { data: opposition, isLoading: isLoadingOpposition } =
+    useResolvedOppositionQuery({
+      preferredOppositionId: offer?.opposition_id,
+      preferredOppositionName: null,
+      locale: i18n.resolvedLanguage,
+      enabled: Boolean(offer?.opposition_id)
+    });
 
-  const oppositionName =
-    opposition?.nombre || offer?.opposition_id || "Oposicion";
+  const oppositionName = opposition?.nombre ?? "";
   const versionLabel = useMemo(
     () =>
       formatVersionLabel(
@@ -198,6 +198,9 @@ const ProfileSyllabusDownload = () => {
     );
   }
 
+  if (offer.opposition_id && !opposition && isLoadingOpposition)
+    return <AppLoading label={t("syllabus.loading")} />;
+
   const handleStartCheckout = async () => {
     if (isStartingCheckout) return;
     setIsStartingCheckout(true);
@@ -280,7 +283,7 @@ const ProfileSyllabusDownload = () => {
             {t("syllabus.viewerBack", { defaultValue: "Volver al temario" })}
           </Link>
         </CustomButton>
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
           <FileArchive className="h-3.5 w-3.5" />
           {offer.is_purchased
             ? t("syllabus.downloadBadgeOwned", {
@@ -293,19 +296,19 @@ const ProfileSyllabusDownload = () => {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_22rem]">
-        <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(244,247,250,0.94))] shadow-[0_24px_60px_-40px_rgba(15,23,42,0.45)]">
-          <div className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_42%),radial-gradient(circle_at_right,rgba(59,130,246,0.12),transparent_38%)] p-6 md:p-8">
+        <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-[linear-gradient(145deg,hsl(var(--background)/0.98),hsl(var(--secondary)/0.2))] shadow-[0_24px_60px_-40px_hsl(var(--foreground)/0.32)] dark:bg-[linear-gradient(145deg,hsl(var(--card)/0.98),hsl(var(--background)/0.94))] dark:shadow-[0_28px_64px_-44px_hsl(var(--foreground)/0.18)]">
+          <div className="border-b border-border/70 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.14),transparent_42%),radial-gradient(circle_at_right,hsl(var(--accent)/0.12),transparent_38%)] p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-2xl space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                   {t("syllabus.downloadEyebrow", {
                     defaultValue: "Temario completo actual"
                   })}
                 </p>
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
                   {oppositionName}
                 </h1>
-                <p className="max-w-xl text-sm leading-7 text-slate-600 md:text-base">
+                <p className="max-w-xl text-sm leading-7 text-muted-foreground md:text-base">
                   {t("syllabus.downloadDescription", {
                     defaultValue:
                       "Pago unico para esta oposicion y esta version concreta del temario. Si cambias de oposicion o aparece una nueva version oficial del programa, la licencia es distinta."
@@ -313,20 +316,20 @@ const ProfileSyllabusDownload = () => {
                 </p>
               </div>
 
-              <div className="rounded-[1.35rem] border border-slate-200 bg-white/90 px-5 py-4 shadow-[0_16px_32px_-28px_rgba(15,23,42,0.48)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <div className="rounded-[1.35rem] border border-border/70 bg-background/88 px-5 py-4 shadow-[0_16px_32px_-28px_hsl(var(--foreground)/0.34)] dark:bg-card/88">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   {t("syllabus.downloadPriceLabel", {
                     defaultValue: "Precio"
                   })}
                 </p>
-                <p className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">
+                <p className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
                   {formatPlanPriceFromCents(
                     offer.price_cents,
                     i18n.resolvedLanguage || "es-ES",
                     offer.currency
                   )}
                 </p>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-muted-foreground">
                   {t("syllabus.downloadPriceHint", {
                     defaultValue: "Pago unico, sin renovaciones."
                   })}
@@ -336,13 +339,13 @@ const ProfileSyllabusDownload = () => {
           </div>
 
           <div className="grid gap-6 p-6 md:grid-cols-2 md:p-8">
-            <div className="space-y-4 rounded-[1.35rem] border border-slate-200 bg-white/90 p-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <div className="space-y-4 rounded-[1.35rem] border border-border/70 bg-background/82 p-5 dark:bg-card/72">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {t("syllabus.downloadWhatIncluded", {
                   defaultValue: "Incluye"
                 })}
               </p>
-              <ul className="space-y-3 text-sm leading-6 text-slate-700">
+              <ul className="space-y-3 text-sm leading-6 text-foreground/80">
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
                   {t("syllabus.downloadFeatureZip", {
@@ -374,43 +377,43 @@ const ProfileSyllabusDownload = () => {
               </ul>
             </div>
 
-            <div className="space-y-4 rounded-[1.35rem] border border-slate-200 bg-slate-950 p-5 text-slate-50">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <div className="space-y-4 rounded-[1.35rem] border border-border/70 bg-[linear-gradient(145deg,hsl(var(--charcoal)),hsl(var(--charcoal)/0.92))] p-5 text-primary-foreground dark:bg-[linear-gradient(145deg,hsl(var(--card)),hsl(var(--secondary)/0.42))] dark:text-foreground">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary-foreground/62 dark:text-muted-foreground">
                 {t("syllabus.downloadCurrentPack", {
                   defaultValue: "Paquete actual"
                 })}
               </p>
               <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm text-slate-200">
-                  <FileText className="h-4 w-4 text-sky-300" />
+                <div className="flex items-center gap-3 text-sm text-primary-foreground/82 dark:text-foreground/82">
+                  <FileText className="h-4 w-4 text-accent" />
                   {t("syllabus.downloadPdfCount", {
                     defaultValue: "{{count}} PDFs individuales",
                     count: offer.total_pdf_count
                   })}
                 </div>
-                <div className="flex items-center gap-3 text-sm text-slate-200">
-                  <FileArchive className="h-4 w-4 text-sky-300" />
+                <div className="flex items-center gap-3 text-sm text-primary-foreground/82 dark:text-foreground/82">
+                  <FileArchive className="h-4 w-4 text-accent" />
                   {t("syllabus.downloadBlockCount", {
                     defaultValue: "{{count}} bloques en el ZIP",
                     count: offer.block_count
                   })}
                 </div>
-                <div className="flex items-center gap-3 text-sm text-slate-200">
-                  <ShieldCheck className="h-4 w-4 text-sky-300" />
+                <div className="flex items-center gap-3 text-sm text-primary-foreground/82 dark:text-foreground/82">
+                  <ShieldCheck className="h-4 w-4 text-accent" />
                   {t("syllabus.downloadVersionLabel", {
                     defaultValue: "Version {{version}}",
                     version: versionLabel
                   })}
                 </div>
                 {offer.syllabus_boe_id ? (
-                  <div className="flex items-center gap-3 text-sm text-slate-200">
-                    <CreditCard className="h-4 w-4 text-sky-300" />
+                  <div className="flex items-center gap-3 text-sm text-primary-foreground/82 dark:text-foreground/82">
+                    <CreditCard className="h-4 w-4 text-accent" />
                     <span>{offer.syllabus_boe_id}</span>
                   </div>
                 ) : null}
               </div>
 
-              <div className="rounded-[1rem] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-300">
+              <div className="rounded-[1rem] border border-primary-foreground/10 bg-primary-foreground/5 p-4 text-sm leading-6 text-primary-foreground/72 dark:border-border/70 dark:bg-background/45 dark:text-muted-foreground">
                 {offer.is_purchased
                   ? t("syllabus.downloadOwnedNote", {
                       defaultValue:
@@ -426,8 +429,8 @@ const ProfileSyllabusDownload = () => {
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-[0_22px_40px_-34px_rgba(15,23,42,0.38)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <div className="rounded-[1.5rem] border border-border/70 bg-background/95 p-5 shadow-[0_22px_40px_-34px_hsl(var(--foreground)/0.28)] dark:bg-card/95">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               {offer.is_purchased
                 ? t("syllabus.downloadActionReady", {
                     defaultValue: "Descarga disponible"
@@ -436,7 +439,7 @@ const ProfileSyllabusDownload = () => {
                     defaultValue: "Activar licencia"
                   })}
             </p>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
               {offer.is_purchased
                 ? t("syllabus.downloadActionReadyDescription", {
                     defaultValue:
@@ -491,13 +494,13 @@ const ProfileSyllabusDownload = () => {
             ) : null}
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <div className="rounded-[1.5rem] border border-border/70 bg-secondary/20 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               {t("syllabus.downloadRulesTitle", {
                 defaultValue: "Reglas de compra"
               })}
             </p>
-            <ul className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
+            <ul className="mt-3 space-y-3 text-sm leading-6 text-muted-foreground">
               <li>
                 {t("syllabus.downloadRuleCurrent", {
                   defaultValue:

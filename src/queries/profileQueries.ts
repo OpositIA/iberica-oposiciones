@@ -24,6 +24,11 @@ export type ProfileDetailsRow = {
   preferred_opposition_id: string | null;
   preferred_opposition: string | null;
   avatar_url: string | null;
+  product_updates_email_enabled: boolean;
+  is_deleted: boolean;
+  has_changed_opposition: boolean;
+  locale: string | null;
+  support_ticket_reply_email_enabled: boolean;
 };
 
 export type PaidSyllabusSubtopicFileRow = {
@@ -128,7 +133,7 @@ const fetchProfileBase = async (
 };
 
 const PROFILE_DETAILS_SELECT =
-  "email, first_name, last_name, date_of_birth, preferred_opposition_id, preferred_opposition, avatar_url";
+  "email, first_name, last_name, date_of_birth, preferred_opposition_id, preferred_opposition, avatar_url, product_updates_email_enabled, is_deleted, has_changed_opposition, locale, support_ticket_reply_email_enabled";
 
 const fetchProfileDetails = async (
   userId: string

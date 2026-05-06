@@ -18,6 +18,7 @@ type ConfirmActionDialogProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
+  warning?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   confirmStyle?: "primary" | "destructive";
@@ -30,6 +31,7 @@ const ConfirmActionDialog = ({
   onOpenChange,
   title,
   description,
+  warning,
   confirmLabel,
   cancelLabel,
   confirmStyle = "primary",
@@ -67,6 +69,14 @@ const ConfirmActionDialog = ({
               {description}
             </AlertDialogDescription>
           </div>
+          {warning && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-400">
+                {warning}
+              </p>
+            </div>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter className="border-t border-border/70 bg-secondary/20 px-6 py-4 sm:justify-end">
           <AlertDialogCancel disabled={isLoading} className="rounded-xl">

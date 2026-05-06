@@ -145,6 +145,32 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     []
   );
 
+  const loadUserDeletedState = useCallback(
+    async (userId: string): Promise<boolean> =>
+      runSingleFlight(
+        `auth:load-deleted-state:${userId}`,
+        async () => {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("is_deleted")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (error) {
+            authLog("No se pudo cargar estado deleted desde profiles", {
+              userId,
+              error: error.message
+            });
+            return false;
+          }
+
+          return data?.is_deleted === true;
+        },
+        { reuseResultForMs: 1500 }
+      ),
+    []
+  );
+
   const loadUserProfile = useCallback(
     async (authUser: User) =>
       runSingleFlight(`auth:load-profile:${authUser.id}`, async () => {
@@ -251,6 +277,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       nextSession: Session,
       source: AuthChangeEvent | "init"
     ) => {
+      supabase.realtime.setAuth(nextSession.access_token);
       const fingerprint = `${nextSession.user.id}:${nextSession.expires_at ?? "unknown"}`;
       if (
         hydratedSessionFingerprintRef.current === fingerprint &&
@@ -273,6 +300,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         `auth:hydrate-session:${fingerprint}`,
         async () => {
           if (!isMounted) return;
+          setIsAuthReady(false);
           setSession(nextSession);
           setUser(nextSession.user ?? null);
           applyLightThemeOnFirstLogin({
@@ -282,12 +310,17 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           });
           setProfile(buildProfileSnapshot(null, nextSession.user));
           resetAuthFailureGuard();
-          setIsAuthReady(true);
           hydratedSessionFingerprintRef.current = fingerprint;
 
           let loadedLocale = DEFAULT_LOCALE;
           let loadedProfile = buildProfileSnapshot(null, nextSession.user);
           try {
+            const isDeleted = await loadUserDeletedState(nextSession.user.id);
+            if (isDeleted) {
+              await forceLogout("account_soft_deleted");
+              return;
+            }
+
             const [resolvedLocale, resolvedProfile] = await Promise.all([
               loadUserLocale(nextSession.user.id),
               loadUserProfile(nextSession.user)
@@ -314,6 +347,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
             });
           }
           if (!isMounted) return;
+          setIsAuthReady(true);
         },
         { reuseResultForMs: 1500 }
       );
@@ -322,6 +356,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     const onInvalidSession = (reason: string) => {
       if (!isMounted) return;
       authLog("Sesion invalida detectada", { reason });
+      supabase.realtime.setAuth();
       setLoggedOutState();
       clearSupabaseAuthStorage();
     };
@@ -365,6 +400,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         if (event === "SIGNED_OUT") {
           if (!isMounted) return;
           const isSilentGoogleRegisterExit = consumeGoogleRegisterSilentExit();
+          supabase.realtime.setAuth();
           setLoggedOutState();
           clearGoogleSignupSessionActive();
           clearGoogleRegisterResolutionPending();
@@ -447,6 +483,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   }, [
     applyLocale,
     forceLogout,
+    loadUserDeletedState,
     loadUserLocale,
     loadUserProfile,
     navigate,

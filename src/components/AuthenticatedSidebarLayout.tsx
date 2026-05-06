@@ -1,6 +1,7 @@
 import logoPrincipal from "@/assets/logo-principal.png";
 import { useAuth } from "@/auth/AuthProvider";
 import BrandLogo from "@/components/BrandLogo";
+import NotificationsButton from "@/components/NotificationsButton";
 import WorkspaceTour, {
   type WorkspaceTourHandle
 } from "@/components/onboarding/WorkspaceTour";
@@ -514,6 +515,7 @@ const AuthenticatedSidebarLayout = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                <NotificationsButton />
                 <ThemeToggleButton />
                 <UserActionsDropdown
                   onOpenTour={() => workspaceTourRef.current?.start()}
@@ -793,13 +795,16 @@ const AuthenticatedSidebarLayout = () => {
               <footer
                 className={cn(
                   "relative mt-auto flex flex-col gap-3 border-t border-border/60 p-3",
-                  isSidebarCollapsed && "lg:hidden"
+                  isSidebarCollapsed && "lg:items-center lg:p-3"
                 )}
               >
                 <Link
                   to="/perfil/mi-perfil"
                   onClick={closeMobileSidebar}
-                  className="flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-secondary/70"
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-3 transition-colors hover:bg-secondary/70",
+                    isSidebarCollapsed && "lg:hidden"
+                  )}
                 >
                   <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
                     {avatarUrl && !avatarLoadError ? (
@@ -826,7 +831,12 @@ const AuthenticatedSidebarLayout = () => {
                 </Link>
 
                 {showPremiumUntilNotice ? (
-                  <div className="rounded-xl border border-primary/25 bg-primary/10 px-2.5 py-2 text-xs text-primary">
+                  <div
+                    className={cn(
+                      "rounded-xl border border-primary/25 bg-primary/10 px-2.5 py-2 text-xs text-primary",
+                      isSidebarCollapsed && "lg:hidden"
+                    )}
+                  >
                     <p className="font-semibold tracking-wide">
                       {t("profile:layout.premiumUntil", {
                         date: premiumUntilDateLabel
@@ -837,7 +847,10 @@ const AuthenticatedSidebarLayout = () => {
                   <CustomButton
                     asChild
                     styleType="ghost"
-                    className="w-full justify-start"
+                    className={cn(
+                      "w-full justify-start",
+                      isSidebarCollapsed && "lg:hidden"
+                    )}
                   >
                     <Link to="/perfil/planes" onClick={closeMobileSidebar}>
                       <Sparkles className="h-4 w-4" />
@@ -847,7 +860,14 @@ const AuthenticatedSidebarLayout = () => {
                 ) : null}
 
                 <div className="pt-1 text-center">
-                  <span className="text-[10px] font-medium tracking-[0.18em] text-muted-foreground/80 uppercase">
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium uppercase text-muted-foreground/80",
+                      isSidebarCollapsed
+                        ? "tracking-[0.04em]"
+                        : "tracking-[0.18em]"
+                    )}
+                  >
                     {`v${__APP_VERSION__}`}
                   </span>
                 </div>

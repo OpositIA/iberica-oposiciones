@@ -28,6 +28,16 @@
       "lightTitle": "Light mode",
       "darkTitle": "Dark mode"
     },
+    "notifications": {
+      "open": "Open notifications",
+      "title": "Notifications",
+      "unreadCount": "{{count}} unread",
+      "allRead": "All caught up",
+      "markAllRead": "Mark read",
+      "empty": "You have no notifications.",
+      "supportReplyTitle": "Reply in {{ticketCode}}",
+      "supportReplyFallback": "Support ticket"
+    },
     "closeSidebar": "Close sidebar",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
@@ -122,7 +132,8 @@
       "selectOption": "Select an option",
       "description": "If you change exam track, Tests and Syllabus sections will adjust to the new selection.",
       "change": "Change",
-      "changing": "Changing..."
+      "changing": "Changing...",
+      "lockedDescription": "You have already changed your exam track once. It cannot be changed again."
     },
     "paymentSection": {
       "badge": "Billing",
@@ -133,9 +144,23 @@
       "opening": "Opening portal...",
       "managePlansCta": "View plans"
     },
+    "notifications": {
+      "cardTitle": "Notifications",
+      "cardDescription": "Configure support alerts.",
+      "overline": "Notifications",
+      "title": "Alert preferences",
+      "description": "Choose which channels you want for important replies.",
+      "emailTitle": "Email",
+      "emailChannel": "External channel",
+      "supportTicketReplyLabel": "Email me when staff replies to a ticket",
+      "supportTicketReplyDescription": "Receive an email when the team replies to one of your support tickets.",
+      "saved": "Notification preference saved.",
+      "saveFailed": "Could not save the preference."
+    },
     "dialog": {
       "title": "Confirm exam track change",
       "description": "You are about to change your active exam track to \"{{opposition}}\". Do you want to continue?",
+      "warning": "This is your only opportunity to change your exam track. Once confirmed, it cannot be modified again.",
       "confirm": "Confirm change",
       "changing": "Changing...",
       "cancel": "Cancel"
@@ -331,5 +356,184 @@
     "explanationLabel": "Explanation: {{explanation}}",
     "noExplanationLabel": "No explanation available for this question.",
     "sourcesLabel": "References: {{sources}}"
+  },
+  "fieldRow": {
+    "edit": "Edit"
+  },
+  "tabs": {
+    "profile": "My profile",
+    "help": "Help center",
+    "contact": "Contact",
+    "tickets": "My requests"
+  },
+  "profileView": {
+    "planPro": "Professional plan",
+    "planFree": "Free plan",
+    "edit": "Edit",
+    "noOpposition": "No exam track selected",
+    "fullName": "Full name",
+    "email": "Email",
+    "opposition": "Target exam track",
+    "activity": {
+      "title": "Your activity",
+      "completedTests": "Completed tests",
+      "globalAverage": "Global average",
+      "averageAccuracy": "Average accuracy"
+    },
+    "actionCards": {
+      "changePassword": "Change password",
+      "changePasswordDesc": "Keep your account secure.",
+      "privacy": "Privacy and data",
+      "privacyDesc": "Manage your information."
+    },
+    "planPanel": {
+      "proTitle": "You have everything unlocked.",
+      "freeTitle": "Upgrade to unlock everything.",
+      "proDesc": "Unlimited tests, AI Assistant and full syllabus.",
+      "freeDesc": "Access unlimited tests and the AI Assistant."
+    }
+  },
+  "editProfile": {
+    "overline": "Profile",
+    "title": "Edit your information",
+    "desc": "Keep your details up to date. Some changes are reflected immediately across the app.",
+    "avatarAlt": "Profile photo",
+    "avatarFormat": "PNG, JPG, WEBP or GIF. Maximum 2 MB.",
+    "changePhoto": "Change photo",
+    "changingPhoto": "Updating...",
+    "removePhoto": "Remove",
+    "fieldName": "First name",
+    "fieldLastName": "Last name",
+    "fieldEmail": "Email",
+    "fieldLocale": "App language",
+    "fieldOpposition": "Target exam track",
+    "selectOpposition": "Select an exam track",
+    "oppositionLocked": "You have already changed your exam track once. It cannot be changed again.",
+    "changesNote": "Changes are saved to your personal account.",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "saving": "Saving...",
+    "dialog": {
+      "title": "Confirm exam track change",
+      "description": "You are about to change your active exam track to \"{{name}}\". Do you want to continue?",
+      "warning": "This is your only opportunity to change your exam track. Once confirmed, it cannot be modified again.",
+      "confirm": "Confirm change",
+      "changing": "Saving...",
+      "cancel": "Cancel"
+    },
+    "toasts": {
+      "invalidFormat": "Upload a PNG, JPG, WEBP or GIF image.",
+      "imageTooLarge": "Image cannot exceed 2 MB.",
+      "invalidSession": "Sign in again to change your photo.",
+      "uploadFailed": "Could not upload the image.",
+      "avatarSaveFailed": "Could not save the profile photo.",
+      "avatarUpdated": "Profile photo updated successfully.",
+      "avatarRemoveFailed": "Could not remove the profile photo.",
+      "avatarRemoved": "Profile photo removed successfully.",
+      "nameRequired": "First name is required.",
+      "lastNameRequired": "Last name is required.",
+      "saveFailed": "Error saving changes.",
+      "saved": "Profile updated successfully."
+    },
+    "locales": {
+      "es": "Spanish (Spain)",
+      "en": "English"
+    }
+  },
+  "changePassword": {
+    "overline": "Security",
+    "title": "Change password",
+    "desc": "For security, we will close other active sessions after the change.",
+    "fieldNew": "New password",
+    "fieldNewPlaceholder": "Minimum 8 characters",
+    "fieldConfirm": "Confirm password",
+    "fieldConfirmPlaceholder": "Repeat the password",
+    "strengthPrefix": "Security",
+    "strengthWeak": "Weak",
+    "strengthFair": "Fair",
+    "strengthGood": "Good",
+    "strengthStrong": "Excellent",
+    "reqLength": "8 characters or more",
+    "reqUpperLower": "Upper and lower case",
+    "reqNumber": "At least one number",
+    "reqSymbol": "At least one symbol",
+    "sessionWarning": "When you change your password, sessions on other devices will be closed. You will have to sign in again where needed.",
+    "cancel": "Cancel",
+    "save": "Update password",
+    "saving": "Saving…",
+    "errors": {
+      "minRequirements": "Password does not meet the minimum requirements.",
+      "mismatch": "Passwords do not match."
+    },
+    "toasts": {
+      "saveFailed": "Error updating password.",
+      "saved": "Password updated successfully."
+    }
+  },
+  "privacy": {
+    "overline": "Privacy and data",
+    "title": "Your data, under your control",
+    "desc": "We fully comply with the General Data Protection Regulation (GDPR). Here you can exercise all your rights.",
+    "permissionsTitle": "Permissions and communications",
+    "permissionsDesc": "Control how we use your data. These changes are immediate.",
+    "toggleNews": "Product updates email",
+    "toggleNewsDesc": "New tests, assistant improvements and important changes.",
+    "toggleAnalytics": "Anonymous usage analytics",
+    "toggleAnalyticsDesc": "Helps us improve tests and answer rankings.",
+    "dangerZone": "Danger zone",
+    "deleteTitle": "Delete my account",
+    "deleteCta": "Delete account",
+    "toasts": {
+      "saveFailed": "Error saving changes."
+    },
+    "deleteDescription": "We will permanently delete your progress, history, conversations, and personal data within 72 hours. Invoices are kept for tax obligations.",
+    "deleteWarning": "This action cannot be undone."
+  },
+  "contactTab": {
+    "overline": "Contact support",
+    "title": "Tell us what you need.",
+    "desc": "The more detail you give us, the sooner we can resolve it. We respond in less than 24 business hours.",
+    "topicLabel": "Topic",
+    "fieldSubject": "Subject",
+    "fieldSubjectPlaceholder": "Brief summary of your request",
+    "fieldMessage": "Message",
+    "fieldMessagePlaceholder": "Describe what happened, when and what you expected to see. If it is a technical error, indicate browser and device.",
+    "autoSession": "We will automatically attach your session data to speed up the response.",
+    "cancel": "Cancel",
+    "send": "Send request",
+    "sending": "Sending…",
+    "topics": {
+      "account": "My account",
+      "billing": "Billing",
+      "tests": "Test error",
+      "ai": "AI Assistant",
+      "technical": "Other"
+    },
+    "errors": {
+      "subject": "Add a brief subject.",
+      "message": "Tell us a bit more (minimum 20 characters)."
+    },
+    "successOverline": "Ticket created",
+    "successTitle": "Message sent",
+    "successDesc": "We have received your request. You will receive a response in less than 24 business hours at {{email}}.",
+    "sendAnother": "Send another",
+    "viewTickets": "View my requests",
+    "sidebarOverline": "Before writing us",
+    "sidebarDesc": "These articles resolve {{pct}}% of the requests we receive.",
+    "availabilityTitle": "Availability",
+    "availabilityActive": "The contact form is active. We respond in less than 24 business hours.",
+    "availabilityInactive": "The contact form is not available right now. Contact us by email.",
+    "sidebarLinks": [
+      "Plan renewal and cancellation",
+      "Report a test error",
+      "Recover password"
+    ],
+    "toasts": {
+      "receivedTitle": "Form received",
+      "sentTitle": "Request sent",
+      "sentDesc": "We have received your request. We will respond in less than 24 business hours.",
+      "errorTitle": "Error sending",
+      "errorDesc": "Could not send your request. Please try again."
+    }
   }
 }
