@@ -1790,17 +1790,31 @@ const ChangePassword = ({
           <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
             {t("changePassword.fieldConfirm")}
           </label>
-          <input
-            type={showPwd ? "text" : "password"}
-            name="confirm-new-password"
-            autoComplete="new-password"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder={t("changePassword.fieldConfirmPlaceholder")}
-            className={inputCls}
-          />
+          <div className="relative">
+            <input
+              type={showPwd ? "text" : "password"}
+              name="confirm-new-password"
+              autoComplete="new-password"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder={t("changePassword.fieldConfirmPlaceholder")}
+              className={`${inputCls} pr-10`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+              aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPwd ? (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          </div>
           {errors.confirm && (
             <p className="mt-1.5 text-[12px] text-destructive flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5" />
