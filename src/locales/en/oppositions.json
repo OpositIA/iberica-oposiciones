@@ -150,5 +150,8 @@
   },
   "fallback": {
     "unknownName": "Opposition"
+  },
+  "availability": {
+    "comingSoon": "Coming soon"
   }
 }

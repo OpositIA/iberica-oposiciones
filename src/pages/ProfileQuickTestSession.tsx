@@ -428,8 +428,8 @@ const ProfileQuickTestSession = () => {
         if (!dbPayload || isCancelled) return;
         setPayload(dbPayload);
         setQuickTestSessionPayload(dbPayload);
-      } catch (error) {
-        console.error("[quick-test] load payload failed", error);
+      } catch {
+        // Non-blocking: leave local state untouched if remote payload reload fails.
       } finally {
         if (!isCancelled) setIsLoadingPayload(false);
       }
@@ -455,8 +455,7 @@ const ProfileQuickTestSession = () => {
       .then((config) => {
         if (!isCancelled) setTestExamConfig(config);
       })
-      .catch((error) => {
-        console.error("[quick-test] load test exam config failed", error);
+      .catch(() => {
         if (!isCancelled) setTestExamConfig(null);
       });
 
@@ -684,8 +683,8 @@ const ProfileQuickTestSession = () => {
             ? null
             : (savedProgress?.pauseRequestedAt ?? null)
         });
-      } catch (error) {
-        console.error("[quick-test] hydrate attempt failed", error);
+      } catch {
+        // Non-blocking: local progress remains available if hydration fails.
       } finally {
         if (!isCancelled) {
           setIsHydratingAttempt(false);
@@ -858,9 +857,7 @@ const ProfileQuickTestSession = () => {
         .then(() => {
           lastSavedSignatureRef.current = signature;
         })
-        .catch((error) => {
-          console.error("[quick-test] save attempt failed", error);
-        });
+        .catch(() => {});
     }, 180);
 
     return () => {
@@ -1063,8 +1060,7 @@ const ProfileQuickTestSession = () => {
           pausedRemainingSeconds: pausedSeconds
         });
         lastSavedSignatureRef.current = signature;
-      } catch (error) {
-        console.error("[quick-test] silent pause attempt failed", error);
+      } catch {
         return false;
       }
     } else if (routeTestId) {
@@ -1328,8 +1324,7 @@ const ProfileQuickTestSession = () => {
         replace: true,
         state: { quickTest: clonedPayload }
       });
-    } catch (error) {
-      console.error("[quick-test] clone retry failed", error);
+    } catch {
       await resetInPlace();
     } finally {
       setIsRetrying(false);

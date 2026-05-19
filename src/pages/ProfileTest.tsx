@@ -209,8 +209,7 @@ const ProfileTest = () => {
       .then((config) => {
         if (!isCancelled) setMockExamConfig(config);
       })
-      .catch((error) => {
-        console.error("[mock-test] load exam config failed", error);
+      .catch(() => {
         if (!isCancelled) setMockExamConfig(null);
       });
 
@@ -326,8 +325,8 @@ const ProfileTest = () => {
           setIsInProgressDialogOpen(true);
           return;
         }
-      } catch (error) {
-        console.error("[quick-test] check in-progress failed", error);
+      } catch {
+        // Non-blocking: continue launching even if the in-progress check fails.
       }
     }
 

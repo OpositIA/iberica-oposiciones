@@ -506,6 +506,8 @@
     "attachFile": "Attach file",
     "placeholder": "Type a message...",
     "send": "Send",
+    "back": "Back to tickets",
+    "removeImage": "Remove image",
     "fallbackSubject": "Support query",
     "attachmentPrefix": "Support",
     "fallbackTicket": "your ticket",

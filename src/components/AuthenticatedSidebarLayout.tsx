@@ -463,8 +463,10 @@ const AuthenticatedSidebarLayout = () => {
       <div
         className={cn(
           "relative min-h-screen bg-background",
-          (isAssistantRoute || isPomodoroRoute) &&
-            "h-screen max-h-screen flex flex-col overflow-hidden"
+          isAssistantRoute &&
+            "h-screen max-h-screen flex flex-col overflow-hidden",
+          isPomodoroRoute &&
+            "flex flex-col overflow-x-hidden lg:h-screen lg:max-h-screen lg:overflow-hidden"
         )}
       >
         <div
@@ -884,7 +886,7 @@ const AuthenticatedSidebarLayout = () => {
               : isAssistantRoute
                 ? "flex-1 min-h-0 w-full max-w-none mx-0 overflow-hidden px-0 pt-0 pb-0 relative z-10 transition-all duration-300 flex flex-col"
                 : isPomodoroRoute
-                  ? "flex-1 min-h-0 w-[95%] max-w-[110rem] mx-auto overflow-hidden px-4 md:px-6 pt-2 pb-3 relative z-10 transition-all duration-300"
+                  ? "flex-1 min-h-0 w-full max-w-[110rem] mx-auto overflow-visible px-3 pt-2 pb-4 relative z-10 transition-all duration-300 sm:w-[95%] sm:px-4 md:px-6 lg:overflow-hidden"
                   : "w-[95%] max-w-[110rem] mx-auto px-4 md:px-6 pt-4 pb-8 lg:pt-5 lg:pb-10 relative z-10 transition-all duration-300",
             desktopSidebarOffsetClass
           )}

@@ -150,5 +150,8 @@
   },
   "fallback": {
     "unknownName": "Oposicion"
+  },
+  "availability": {
+    "comingSoon": "Proximamente"
   }
 }

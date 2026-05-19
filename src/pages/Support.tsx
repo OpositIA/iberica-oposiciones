@@ -1,4 +1,5 @@
 import { useAuth } from "@/auth/AuthProvider";
+import OppositionSelectLabel from "@/components/OppositionSelectLabel";
 import {
   Accordion,
   AccordionContent,
@@ -11,7 +12,10 @@ import CustomSelect from "@/components/ui/custom-select";
 import CustomTextarea from "@/components/ui/custom-textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { resolveOppositionNameById } from "@/data/oposicionesDb";
+import {
+  isActiveOppositionOption,
+  resolveOppositionNameById
+} from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale, type AppLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
@@ -309,7 +313,7 @@ const TabBar = ({
   active: TabName;
   onChange: (t: TabName) => void;
 }) => {
-  const { t } = useTranslation("profile");
+  const { t } = useTranslation(["profile", "oppositions"]);
   const tabs: { id: TabName; label: string }[] = [
     { id: "profile", label: t("tabs.profile") },
     { id: "help", label: t("tabs.help") },
@@ -1154,6 +1158,11 @@ const EditProfile = ({
     const e: Record<string, string> = {};
     if (!firstName.trim()) e.firstName = t("editProfile.toasts.nameRequired");
     if (!lastName.trim()) e.lastName = t("editProfile.toasts.lastNameRequired");
+    if (
+      oppositionId &&
+      !isActiveOppositionOption(oppositionId, oppositionOptions)
+    )
+      e.oppositionId = t("editProfile.toasts.oppositionUnavailable");
     return e;
   };
 
@@ -1284,11 +1293,21 @@ const EditProfile = ({
           >
             <option value="">{t("editProfile.selectOpposition")}</option>
             {oppositionOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
+              <option disabled={!opt.isActive} key={opt.id} value={opt.id}>
+                <OppositionSelectLabel
+                  comingSoonLabel={t("oppositions:availability.comingSoon")}
+                  isActive={opt.isActive}
+                  name={opt.name}
+                />
               </option>
             ))}
           </CustomSelect>
+          {errors.oppositionId ? (
+            <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {errors.oppositionId}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-between pt-5 border-t border-border/60">
@@ -2583,16 +2602,16 @@ const SupportChat = ({
     { label: string; className: string }
   > = {
     open: {
-      label: "En curso",
+      label: t("tickets.status.open"),
       className: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"
     },
     awaiting: {
-      label: "Esperando tu resp.",
+      label: t("tickets.status.awaiting"),
       className:
         "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
     },
     resolved: {
-      label: "Resuelto",
+      label: t("tickets.status.resolved"),
       className:
         "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
     }
@@ -2757,29 +2776,40 @@ const SupportChat = ({
   };
 
   return (
-    <div className="max-w-[880px]">
-      <PageHeader
-        overline="Soporte"
-        title="Chat con soporte"
-        desc={`Conversacion asociada a ${ticket?.code ?? "tu ticket"}. La transcripcion se guarda en tus tickets.`}
-        onBack={() => go("tickets")}
-      />
-
-      <Panel className="overflow-hidden">
-        <header className="flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[56rem] flex-col">
+      <Panel className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-3 py-3 sm:px-5 sm:py-4">
           <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => go("tickets")}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label={t("supportChat.back")}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
             <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               IO
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-foreground">
-                support@ibericaoposiciones.es
-              </p>
-              <p
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] ${statusStyles[currentStatus].className}`}
-              >
-                {statusStyles[currentStatus].label}
-              </p>
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate text-sm font-bold text-foreground">
+                  {ticket?.subject ?? t("supportChat.fallbackSubject")}
+                </p>
+                <span className="hidden shrink-0 text-[11px] font-semibold text-muted-foreground sm:inline">
+                  {ticket?.code ?? t("supportChat.fallbackTicket")}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <p
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] ${statusStyles[currentStatus].className}`}
+                >
+                  {statusStyles[currentStatus].label}
+                </p>
+                <span className="hidden text-[11px] text-muted-foreground sm:inline">
+                  {t("supportChat.online")}
+                </span>
+              </div>
             </div>
           </div>
           <CustomButton
@@ -2787,6 +2817,7 @@ const SupportChat = ({
             styleType="menu"
             radius="full"
             size="sm"
+            className="shrink-0"
             disabled={resolving || ticket?.status === "resolved"}
             onClick={() => {
               void handleResolve();
@@ -2795,13 +2826,13 @@ const SupportChat = ({
             {resolving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : null}
-            Finalizar
+            {t("supportChat.endChat")}
           </CustomButton>
         </header>
 
         <div
           ref={messagesContainerRef}
-          className="h-[390px] overflow-y-auto px-5 py-5"
+          className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_34%),linear-gradient(180deg,hsl(var(--secondary)/0.22),transparent_48%)] px-3 py-4 sm:px-5 sm:py-5"
         >
           {isTicketLoading || isMessagesLoading ? (
             <div className="flex h-full items-center justify-center">
@@ -2889,7 +2920,7 @@ const SupportChat = ({
           )}
         </div>
 
-        <footer className="border-t border-border/70 px-5 py-4">
+        <footer className="shrink-0 border-t border-border/70 bg-background/92 px-3 py-3 backdrop-blur-xl sm:px-5 sm:py-4">
           {pendingImages.length > 0 ? (
             <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
               {pendingImages.map((attachment) => (
@@ -2906,7 +2937,7 @@ const SupportChat = ({
                     type="button"
                     onClick={() => removePendingImage(attachment.id)}
                     className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm"
-                    aria-label="Eliminar imagen"
+                    aria-label={t("supportChat.removeImage")}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -2931,7 +2962,7 @@ const SupportChat = ({
             <button
               type="button"
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              aria-label="Adjuntar archivo"
+              aria-label={t("supportChat.attachFile")}
               onClick={() => fileInputRef.current?.click()}
             >
               <Paperclip className="h-4 w-4" />
@@ -2940,7 +2971,7 @@ const SupportChat = ({
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               onKeyDown={handleMessageKeyDown}
-              placeholder="Escribe un mensaje..."
+              placeholder={t("supportChat.placeholder")}
               className="h-10 min-w-0 flex-1 rounded-full border border-border/70 bg-background px-4 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
             />
             <CustomButton
@@ -2958,16 +2989,11 @@ const SupportChat = ({
               ) : (
                 <Send className="h-3.5 w-3.5" />
               )}
-              Enviar
+              <span className="hidden sm:inline">{t("supportChat.send")}</span>
             </CustomButton>
           </div>
         </footer>
       </Panel>
-
-      <p className="mt-3 text-center text-[11px] text-muted-foreground">
-        Adjuntamos automaticamente datos de tu sesion y plan para acelerar la
-        respuesta.
-      </p>
     </div>
   );
 };
@@ -3313,9 +3339,16 @@ const Support = () => {
       ? activeTab
       : ((subRoute?.name as TabName) ?? activeTab);
   const isSubScreen = subRoute !== null;
+  const isSupportChatRoute = subRoute?.name === "support-chat";
 
   return (
-    <div className="space-y-0 pb-2">
+    <div
+      className={
+        isSupportChatRoute
+          ? "h-[calc(100svh-10rem)] max-h-[calc(100svh-10rem)] overflow-hidden pb-0 lg:h-[calc(100vh-9.5rem)] lg:max-h-[calc(100vh-9.5rem)]"
+          : "space-y-0 pb-2"
+      }
+    >
       {!isSubScreen && <TabBar active={activeTab} onChange={setTab} />}
 
       {isSubScreen && subRoute.name === "edit-profile" && (

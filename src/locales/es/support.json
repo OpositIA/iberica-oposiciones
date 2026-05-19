@@ -506,6 +506,8 @@
     "attachFile": "Adjuntar archivo",
     "placeholder": "Escribe un mensaje...",
     "send": "Enviar",
+    "back": "Volver a tickets",
+    "removeImage": "Eliminar imagen",
     "fallbackSubject": "Consulta de soporte",
     "attachmentPrefix": "Soporte",
     "fallbackTicket": "tu ticket",

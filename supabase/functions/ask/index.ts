@@ -119,6 +119,7 @@ const MAX_ARTICLE_REFS = Math.max(
 const MAX_MESSAGE_CHARS = 3_000;
 const MAX_REWRITE_CHARS = 400;
 const FALLBACK_MIN_SCORE = 0.28;
+const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
 
 const REFUSAL_MESSAGE =
   "No lo encuentro en el material aportado. Para afinar la búsqueda, indícame la norma, el artículo o el tema concreto.";
@@ -128,6 +129,14 @@ const REFUSAL_MESSAGE =
 // ─────────────────────────────────────────────────────────────────────────────
 
 type HistoryLine = { role: "user" | "assistant" | "system"; text: string };
+
+type DailyQuotaResult = {
+  allowed: boolean;
+  remaining: number;
+  used: number;
+  limit: number;
+  day: string;
+};
 
 type RetrievalHit = {
   id: string | null;
@@ -190,6 +199,34 @@ const stripJsonFences = (value: string) =>
 
 const extractBearerToken = (authHeader: string | null) =>
   authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? "";
+
+const normalizeDailyQuotaResult = (row: unknown): DailyQuotaResult | null => {
+  if (!row || typeof row !== "object") return null;
+  const record = row as Record<string, unknown>;
+
+  const used =
+    typeof record.used === "number" && Number.isFinite(record.used)
+      ? Math.max(0, Math.floor(record.used))
+      : 0;
+  const limit =
+    typeof record.limit === "number" &&
+    Number.isFinite(record.limit) &&
+    record.limit > 0
+      ? Math.floor(record.limit)
+      : 0;
+  const remaining =
+    typeof record.remaining === "number" && Number.isFinite(record.remaining)
+      ? Math.max(0, Math.floor(record.remaining))
+      : Math.max(limit - used, 0);
+
+  return {
+    allowed: record.allowed === true,
+    remaining,
+    used,
+    limit,
+    day: typeof record.day === "string" ? record.day : String(record.day ?? "")
+  };
+};
 
 const extractHistory = (rawHistory: unknown): HistoryLine[] =>
   Array.isArray(rawHistory)
@@ -1102,6 +1139,40 @@ Deno.serve(async (req) => {
     // ════════════════════════════════════════════════════════════════════════
     //  PHASE 1 — NORMALIZE
     // ════════════════════════════════════════════════════════════════════════
+    stage = "daily_quota";
+    const { data: quotaRows, error: quotaError } = await supabase.rpc(
+      "consume_ai_daily_quota",
+      {
+        p_user_id: user.id,
+        p_tz: DAILY_USAGE_TIMEZONE
+      }
+    );
+    const quota = normalizeDailyQuotaResult(quotaRows?.[0]);
+
+    if (quotaError || !quota) {
+      return jsonResponse(
+        {
+          code: "QUOTA_VALIDATION_FAILED",
+          message: "No se pudo validar la cuota diaria"
+        },
+        500
+      );
+    }
+
+    if (!quota.allowed) {
+      return jsonResponse(
+        {
+          code: "DAILY_LIMIT_REACHED",
+          message: "Has alcanzado el limite diario",
+          used: quota.used,
+          limit: quota.limit,
+          remaining: quota.remaining,
+          day: quota.day
+        },
+        429
+      );
+    }
+
     stage = "phase1_rewrite";
     const rewrittenQueries = await phase1_rewriteForRetrieval(
       question,
@@ -1152,6 +1223,10 @@ Deno.serve(async (req) => {
         citations: [],
         refused: true,
         mindMap: false,
+        used: quota.used,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        day: quota.day,
         ...(wantsDebug
           ? {
               debug: {
@@ -1235,6 +1310,10 @@ Deno.serve(async (req) => {
       citations,
       refused: answerMarkdown === REFUSAL_MESSAGE,
       mindMap: Boolean(mindMapData),
+      used: quota.used,
+      limit: quota.limit,
+      remaining: quota.remaining,
+      day: quota.day,
       ...(wantsDebug ? { debug } : {})
     });
   } catch (error) {

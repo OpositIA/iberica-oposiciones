@@ -82,6 +82,7 @@
       "updatedDescription": "Your profile data was saved successfully.",
       "selectOppositionTitle": "Select an exam track",
       "selectOppositionDescription": "Choose a valid exam track before changing.",
+      "unavailableOppositionDescription": "That exam track is not available yet.",
       "noChangesTitle": "No changes",
       "noChangesDescription": "This exam track is already selected.",
       "changeOppositionFailedTitle": "Unable to change exam track",
@@ -432,6 +433,7 @@
       "avatarRemoved": "Profile photo removed successfully.",
       "nameRequired": "First name is required.",
       "lastNameRequired": "Last name is required.",
+      "oppositionUnavailable": "Select an available exam track.",
       "saveFailed": "Error saving changes.",
       "saved": "Profile updated successfully."
     },
