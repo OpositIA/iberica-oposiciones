@@ -115,7 +115,7 @@ const DashboardEmptyState = ({
   icon: Icon,
   title
 }: DashboardEmptyStateProps) => (
-  <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[1.4rem] border border-dashed border-border/70 bg-secondary/15 px-6 py-10 text-center">
+  <div className="flex min-h-[170px] flex-col items-center justify-center gap-2.5 rounded-[1.4rem] border border-dashed border-border/70 bg-secondary/15 px-5 py-7 text-center">
     <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-background/80 text-muted-foreground">
       <Icon className="h-5 w-5" />
     </span>
@@ -311,10 +311,10 @@ const Dashboard = () => {
   if (isHistoryLoading && !dashboardBundle) return <DashboardPageSkeleton />;
 
   return (
-    <div className="space-y-5 pt-3 md:pt-4">
+    <div className="space-y-4 pt-3 md:pt-4">
       <Reveal
         as="section"
-        className="px-5 py-5 md:px-7 md:py-6"
+        className="px-5 py-4 md:px-7 md:py-5"
         data-tour-id={WORKSPACE_TOUR_TARGETS.dashboardHero}
         duration={820}
         variant="soft"
@@ -562,7 +562,7 @@ const Dashboard = () => {
 
         <Reveal
           as="article"
-          className={`${basePanelClassName} min-w-0 overflow-hidden p-5 md:p-6`}
+          className={`${basePanelClassName} flex flex-col justify-between min-w-0 overflow-hidden p-5 md:p-6`}
           delay={90}
           variant="right"
         >

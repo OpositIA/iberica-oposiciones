@@ -11,6 +11,12 @@ import CustomInput from "@/components/ui/custom-input";
 import CustomSelect from "@/components/ui/custom-select";
 import CustomTextarea from "@/components/ui/custom-textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import {
   isActiveOppositionOption,
@@ -19,11 +25,17 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale, type AppLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
-import { sanitizeCode, sanitizeSingleLineText } from "@/lib/inputSanitization";
+import {
+  sanitizeCode,
+  sanitizeSingleLineText,
+  sanitizeUrl
+} from "@/lib/inputSanitization";
 import { isPaidPlan } from "@/lib/plans";
 import {
+  profileQueryKeys,
   useOppositionOptionsQuery,
-  useProfileDetailsQuery
+  useProfileDetailsQuery,
+  type ProfileDetailsRow
 } from "@/queries/profileQueries";
 import {
   createCustomerPortalSession,
@@ -57,6 +69,7 @@ import {
   AlertTriangle,
   Bell,
   BookOpen,
+  Camera,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -69,13 +82,15 @@ import {
   Mail,
   MessageSquare,
   Paperclip,
+  Pencil,
   Plus,
   Search,
   Send,
   Shield,
   ThumbsDown,
   ThumbsUp,
-  Trash2
+  Trash2,
+  User
 } from "lucide-react";
 import {
   Fragment,
@@ -87,7 +102,7 @@ import {
   useState,
   type ChangeEvent
 } from "react";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,6 +116,44 @@ type RouteName =
   | "privacy"
   | "support-chat";
 type RouteState = { name: RouteName; ticketId?: string };
+
+const AVATAR_BUCKET = "profile-avatars";
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const ALLOWED_AVATAR_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif"
+]);
+
+const sanitizeAvatarForMetadata = (value: string) => {
+  return sanitizeUrl(value);
+};
+
+const extractAvatarStoragePath = (value: string) => {
+  const sanitized = sanitizeAvatarForMetadata(value);
+  if (!sanitized) return null;
+
+  const marker = `/storage/v1/object/public/${AVATAR_BUCKET}/`;
+  const markerIndex = sanitized.indexOf(marker);
+  if (markerIndex === -1) return null;
+
+  return decodeURIComponent(sanitized.slice(markerIndex + marker.length));
+};
+
+const buildAvatarStoragePath = (userId: string, file: File) => {
+  const cleanName = sanitizeSingleLineText(file.name, 120).toLowerCase();
+  const extensionFromName = cleanName.includes(".")
+    ? cleanName.split(".").pop()
+    : "";
+  const extensionFromType = file.type.startsWith("image/")
+    ? file.type.replace("image/", "")
+    : "";
+  const extension = extensionFromName || extensionFromType || "jpg";
+  const uniqueId = Math.random().toString(36).slice(2, 10);
+  return `${sanitizeCode(userId, 120)}/${Date.now()}-${uniqueId}.${sanitizeCode(extension, 12) || "jpg"}`;
+};
 
 // ─── FAQ Data ─────────────────────────────────────────────────────────────────
 
@@ -449,7 +502,20 @@ const VoteRow = ({ faqId }: { faqId: string }) => {
 };
 
 const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
+  const { user } = useAuth();
   const { t } = useTranslation("support");
+  const { data: tickets = [] } = useQuery({
+    queryKey: supportTicketsQueryKeys.list(user?.id),
+    queryFn: fetchMySupportTickets,
+    enabled: Boolean(user?.id),
+    staleTime: 15_000
+  });
+  const openTicketsCount = tickets.filter(
+    (ticket) => ticket.status !== "resolved"
+  ).length;
+  const resolvedTicketsCount = tickets.filter(
+    (ticket) => ticket.status === "resolved"
+  ).length;
   const faqGroups = t("faq.groups", { returnObjects: true }) as Array<{
     id: string;
     label: string;
@@ -666,11 +732,16 @@ const HelpCenter = ({ go }: { go: (r: RouteName) => void }) => {
             {t("helpCenter.sidebar.myQueries")}
           </Overline>
           <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
-            <Trans
-              i18nKey="helpCenter.sidebar.openConversations"
-              ns="support"
-              components={[<strong className="text-foreground" />]}
-            />
+            {t("helpCenter.sidebar.openConversationsPrefix")}{" "}
+            <strong className="text-foreground">
+              {t("helpCenter.sidebar.openConversationsOpen", {
+                count: openTicketsCount
+              })}
+            </strong>{" "}
+            {t("helpCenter.sidebar.openConversationsConnector")}{" "}
+            {t("helpCenter.sidebar.openConversationsResolved", {
+              count: resolvedTicketsCount
+            })}
           </p>
           <button
             onClick={() => go("tickets")}
@@ -709,11 +780,16 @@ const ProfileHub = ({
   go: (r: RouteName) => void;
   openDeleteModal: () => void;
 }) => {
-  const { user, profile, locale } = useAuth();
+  const { user, profile, locale, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation("profile");
   const shouldLoad = Boolean(user?.id);
+  const queryClient = useQueryClient();
   const [isOpeningPaymentPortal, setIsOpeningPaymentPortal] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [persistedAvatarUrl, setPersistedAvatarUrl] = useState("");
+  const [isAvatarUpdating, setIsAvatarUpdating] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const { data: profileDetails } = useProfileDetailsQuery(
     shouldLoad ? user?.id : null
   );
@@ -740,7 +816,6 @@ const ProfileHub = ({
   const firstName = profile?.firstName ?? "";
   const lastName = profile?.lastName ?? "";
   const email = profile?.email ?? user?.email ?? "";
-  const avatarUrl = profileDetails?.avatar_url ?? "";
   const oppositionId = String(profileDetails?.preferred_opposition_id ?? "");
   const oppositionName =
     resolveOppositionNameById(oppositionId, oppositionOptions) ||
@@ -762,6 +837,177 @@ const ProfileHub = ({
   const averageAccuracyValue = dashboardStats
     ? `${dashboardStats.averageAccuracy}%`
     : activityFallback;
+  const hasAvatar = Boolean(sanitizeAvatarForMetadata(avatarUrl));
+
+  useEffect(() => {
+    const nextAvatarUrl = sanitizeAvatarForMetadata(
+      profileDetails?.avatar_url ?? profile?.avatarUrl ?? ""
+    );
+
+    setAvatarUrl(nextAvatarUrl);
+    setPersistedAvatarUrl(nextAvatarUrl);
+  }, [profile?.avatarUrl, profileDetails?.avatar_url]);
+
+  const syncProfileAvatarState = async (nextAvatarUrl: string) => {
+    setAvatarUrl(nextAvatarUrl);
+    setPersistedAvatarUrl(nextAvatarUrl);
+
+    if (user?.id) {
+      queryClient.setQueryData<ProfileDetailsRow | null>(
+        profileQueryKeys.details(user.id),
+        (current) =>
+          current ? { ...current, avatar_url: nextAvatarUrl || null } : current
+      );
+      await queryClient.invalidateQueries({
+        queryKey: profileQueryKeys.details(user.id)
+      });
+    }
+
+    await refreshProfile();
+  };
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (isAvatarUpdating) return;
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      event.target.value = "";
+      toast({
+        variant: "destructive",
+        title: t("myProfile.toasts.imageTooLargeTitle"),
+        description: t("myProfile.toasts.imageTooLargeDescription")
+      });
+      return;
+    }
+
+    if (file.type && !ALLOWED_AVATAR_TYPES.has(file.type.toLowerCase())) {
+      event.target.value = "";
+      toast({
+        variant: "destructive",
+        title: t("myProfile.toasts.invalidFormatTitle"),
+        description: t("myProfile.toasts.invalidFormatDescription")
+      });
+      return;
+    }
+
+    if (!user) {
+      event.target.value = "";
+      toast({
+        variant: "destructive",
+        title: t("myProfile.toasts.invalidSessionTitle"),
+        description: t("myProfile.toasts.invalidSessionDescription")
+      });
+      return;
+    }
+
+    setIsAvatarUpdating(true);
+    try {
+      const previousAvatarPath = extractAvatarStoragePath(persistedAvatarUrl);
+      const uploadedAvatarPath = buildAvatarStoragePath(user.id, file);
+
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(uploadedAvatarPath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || undefined
+        });
+
+      if (uploadError) {
+        toast({
+          variant: "destructive",
+          title: t("myProfile.toasts.uploadFailedTitle"),
+          description: uploadError.message
+        });
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(AVATAR_BUCKET)
+        .getPublicUrl(uploadedAvatarPath);
+      const nextAvatarUrl = sanitizeAvatarForMetadata(publicUrlData.publicUrl);
+
+      const { error: saveError } = await supabase.from("profiles").upsert(
+        {
+          user_id: user.id,
+          avatar_url: nextAvatarUrl,
+          locale
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (saveError) {
+        await supabase.storage.from(AVATAR_BUCKET).remove([uploadedAvatarPath]);
+        toast({
+          variant: "destructive",
+          title: t("myProfile.toasts.saveFailedTitle"),
+          description: saveError.message
+        });
+        return;
+      }
+
+      if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath)
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
+
+      await syncProfileAvatarState(nextAvatarUrl);
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("myProfile.toasts.saveFailedTitle"),
+        description: t("myProfile.toasts.unexpectedErrorDescription")
+      });
+    } finally {
+      setIsAvatarUpdating(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleOpenAvatarFilePicker = () => {
+    if (!avatarInputRef.current || isAvatarUpdating) return;
+    avatarInputRef.current.value = "";
+    avatarInputRef.current.click();
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user || isAvatarUpdating || !hasAvatar) return;
+
+    setIsAvatarUpdating(true);
+    try {
+      const previousAvatarPath = extractAvatarStoragePath(persistedAvatarUrl);
+      const { error: saveError } = await supabase.from("profiles").upsert(
+        {
+          user_id: user.id,
+          avatar_url: null,
+          locale
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (saveError) {
+        toast({
+          variant: "destructive",
+          title: t("myProfile.toasts.saveFailedTitle"),
+          description: saveError.message
+        });
+        return;
+      }
+
+      if (previousAvatarPath)
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousAvatarPath]);
+
+      await syncProfileAvatarState("");
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("myProfile.toasts.saveFailedTitle"),
+        description: t("myProfile.toasts.unexpectedErrorDescription")
+      });
+    } finally {
+      setIsAvatarUpdating(false);
+    }
+  };
 
   const handleManagePlan = async () => {
     if (!hasPaymentMethodManagement) {
@@ -801,17 +1047,79 @@ const ProfileHub = ({
         {/* Profile card */}
         <Panel className="p-6">
           <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center text-white font-serif text-2xl flex-shrink-0 shadow-[0_14px_30px_-16px_rgba(249,115,22,0.5)] overflow-hidden">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={`${firstName} ${lastName}`}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                initials
-              )}
+            <div className="flex-shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <CustomButton
+                    type="button"
+                    aria-label={t("myProfile.avatarMenuLabel")}
+                    disabled={isAvatarUpdating}
+                    styleType="unstyled"
+                    size="none"
+                    radius="none"
+                    className="group relative h-16 w-16 overflow-hidden rounded-full bg-gradient-to-br from-primary to-orange-600 text-white shadow-[0_14px_30px_-16px_rgba(249,115,22,0.5)] ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-80"
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={t("myProfile.avatarAlt")}
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : initials ? (
+                      <span className="flex h-full w-full items-center justify-center font-serif text-2xl">
+                        {initials}
+                      </span>
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center">
+                        <User className="h-6 w-6 text-primary-foreground" />
+                      </span>
+                    )}
+                    <span className="pointer-events-none absolute inset-0 bg-background/55 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/40 shadow-sm">
+                        <Pencil className="h-4 w-4 text-foreground" />
+                      </span>
+                    </span>
+                    {isAvatarUpdating ? (
+                      <span className="absolute inset-0 flex items-center justify-center bg-background/70">
+                        <Loader2 className="h-5 w-5 animate-spin text-foreground" />
+                      </span>
+                    ) : null}
+                  </CustomButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  sideOffset={10}
+                  className="w-56"
+                >
+                  <DropdownMenuItem
+                    onSelect={handleOpenAvatarFilePicker}
+                    disabled={isAvatarUpdating}
+                    className="flex cursor-pointer items-center gap-2"
+                  >
+                    <Camera className="h-4 w-4" />
+                    {t("myProfile.changeImage")}
+                  </DropdownMenuItem>
+                  {hasAvatar ? (
+                    <DropdownMenuItem
+                      onSelect={handleRemoveAvatar}
+                      disabled={isAvatarUpdating}
+                      className="flex cursor-pointer items-center gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t("myProfile.removeImage")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <Overline className="mb-1.5">
@@ -1501,17 +1809,31 @@ const ChangePassword = ({
           <label className="block mb-2 text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
             {t("changePassword.fieldConfirm")}
           </label>
-          <input
-            type={showPwd ? "text" : "password"}
-            name="confirm-new-password"
-            autoComplete="new-password"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder={t("changePassword.fieldConfirmPlaceholder")}
-            className={inputCls}
-          />
+          <div className="relative">
+            <input
+              type={showPwd ? "text" : "password"}
+              name="confirm-new-password"
+              autoComplete="new-password"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder={t("changePassword.fieldConfirmPlaceholder")}
+              className={`${inputCls} pr-10`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+              aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPwd ? (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          </div>
           {errors.confirm && (
             <p className="mt-1.5 text-[12px] text-destructive flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5" />
@@ -1699,24 +2021,12 @@ const PermToggle = ({
         {desc}
       </div>
     </div>
-    <button
-      type="button"
+    <Switch
       disabled={disabled}
-      onClick={() => onChange(!on)}
-      className={`w-10 h-6 rounded-full border p-0.5 transition-colors flex-shrink-0 ${
-        on
-          ? "border-primary bg-primary"
-          : "border-border bg-muted-foreground/20 dark:border-border/70 dark:bg-black/45"
-      } disabled:cursor-not-allowed disabled:opacity-60`}
-    >
-      <div
-        className={`w-5 h-5 rounded-full transition-transform ${
-          on
-            ? "translate-x-4 bg-primary-foreground shadow-sm"
-            : "translate-x-0 bg-background shadow-[0_1px_4px_hsl(var(--foreground)/0.25)] dark:bg-muted-foreground"
-        }`}
-      />
-    </button>
+      checked={on}
+      onCheckedChange={onChange}
+      aria-label={title}
+    />
   </div>
 );
 
@@ -2397,7 +2707,7 @@ const SupportChat = ({
   const [pendingImages, setPendingImages] = useState<PendingImageAttachment[]>(
     []
   );
-  const { session, user } = useAuth();
+  const { session, user, locale } = useAuth();
   const sessionAccessToken = session?.access_token;
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -2731,7 +3041,7 @@ const SupportChat = ({
         ).catch(() => undefined);
       }
       setUploadError(
-        error instanceof Error ? error.message : "No se pudo enviar el mensaje."
+        error instanceof Error ? error.message : t("supportChat.sendFailed")
       );
       queryClient.setQueryData(
         supportTicketsQueryKeys.messages(ticketId),
@@ -2842,7 +3152,7 @@ const SupportChat = ({
             messages.map((ticketMessage) => {
               const timeLabel = new Date(
                 ticketMessage.createdAt
-              ).toLocaleTimeString("es-ES", {
+              ).toLocaleTimeString(locale === "en" ? "en-US" : "es-ES", {
                 hour: "2-digit",
                 minute: "2-digit"
               });
@@ -3334,12 +3644,11 @@ const Support = () => {
     [toast]
   );
 
-  const currentTab: TabName =
-    subRoute && !HUB_ROUTES.has(subRoute.name)
-      ? activeTab
-      : ((subRoute?.name as TabName) ?? activeTab);
   const isSubScreen = subRoute !== null;
   const isSupportChatRoute = subRoute?.name === "support-chat";
+  const routeAnimationKey = subRoute
+    ? `${subRoute.name}:${subRoute.ticketId ?? ""}`
+    : activeTab;
 
   return (
     <div
@@ -3351,30 +3660,38 @@ const Support = () => {
     >
       {!isSubScreen && <TabBar active={activeTab} onChange={setTab} />}
 
-      {isSubScreen && subRoute.name === "edit-profile" && (
-        <EditProfile go={go} showToast={showToast} />
-      )}
-      {isSubScreen && subRoute.name === "change-password" && (
-        <ChangePassword go={go} showToast={showToast} />
-      )}
-      {isSubScreen && subRoute.name === "notifications" && (
-        <NotificationsPreferences go={go} showToast={showToast} />
-      )}
-      {isSubScreen && subRoute.name === "privacy" && (
-        <Privacy go={go} openDeleteModal={() => setDeleteModalOpen(true)} />
-      )}
-      {isSubScreen && subRoute.name === "support-chat" && (
-        <SupportChat go={go} ticketId={subRoute.ticketId} />
-      )}
+      <div
+        key={routeAnimationKey}
+        className="animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none"
+      >
+        {isSubScreen && subRoute.name === "edit-profile" && (
+          <EditProfile go={go} showToast={showToast} />
+        )}
+        {isSubScreen && subRoute.name === "change-password" && (
+          <ChangePassword go={go} showToast={showToast} />
+        )}
+        {isSubScreen && subRoute.name === "notifications" && (
+          <NotificationsPreferences go={go} showToast={showToast} />
+        )}
+        {isSubScreen && subRoute.name === "privacy" && (
+          <Privacy go={go} openDeleteModal={() => setDeleteModalOpen(true)} />
+        )}
+        {isSubScreen && subRoute.name === "support-chat" && (
+          <SupportChat go={go} ticketId={subRoute.ticketId} />
+        )}
 
-      {!isSubScreen && activeTab === "help" && <HelpCenter go={go} />}
-      {!isSubScreen && activeTab === "profile" && (
-        <ProfileHub go={go} openDeleteModal={() => setDeleteModalOpen(true)} />
-      )}
-      {!isSubScreen && activeTab === "contact" && <ContactTab go={go} />}
-      {!isSubScreen && activeTab === "tickets" && (
-        <Tickets go={go} onOpenTicket={openTicket} />
-      )}
+        {!isSubScreen && activeTab === "help" && <HelpCenter go={go} />}
+        {!isSubScreen && activeTab === "profile" && (
+          <ProfileHub
+            go={go}
+            openDeleteModal={() => setDeleteModalOpen(true)}
+          />
+        )}
+        {!isSubScreen && activeTab === "contact" && <ContactTab go={go} />}
+        {!isSubScreen && activeTab === "tickets" && (
+          <Tickets go={go} onOpenTicket={openTicket} />
+        )}
+      </div>
 
       <DeleteAccountModal
         open={deleteModalOpen}
