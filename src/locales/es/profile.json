@@ -423,6 +423,7 @@
     "viewerBadge": "Visor PDF",
     "viewerTitle": "Temario en PDF",
     "viewerLoading": "Cargando visor del temario...",
+    "viewerDocumentLoading": "Preparando paginas del PDF...",
     "viewerBack": "Volver al temario",
     "viewerOpenExternal": "Abrir en otra pestana",
     "viewerInvalidPdf": "No se ha identificado un PDF valido del temario.",

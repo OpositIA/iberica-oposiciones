@@ -18,8 +18,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAuthReady, isAuthenticated } = useAuth();
   const isResolvingGoogleRegister = hasPendingGoogleRegisterResolution();
   const isTemporaryGoogleSignupSession = hasGoogleSignupSessionActive();
+  const isPdfViewerRoute = location.pathname.startsWith("/perfil/temario/pdf/");
 
   if (!isAuthReady) {
+    if (isPdfViewerRoute) return null;
+
     return (
       <AppLoading variant="fullScreen" label={t("status.validatingSession")} />
     );

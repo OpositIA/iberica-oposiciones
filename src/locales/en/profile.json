@@ -244,6 +244,7 @@
     "viewerBadge": "PDF viewer",
     "viewerTitle": "Syllabus PDF",
     "viewerLoading": "Loading syllabus viewer...",
+    "viewerDocumentLoading": "Preparing PDF pages...",
     "viewerBack": "Back to syllabus",
     "viewerOpenExternal": "Open in new tab",
     "viewerInvalidPdf": "A valid syllabus PDF could not be identified.",

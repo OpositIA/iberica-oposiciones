@@ -1,5 +1,4 @@
 import { useAuth } from "@/auth/AuthProvider";
-import AppLoading from "@/components/AppLoading";
 import BrandLogo from "@/components/BrandLogo";
 import PlanUpgradeDialog from "@/components/PlanUpgradeDialog";
 import CustomButton from "@/components/ui/custom-button";
@@ -60,6 +59,35 @@ const clamp = (value: number, min: number, max: number) =>
 type LoadedPdfDocument = Parameters<
   NonNullable<ComponentProps<typeof Document>["onLoadSuccess"]>
 >[0];
+
+type PdfDocumentLoadingProps = {
+  label: string;
+};
+
+const PdfDocumentLoading = ({ label }: PdfDocumentLoadingProps) => (
+  <section
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+    className="relative flex min-h-[100svh] w-full items-center justify-center overflow-hidden bg-background px-6 py-14"
+  >
+    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--muted)_/_0.45),transparent_42%)]" />
+    <div className="relative flex w-full max-w-xs flex-col items-center text-center">
+      <div className="relative mb-6 flex h-20 w-20 items-center justify-center">
+        <span className="absolute inset-0 rounded-full border border-border/70" />
+        <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-foreground/70 motion-safe:animate-spin motion-reduce:animate-none" />
+        <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-card text-muted-foreground ring-1 ring-border/70">
+          <FileText className="h-5 w-5" aria-hidden="true" />
+        </span>
+      </div>
+
+      <h2 className="text-base font-semibold text-foreground">{label}</h2>
+      <div className="mt-4 flex items-center gap-1.5" aria-hidden="true">
+        <span className="h-1 w-6 rounded-full bg-foreground/70 motion-safe:animate-pulse motion-reduce:animate-none" />
+      </div>
+    </div>
+  </section>
+);
 
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -675,15 +703,8 @@ const ProfileSyllabusPdfViewer = () => {
     );
   }
 
-  if (isLoadingPdfBytes) {
-    return (
-      <AppLoading
-        label={t("syllabus.viewerDocumentLoading", {
-          defaultValue: "Preparando paginas del PDF..."
-        })}
-      />
-    );
-  }
+  if (isLoadingPdfBytes)
+    return <PdfDocumentLoading label={t("syllabus.viewerDocumentLoading")} />;
 
   if (pdfBytesError || !thumbnailPdfFile || !mainPdfFile) {
     const message =
@@ -1106,13 +1127,7 @@ const ProfileSyllabusPdfViewer = () => {
                 <Document
                   file={mainPdfFile}
                   options={PDF_DOCUMENT_OPTIONS}
-                  loading={
-                    <AppLoading
-                      label={t("syllabus.viewerDocumentLoading", {
-                        defaultValue: "Preparando paginas del PDF..."
-                      })}
-                    />
-                  }
+                  loading={null}
                   onLoadSuccess={handleDocumentLoad}
                   onLoadError={handleDocumentLoadError}
                   error={null}
