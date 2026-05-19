@@ -908,60 +908,6 @@ const AssistantIA = () => {
     [dailyRequestLimit, planState?.ai_daily_limit, queryClient, t, toast]
   );
 
-  const consumeDailyQuota = useCallback(
-    async (userId: string): Promise<DailyQuotaResult | null> => {
-      const { data, error } = await supabase.rpc("consume_ai_daily_quota", {
-        p_user_id: userId,
-        p_tz: DAILY_USAGE_TIMEZONE
-      });
-
-      const row = data?.[0];
-      if (error || !row) {
-        toast({
-          variant: "destructive",
-          title: t("assistant:toasts.validateDailyLimitFailedTitle"),
-          description:
-            error?.message ??
-            t("assistant:toasts.validateDailyLimitFailedDescription")
-        });
-        return null;
-      }
-
-      const normalizedQuota = normalizeDailyQuota(
-        row,
-        planState?.ai_daily_limit ?? dailyRequestLimit
-      );
-
-      setDailyRequestLimit(normalizedQuota.limit);
-      setDailyUsedRequests(normalizedQuota.used);
-      queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
-        day: String(row.day ?? ""),
-        is_paid: Boolean(planState?.is_paid),
-        limit: normalizedQuota.limit,
-        remaining: normalizedQuota.remaining,
-        used: normalizedQuota.used
-      });
-
-      return {
-        allowed:
-          typeof row.allowed === "boolean"
-            ? row.allowed
-            : normalizedQuota.allowed,
-        used: normalizedQuota.used,
-        limit: normalizedQuota.limit,
-        remaining: normalizedQuota.remaining
-      };
-    },
-    [
-      dailyRequestLimit,
-      planState?.ai_daily_limit,
-      planState?.is_paid,
-      queryClient,
-      t,
-      toast
-    ]
-  );
-
   const loadMessages = useCallback(
     async (conversationId: string) => {
       const requestId = loadMessagesRequestIdRef.current + 1;
@@ -2548,7 +2494,6 @@ const AssistantIA = () => {
         body: JSON.stringify({
           message: texto,
           history,
-          debug: true,
           ...(shouldRequestMindMap ? { mindMap: true } : {})
         })
       });
@@ -2631,8 +2576,6 @@ const AssistantIA = () => {
           })
         );
       }
-
-      await consumeDailyQuota(currentUserId);
 
       await queryClient.invalidateQueries({
         queryKey: assistantQueryKeys.messages(conversationId)

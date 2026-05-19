@@ -1,6 +1,7 @@
 import { useAuth } from "@/auth/AuthProvider";
 import BrandLogo from "@/components/BrandLogo";
 import GoogleIcon from "@/components/GoogleIcon";
+import OppositionSelectLabel from "@/components/OppositionSelectLabel";
 import CustomButton from "@/components/ui/custom-button";
 import CustomDateInput from "@/components/ui/custom-date-input";
 import CustomInput from "@/components/ui/custom-input";
@@ -8,6 +9,7 @@ import CustomSelect from "@/components/ui/custom-select";
 import Reveal from "@/components/ui/reveal";
 import {
   fetchOppositionOptions,
+  isActiveOppositionOption,
   type OppositionOption
 } from "@/data/oposicionesDb";
 import { useRegisterSubmit } from "@/hooks/use-register-submit";
@@ -61,7 +63,12 @@ const readUserMetadataText = (
 const Register = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t, i18n } = useTranslation(["auth", "common", "plans"]);
+  const { t, i18n } = useTranslation([
+    "auth",
+    "common",
+    "plans",
+    "oppositions"
+  ]);
   const { toast } = useToast();
   const { isAuthenticated, profile, user } = useAuth();
   const persistedDraft = useMemo(() => readRegisterFlowDraft(), []);
@@ -340,6 +347,10 @@ const Register = () => {
     if (targetStep === 2) {
       const errorKey = getRegisterProfileStepError(form, maxBirthDate);
       if (errorKey) return t(`auth:register.validation.${errorKey}`);
+      if (
+        !isActiveOppositionOption(form.preferredOpposition, oppositionOptions)
+      )
+        return t("auth:register.validation.preferredOppositionUnavailable");
     }
 
     if (targetStep === 3 && !hasRequestedPlan && !selectedPlanCode)
@@ -778,8 +789,18 @@ const Register = () => {
                         {t("auth:register.selectOpposition")}
                       </option>
                       {oppositionOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.name}
+                        <option
+                          disabled={!option.isActive}
+                          key={option.id}
+                          value={option.id}
+                        >
+                          <OppositionSelectLabel
+                            comingSoonLabel={t(
+                              "oppositions:availability.comingSoon"
+                            )}
+                            isActive={option.isActive}
+                            name={option.name}
+                          />
                         </option>
                       ))}
                     </CustomSelect>

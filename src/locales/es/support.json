@@ -512,6 +512,7 @@
     "removeImage": "Eliminar imagen",
     "placeholder": "Escribe un mensaje...",
     "send": "Enviar",
+    "back": "Volver a tickets",
     "sendFailed": "No se pudo enviar el mensaje.",
     "fallbackSubject": "Consulta de soporte",
     "attachmentPrefix": "Soporte",

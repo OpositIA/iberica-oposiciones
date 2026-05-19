@@ -82,6 +82,7 @@
       "updatedDescription": "Tus datos de perfil se han guardado correctamente.",
       "selectOppositionTitle": "Selecciona una oposicion",
       "selectOppositionDescription": "Debes elegir una oposicion valida antes de cambiar.",
+      "unavailableOppositionDescription": "Esa oposicion aun no esta disponible.",
       "noChangesTitle": "Sin cambios",
       "noChangesDescription": "Ya tienes seleccionada esta oposicion.",
       "changeOppositionFailedTitle": "No se pudo cambiar la oposicion",
@@ -241,6 +242,7 @@
       "avatarRemoved": "Foto de perfil eliminada correctamente.",
       "nameRequired": "El nombre es obligatorio.",
       "lastNameRequired": "El apellido es obligatorio.",
+      "oppositionUnavailable": "Selecciona una oposicion disponible.",
       "saveFailed": "Error al guardar los cambios.",
       "saved": "Perfil actualizado correctamente."
     },

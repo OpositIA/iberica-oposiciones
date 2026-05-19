@@ -80,14 +80,14 @@ const ProfileStudy = () => {
   return (
     <Reveal
       as="section"
-      className="relative h-full min-h-0 overflow-hidden rounded-[1rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9))] shadow-[0_24px_70px_-58px_rgba(15,23,42,0.52)] dark:border-border/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.94))] dark:shadow-[0_30px_80px_-62px_rgba(0,0,0,0.84)]"
+      className="relative min-h-[calc(100svh-7.25rem)] overflow-hidden rounded-[1rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9))] shadow-[0_24px_70px_-58px_rgba(15,23,42,0.52)] dark:border-border/80 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.94))] dark:shadow-[0_30px_80px_-62px_rgba(0,0,0,0.84)] lg:h-full lg:min-h-0"
       duration={620}
       variant="gentle"
     >
-      <div className="relative flex h-full min-h-0 flex-col gap-3 px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
-        <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="relative flex min-h-[inherit] flex-col gap-3 px-3 py-3 sm:px-5 sm:py-4 lg:h-full lg:min-h-0 lg:px-6 lg:py-5">
+        <div className="flex shrink-0 flex-col gap-2.5 sm:gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-xl">
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:mt-1 sm:text-2xl md:text-3xl">
               {t("profile:layout.menuItems.study")}
             </h1>
             <p className="mt-1 hidden max-w-xl text-sm leading-6 text-muted-foreground xl:block">
@@ -95,8 +95,8 @@ const ProfileStudy = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/75 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm backdrop-blur">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/75 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground shadow-sm backdrop-blur sm:px-3 sm:text-[10px] sm:tracking-[0.18em]">
               {t("profile:study.autoCycle")}
             </div>
             <CustomButton
@@ -105,7 +105,7 @@ const ProfileStudy = () => {
               styleType="subtle"
               radius="full"
               size="sm"
-              className="min-w-[9rem] justify-center border-primary/20 bg-background/85 text-foreground shadow-[0_18px_34px_-28px_rgba(15,23,42,0.72)] hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10"
+              className="min-w-0 justify-center border-primary/20 bg-background/85 px-3 text-foreground shadow-[0_18px_34px_-28px_rgba(15,23,42,0.72)] hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10 sm:min-w-[9rem]"
               aria-label={t("profile:study.restart")}
             >
               <TimerReset className="h-3.5 w-3.5" />
@@ -114,34 +114,34 @@ const ProfileStudy = () => {
           </div>
         </div>
 
-        <div className="grid shrink-0 gap-2 md:grid-cols-3">
-          <div className="rounded-2xl border border-border/60 bg-background/70 px-3.5 py-2.5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.58)] backdrop-blur">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="grid shrink-0 grid-cols-3 gap-1.5 sm:gap-2">
+          <div className="min-w-0 rounded-xl border border-border/60 bg-background/70 px-2 py-2 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.58)] backdrop-blur sm:rounded-2xl sm:px-3.5 sm:py-2.5">
+            <p className="hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:block">
               {t("profile:study.phaseLabel")}
             </p>
-            <p className="mt-1 text-base font-semibold text-foreground">
+            <p className="truncate text-xs font-semibold text-foreground sm:mt-1 sm:text-base">
               {phaseLabel}
             </p>
           </div>
-          <div className="rounded-2xl border border-border/60 bg-background/70 px-3.5 py-2.5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.58)] backdrop-blur">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="min-w-0 rounded-xl border border-border/60 bg-background/70 px-2 py-2 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.58)] backdrop-blur sm:rounded-2xl sm:px-3.5 sm:py-2.5">
+            <p className="hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:block">
               {t("profile:study.remainingLabel")}
             </p>
-            <p className="mt-1 text-base font-semibold text-foreground">
+            <p className="truncate text-xs font-semibold text-foreground sm:mt-1 sm:text-base">
               {formattedRemaining}
             </p>
           </div>
-          <div className="rounded-2xl border border-border/60 bg-background/70 px-3.5 py-2.5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.58)] backdrop-blur">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="min-w-0 rounded-xl border border-border/60 bg-background/70 px-2 py-2 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.58)] backdrop-blur sm:rounded-2xl sm:px-3.5 sm:py-2.5">
+            <p className="hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:block">
               {t("profile:study.statusLabel")}
             </p>
-            <p className="mt-1 text-base font-semibold text-foreground">
+            <p className="truncate text-xs font-semibold text-foreground sm:mt-1 sm:text-base">
               {statusLabel}
             </p>
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-2 py-2 text-center">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-1 py-1 text-center sm:gap-6 sm:px-2 sm:py-2">
           <div
             className="flex h-4 items-center justify-center gap-1.5"
             aria-label={t("profile:study.phaseProgressLabel", {
@@ -173,11 +173,11 @@ const ProfileStudy = () => {
           <button
             type="button"
             onClick={handleCountdownClick}
-            className="group relative flex items-center justify-center transition-transform duration-300 ease-out hover:scale-[1.005] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+            className="group relative flex shrink-0 items-center justify-center transition-transform duration-300 ease-out hover:scale-[1.005] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             aria-label={countdownHint}
             title={countdownHint}
           >
-            <div className="relative flex h-[clamp(13.5rem,42vh,19rem)] w-[clamp(13.5rem,42vh,19rem)] items-center justify-center transition-transform duration-300 ease-out group-hover:scale-[1.018] md:h-[clamp(15rem,44vh,20.5rem)] md:w-[clamp(15rem,44vh,20.5rem)]">
+            <div className="relative flex h-[clamp(10.5rem,min(58vw,34svh),17rem)] w-[clamp(10.5rem,min(58vw,34svh),17rem)] items-center justify-center transition-transform duration-300 ease-out group-hover:scale-[1.018] sm:h-[clamp(13.5rem,42vh,19rem)] sm:w-[clamp(13.5rem,42vh,19rem)] md:h-[clamp(15rem,44vh,20.5rem)] md:w-[clamp(15rem,44vh,20.5rem)]">
               <div
                 aria-hidden="true"
                 className={cn(
@@ -227,13 +227,13 @@ const ProfileStudy = () => {
                 ) : null}
 
                 <div className="flex items-center justify-center gap-2 text-foreground">
-                  <span className="text-5xl font-serif leading-none md:text-7xl">
+                  <span className="text-4xl font-serif leading-none sm:text-5xl md:text-7xl">
                     {minutesDisplay}
                   </span>
-                  <span className="pb-1.5 text-3xl font-serif leading-none text-foreground/40 md:text-4xl">
+                  <span className="pb-1 text-2xl font-serif leading-none text-foreground/40 sm:pb-1.5 sm:text-3xl md:text-4xl">
                     :
                   </span>
-                  <span className="text-5xl font-serif leading-none md:text-7xl">
+                  <span className="text-4xl font-serif leading-none sm:text-5xl md:text-7xl">
                     {secondsDisplay}
                   </span>
                 </div>

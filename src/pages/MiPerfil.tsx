@@ -1,5 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import ConfirmActionDialog from "@/components/ConfirmActionDialog";
+import OppositionSelectLabel from "@/components/OppositionSelectLabel";
 import { MyProfilePageSkeleton } from "@/components/PageSkeletons";
 import CustomButton from "@/components/ui/custom-button";
 import CustomDateInput from "@/components/ui/custom-date-input";
@@ -12,7 +13,10 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import Reveal from "@/components/ui/reveal";
-import { resolveOppositionNameById } from "@/data/oposicionesDb";
+import {
+  isActiveOppositionOption,
+  resolveOppositionNameById
+} from "@/data/oposicionesDb";
 import { useToast } from "@/hooks/use-toast";
 import {
   DEFAULT_LOCALE,
@@ -132,7 +136,7 @@ const getProfileSaveComparable = (profile: ProfileForm) => {
 };
 
 const MiPerfil = () => {
-  const { t } = useTranslation(["profile", "common"]);
+  const { t } = useTranslation(["profile", "common", "oppositions"]);
   const { toast } = useToast();
   const { user, isAuthReady, locale, applyLocale, refreshProfile } = useAuth();
   const shouldLoadProfile = isAuthReady && Boolean(user?.id);
@@ -527,6 +531,17 @@ const MiPerfil = () => {
       return;
     }
 
+    if (!isActiveOppositionOption(nextOppositionId, oppositionOptions)) {
+      toast({
+        variant: "destructive",
+        title: t("profile:myProfile.toasts.selectOppositionTitle"),
+        description: t(
+          "profile:myProfile.toasts.unavailableOppositionDescription"
+        )
+      });
+      return;
+    }
+
     if (nextOppositionId === activeOppositionId) {
       toast({
         title: t("profile:myProfile.toasts.noChangesTitle"),
@@ -869,8 +884,16 @@ const MiPerfil = () => {
                   {t("profile:myProfile.oppositionSection.selectOption")}
                 </option>
                 {oppositionOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
+                  <option
+                    disabled={!option.isActive}
+                    key={option.id}
+                    value={option.id}
+                  >
+                    <OppositionSelectLabel
+                      comingSoonLabel={t("oppositions:availability.comingSoon")}
+                      isActive={option.isActive}
+                      name={option.name}
+                    />
                   </option>
                 ))}
               </CustomSelect>

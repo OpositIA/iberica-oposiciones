@@ -23,6 +23,7 @@ export type Oposicion = {
 
 export type OppositionOption = {
   id: string;
+  isActive: boolean;
   name: string;
   body: string;
 };
@@ -123,8 +124,8 @@ export const fetchOppositionOptions = async (
 
   const { data, error } = await supabase
     .from("oppositions")
-    .select("id, sort_order")
-    .eq("is_active", true)
+    .select("id, sort_order, is_active")
+    .order("is_active", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("id", { ascending: true });
 
@@ -132,9 +133,21 @@ export const fetchOppositionOptions = async (
 
   return data.map((row) => ({
     id: row.id,
+    isActive: row.is_active,
     name: translateOppositionName(locale, row.id),
     body: translateOppositionBody(locale, row.id)
   }));
+};
+
+export const isActiveOppositionOption = (
+  oppositionId: string | null | undefined,
+  options: OppositionOption[]
+) => {
+  const normalizedId = normalizeId(oppositionId);
+  if (!normalizedId) return false;
+  return options.some(
+    (option) => option.id === normalizedId && option.isActive
+  );
 };
 
 export const resolveOppositionNameById = (
