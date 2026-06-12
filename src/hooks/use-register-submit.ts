@@ -2,6 +2,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import type { AppLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
+import { trackSignUpSuccess } from "@/lib/gtm";
 import {
   clearGoogleRegisterContext,
   clearGoogleSignupSessionActive,
@@ -124,9 +125,13 @@ export const useRegisterSubmit = (locale: AppLocale) => {
           data: { user }
         } = await supabase.auth.getUser();
 
-        if (user?.email_confirmed_at) return true;
+        if (user?.email_confirmed_at) {
+          trackSignUpSuccess();
+          return true;
+        }
       }
 
+      trackSignUpSuccess();
       toast({
         title: t("auth:register.toasts.verifyEmailBeforePaymentTitle"),
         description: sendEmail
@@ -161,6 +166,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
 
     try {
       await updateGoogleSignupProfile({ form });
+      trackSignUpSuccess();
       clearRegisterState();
 
       return await createStripeCheckoutSession({
@@ -212,6 +218,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
           if (selectedPlan?.code)
             await changeUserSubscriptionPlan(selectedPlan.code);
 
+          trackSignUpSuccess();
           clearRegisterState();
           navigate("/dashboard", { replace: true });
           return true;
@@ -229,6 +236,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
         }
       }
 
+      trackSignUpSuccess();
       clearRegisterState();
       if (sendEmail) {
         toast({
@@ -268,6 +276,7 @@ export const useRegisterSubmit = (locale: AppLocale) => {
       if (selectedPlan?.code)
         await changeUserSubscriptionPlan(selectedPlan.code);
 
+      trackSignUpSuccess();
       clearRegisterState();
       navigate("/dashboard", { replace: true });
       return true;

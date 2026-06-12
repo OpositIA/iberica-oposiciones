@@ -2,6 +2,7 @@ import CustomButton from "@/components/ui/custom-button";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeLocale } from "@/i18n/locales";
 import { supabase } from "@/integrations/supabase/client";
+import { trackSignUpSuccess } from "@/lib/gtm";
 import {
   clearRegisterFlowDraft,
   readRegisterFlowDraft,
@@ -49,6 +50,7 @@ const RegisterCheckoutSuccess = () => {
     })
       .then(async ({ autoLogin, accessToken, refreshToken }) => {
         clearRegisterFlowDraft();
+        trackSignUpSuccess();
 
         if (autoLogin && accessToken && refreshToken) {
           const { error: sessionError } = await supabase.auth.setSession({
