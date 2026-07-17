@@ -18,7 +18,7 @@ El valor diferencial está en unir tres piezas:
 
 - Chat privado por usuario con conversaciones persistentes.
 - Historial paginado, conversaciones fijadas y gestión de mensajes.
-- Cuotas diarias configurables desde base de datos según plan.
+- Cuota semanal de IA por tokens, configurable desde base de datos según plan (`ai_quota_settings`).
 - Renderizado de respuestas con Markdown y tablas.
 - Mapas conceptuales interactivos para resumir relaciones entre ideas.
 - Reacciones a mensajes para medir utilidad y mejorar la experiencia.
@@ -128,7 +128,7 @@ El backend está construido sobre Supabase:
 Tablas y dominios principales:
 
 - `profiles`: perfil, idioma, avatar y borrado lógico.
-- `ai_conversations`, `ai_messages`, `ai_daily_usage`, `ai_quota_settings`, `ai_message_reactions`.
+- `ai_conversations`, `ai_messages`, `ai_weekly_usage`, `ai_daily_usage` (legado), `ai_quota_settings`, `ai_message_reactions`.
 - `oppositions`, `opposition_syllabi`, `opposition_topics`, `opposition_subtopics`, `opposition_topic_files`.
 - `opposition_watchlist`, `law_watchlist`, `boe_sync_log`, `boe_daily_publications`.
 - `rag_sources`, `rag_chunks`, `rag_reindex_jobs`, `law_sync_log`.

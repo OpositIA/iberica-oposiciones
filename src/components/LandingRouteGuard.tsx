@@ -5,8 +5,7 @@ import {
   hasIncompleteGoogleRegisterFlow,
   hasOngoingGoogleRegisterFlow
 } from "@/lib/registerFlow";
-import { applyDarkThemeForLoggedOutLanding } from "@/lib/theme";
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation } from "react-router-dom";
 
@@ -28,11 +27,6 @@ const LandingRouteGuard = ({ children }: LandingRouteGuardProps) => {
     allowsGoogleRegister || allowsGoogleRegisterError;
   const hasIncompleteGoogleRegister = hasIncompleteGoogleRegisterFlow();
   const isTemporaryGoogleSignupSession = hasGoogleSignupSessionActive();
-
-  useEffect(() => {
-    if (!isAuthReady || isAuthenticated) return;
-    applyDarkThemeForLoggedOutLanding();
-  }, [isAuthReady, isAuthenticated]);
 
   if (!isAuthReady) {
     return (

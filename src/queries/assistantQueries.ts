@@ -17,7 +17,8 @@ export const assistantQueryKeys = {
     ["assistant", "conversations", userId] as const,
   conversations: (userId: string, limit: number, offset: number) =>
     ["assistant", "conversations", userId, limit, offset] as const,
-  dailyQuota: (userId: string) => ["assistant", "daily-quota", userId] as const,
+  weeklyQuota: (userId: string) =>
+    ["assistant", "weekly-quota", userId] as const,
   messages: (conversationId: string) =>
     ["assistant", "messages", conversationId] as const
 };
@@ -32,12 +33,14 @@ export type AssistantMessageRow = Pick<
   "id" | "role" | "content" | "created_at"
 >;
 
-export type AssistantDailyQuotaRow = {
-  day: string;
+export type AssistantWeeklyQuotaRow = {
+  week: string;
   is_paid: boolean;
+  allowed: boolean;
   limit: number;
   remaining: number;
   used: number;
+  percentUsed: number;
 };
 
 export type AssistantConversationsPage = {
@@ -72,11 +75,11 @@ export const fetchAssistantConversations = async (params: {
   };
 };
 
-export const fetchAssistantDailyQuota = async (
+export const fetchAssistantWeeklyQuota = async (
   userId: string,
   timezone: string
-): Promise<AssistantDailyQuotaRow | null> => {
-  const { data, error } = await supabase.rpc("get_ai_daily_quota", {
+): Promise<AssistantWeeklyQuotaRow | null> => {
+  const { data, error } = await supabase.rpc("get_ai_weekly_quota", {
     p_user_id: userId,
     p_tz: timezone
   });
@@ -85,21 +88,32 @@ export const fetchAssistantDailyQuota = async (
   const row = data?.[0];
   if (!row) return null;
 
+  const limit =
+    typeof row.limit === "number" && Number.isFinite(row.limit)
+      ? Math.floor(row.limit)
+      : 0;
+  const used =
+    typeof row.used === "number" && Number.isFinite(row.used)
+      ? Math.max(0, Math.floor(row.used))
+      : 0;
+  const percentUsed =
+    typeof row.percent_used === "number" && Number.isFinite(row.percent_used)
+      ? Math.min(100, Math.max(0, row.percent_used))
+      : limit > 0
+        ? Math.min(100, Math.round((used / limit) * 1000) / 10)
+        : 0;
+
   return {
-    day: String(row.day),
+    week: String(row.week_start),
     is_paid: Boolean(row.is_paid),
-    limit:
-      typeof row.limit === "number" && Number.isFinite(row.limit)
-        ? Math.floor(row.limit)
-        : 0,
+    allowed: typeof row.allowed === "boolean" ? row.allowed : used < limit,
+    limit,
     remaining:
       typeof row.remaining === "number" && Number.isFinite(row.remaining)
         ? Math.max(0, Math.floor(row.remaining))
-        : 0,
-    used:
-      typeof row.used === "number" && Number.isFinite(row.used)
-        ? Math.max(0, Math.floor(row.used))
-        : 0
+        : Math.max(limit - used, 0),
+    used,
+    percentUsed
   };
 };
 

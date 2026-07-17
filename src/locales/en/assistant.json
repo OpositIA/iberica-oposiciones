@@ -10,17 +10,17 @@
     "loadHistoryFailedTitle": "Unable to load history",
     "createChatFailedTitle": "Unable to create chat",
     "createChatFailedDescription": "Unexpected error while creating a conversation.",
-    "validateDailyLimitFailedTitle": "Unable to validate daily limit",
-    "validateDailyLimitFailedDescription": "Unable to check AI quota.",
+    "validateQuotaFailedTitle": "Unable to validate your AI quota",
+    "validateQuotaFailedDescription": "Unable to check AI quota.",
     "loadConversationFailedTitle": "Unable to load conversation",
     "pinChatFailedTitle": "Unable to update pinned chat",
-    "dailyLimitReachedTitle": "Daily limit reached",
-    "dailyLimitReachedDescription": "You already used {{used}}/{{limit}} requests today."
+    "weeklyLimitReachedTitle": "Weekly limit reached",
+    "weeklyLimitReachedDescription": "You already used {{percent}}% of your weekly AI quota."
   },
   "errors": {
     "saveUserMessageFailed": "Unable to save your message: {{message}}",
     "saveAssistantMessageFailed": "Unable to save AI response: {{message}}",
-    "dailyLimitReached": "You reached your daily AI request limit. Come back tomorrow.",
+    "weeklyLimitReached": "You used up your weekly AI quota. It resets on Monday.",
     "assistantResponseFailed": "Unable to get assistant response.",
     "invalidSession": "Expired or invalid session. Please sign in again.",
     "connection": "Connection error with endpoint https://hxvckhyxfmfvdipahobv.supabase.co/functions/v1/ask",
@@ -40,11 +40,11 @@
   "header": {
     "badge": "AI Chat",
     "title": "Study assistant",
-    "dailyLimit": "Daily limit",
-    "checkingUsage": "Checking today's requests...",
-    "limitReached": "You reached the daily limit. Come back tomorrow.",
-    "remaining": "You have {{count}} requests left today.",
-    "planSummary": "{{limit}} AI requests per day with your current plan."
+    "weeklyLimit": "Weekly usage",
+    "checkingUsage": "Checking your weekly usage...",
+    "limitReached": "You used up your weekly quota. It resets on Monday.",
+    "remaining": "You have used {{percent}}% of your weekly quota.",
+    "planSummary": "AI access available with your current plan."
   },
   "chat": {
     "loadingConversation": "Loading conversation...",
@@ -74,7 +74,7 @@
     "selectNodeHint": "Select a node from the tree to see details."
   },
   "input": {
-    "placeholderLimitReached": "Daily limit reached. Come back tomorrow.",
+    "placeholderLimitReached": "Weekly quota reached. It resets on Monday.",
     "placeholder": "Type your AI question...",
     "quickActions": "Quick actions",
     "mindMap": "Mind map",

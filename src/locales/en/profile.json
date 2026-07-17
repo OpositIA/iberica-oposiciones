@@ -269,7 +269,7 @@
     "directAccess": "Direct AI assistant access",
     "directAccessDescription": "Open the full experience to work with prompts, study context, and recommendations.",
     "open": "Open AI assistant",
-    "planSummary": "Your current plan allows {{aiLimit}} AI requests per day.",
+    "planSummary": "Your current plan includes AI access.",
     "upgrade": "Upgrade to Pro"
   },
   "study": {

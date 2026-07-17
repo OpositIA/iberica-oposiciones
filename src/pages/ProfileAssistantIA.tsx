@@ -62,9 +62,7 @@ const ProfileAssistantIA = () => {
                 </p>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                {t("profile:assistantAccess.planSummary", {
-                  aiLimit: planState?.ai_daily_limit ?? 3
-                })}
+                {t("profile:assistantAccess.planSummary")}
               </p>
             </div>
 

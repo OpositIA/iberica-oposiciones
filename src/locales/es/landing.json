@@ -2,116 +2,207 @@
   "navbar": {
     "navLinks": {
       "oppositions": "Oposiciones",
-      "outlines": "Esquemas",
-      "courses": "Cursos",
-      "freeTests": "Test gratis"
+      "method": "Método",
+      "experience": "Experiencia",
+      "plans": "Planes"
     },
     "account": "Mi cuenta",
-    "registerNow": "Registrate ahora",
+    "registerNow": "Crear cuenta",
     "login": "Iniciar sesión",
-    "freeMonth": "Mes gratis"
+    "freeMonth": "Empezar"
   },
   "hero": {
-    "badge": "Excelencia Académica",
-    "titleMain": "Forja tu futuro",
-    "titleAccent": "en el sector público.",
-    "description": "La plataforma definitiva para el profesional ambicioso. Accede a simuladores de alta precisión y test oficiales actualizados en tiempo real.",
-    "ctaStart": "Comenzar Ahora",
-    "ctaPlans": "Explorar Planes",
-    "successTitle": "Casos de Éxito",
-    "successDescription": "+50.000 profesionales han transformado su carrera con nuestra metodología."
+    "eyebrow": "Preparación multiposición con contexto oficial",
+    "titleLead": "Estudia lo que importa.",
+    "titleMiddle": "Entrena como",
+    "titleAccent": "te examinas.",
+    "description": "Tests, simulacros y una IA que trabaja con el contexto que revisamos cada día desde el BOE. Una plataforma que crece contigo, oposición a oposición.",
+    "ctaStart": "Empezar a preparar",
+    "ctaExplore": "Descubrir el método",
+    "syncLabel": "Contexto normativo",
+    "syncValue": "Revisado cada día",
+    "scrollLabel": "Explora la experiencia"
   },
-  "stats": {
-    "solvedQuestions": "Preguntas Resueltas",
-    "obtainedPositions": "Plazas Obtenidas",
-    "calls": "Convocatorias",
-    "satisfaction": "Satisfacción"
-  },
-  "specializations": {
-    "title": "Especialización de Alto Nivel",
-    "description": "Seleccionamos y estructuramos el contenido más riguroso para las áreas más exigentes de la administración.",
-    "viewAll": "Ver todo el catálogo →",
-    "sector": "Sector {{num}}",
+  "signal": {
+    "ariaLabel": "Herramientas de preparación",
     "items": {
-      "justice": {
-        "name": "Justicia",
-        "description": "Preparación integral para Auxilio, Tramitación y Gestión Procesal.",
-        "resources": "8.420 Recursos"
+      "context": "IA con contexto",
+      "tests": "Tests por bloques",
+      "simulations": "Simulacros",
+      "syllabus": "Temario conectado",
+      "rhythm": "Foco y progreso"
+    }
+  },
+  "manifesto": {
+    "eyebrow": "Un sistema, muchas oposiciones",
+    "titleLead": "El temario cambia. Tu método no debería quedarse",
+    "titleAccent": "atrás.",
+    "description": "Centralizamos estudio, práctica y contexto normativo para que cada sesión tenga un propósito claro, sin dispersarte entre herramientas.",
+    "note": "Cada oposición se incorpora cuando su contenido está preparado. Sin catálogos vacíos ni promesas prematuras."
+  },
+  "story": {
+    "eyebrow": "Del BOE a tu sesión",
+    "title": "El contenido oficial se convierte en práctica útil.",
+    "description": "Un flujo de trabajo pensado para mantener el contexto, detectar qué necesitas reforzar y ayudarte a estudiar con continuidad.",
+    "progressLabel": "Progreso del recorrido",
+    "stages": {
+      "review": {
+        "number": "01",
+        "kicker": "Revisión diaria",
+        "title": "Leemos el cambio.",
+        "description": "Revisamos cada día las novedades del BOE y actualizamos el contexto relevante para la preparación."
       },
+      "context": {
+        "number": "02",
+        "kicker": "Contexto conectado",
+        "title": "La IA entiende de dónde viene.",
+        "description": "La normativa revisada alimenta el contexto de la IA para responder dentro del marco de estudio de cada oposición."
+      },
+      "practice": {
+        "number": "03",
+        "kicker": "Práctica dirigida",
+        "title": "Lo llevas a preguntas reales de estudio.",
+        "description": "Trabaja por bloques con tests y simulacros, revisa tus errores y vuelve a los conceptos que necesitan atención."
+      },
+      "progress": {
+        "number": "04",
+        "kicker": "Continuidad",
+        "title": "Cada sesión prepara la siguiente.",
+        "description": "Organiza el ritmo, mantén el foco y utiliza tu actividad para decidir el próximo paso de estudio."
+      }
+    },
+    "visuals": {
+      "review": {
+        "documentTitle": "Boletín Oficial del Estado",
+        "source": "Fuente normativa",
+        "date": "Revisión de hoy",
+        "status": "Contexto revisado"
+      },
+      "context": {
+        "question": "¿Qué parte de este cambio afecta a mi temario?",
+        "answer": "La IA relaciona la consulta con el contexto normativo revisado y con el bloque que estás estudiando.",
+        "source": "Respuesta contextualizada"
+      },
+      "practice": {
+        "mode": "Modo test",
+        "question": "Selecciona la respuesta y revisa el razonamiento.",
+        "optionA": "Aplicar el concepto sin revisar el supuesto",
+        "optionB": "Relacionar norma, supuesto y respuesta",
+        "optionC": "Memorizar la opción sin contexto",
+        "explanation": "La explicación conecta el resultado con el contenido que debes reforzar."
+      },
+      "progress": {
+        "eyebrow": "Tu siguiente paso",
+        "title": "Progreso que orienta",
+        "focusLabel": "Ritmo semanal",
+        "focusValue": "En marcha",
+        "testsLabel": "Práctica",
+        "testsValue": "Por bloques",
+        "paceLabel": "Prioridad",
+        "paceValue": "Repasar errores"
+      }
+    }
+  },
+  "oppositions": {
+    "eyebrow": "Preparación multiposición",
+    "titleLead": "Una plataforma.",
+    "titleAccent": "Cada oposición, su propio camino.",
+    "description": "El sistema comparte una misma lógica de estudio, mientras cada itinerario conserva su temario, sus pruebas y su contexto normativo.",
+    "catalogNote": "El catálogo se incorpora de forma progresiva. Dentro de la app podrás comprobar qué itinerarios están disponibles en cada momento.",
+    "cta": "Explorar oposiciones",
+    "items": {
       "treasury": {
         "name": "Hacienda",
-        "description": "Especialización para Agentes y Técnicos de la Hacienda Pública.",
-        "resources": "5.150 Recursos"
+        "description": "Itinerarios vinculados a la gestión tributaria y a los cuerpos de la Agencia Tributaria."
+      },
+      "justice": {
+        "name": "Justicia",
+        "description": "Preparación orientada a los cuerpos de la Administración de Justicia."
+      },
+      "administration": {
+        "name": "Administración",
+        "description": "Rutas para cuerpos administrativos y de gestión de las administraciones públicas."
       },
       "health": {
         "name": "Sanidad",
-        "description": "Tests técnicos para Enfermería y Personal Estatutario.",
-        "resources": "12.300 Recursos"
+        "description": "Itinerarios para procesos selectivos del ámbito sanitario y estatutario."
       },
       "education": {
         "name": "Educación",
-        "description": "Magisterio y Secundaria en todas sus especialidades.",
-        "resources": "9.800 Recursos"
+        "description": "Preparación para procesos docentes, organizada según cuerpo y especialidad."
       }
     }
   },
-  "methodology": {
-    "badge": "Metodología de Éxito",
-    "titleLine1": "Diseñado para la",
-    "titleLine2": "eficiencia máxima.",
-    "description": "Entendemos que tu tiempo es el activo más valioso. Nuestra arquitectura de estudio minimiza la fricción y maximiza la retención de conceptos clave.",
-    "rigorTitle": "Rigor Legislativo",
-    "rigorDescription": "Actualización instantánea según las variaciones en el BOE y directivas europeas.",
-    "analyticsTitle": "Analítica Predictiva",
-    "analyticsDescription": "Identificamos tus patrones de error antes de que se conviertan en obstáculos.",
-    "quote": "\"El estándar de oro en preparación oficial.\"",
-    "quoteAuthor": "— Revista Académica",
-    "imageAlt": "Metodología"
-  },
-  "testimonials": {
-    "title": "La voz de los que alcanzaron su meta",
+  "experience": {
+    "eyebrow": "Una experiencia de estudio conectada",
+    "titleLead": "Menos ruido.",
+    "titleAccent": "Más decisiones útiles.",
+    "description": "Todo lo necesario para preguntar, practicar y avanzar vive dentro del mismo flujo de estudio.",
     "items": {
-      "lucia": {
-        "text": "La sobriedad de la interfaz me permite concentrarme en lo que importa. No hay distracciones, solo conocimiento puro y práctica real.",
-        "name": "Lucía Méndez",
-        "role": "Cuerpo de Justicia"
+      "ai": {
+        "label": "01 · Contexto",
+        "title": "Pregunta con una base relevante",
+        "description": "Consulta dudas con una IA que utiliza el contexto normativo revisado para apoyar tu estudio."
       },
-      "carlos": {
-        "text": "Como profesional en activo, el acceso móvil y la estructura de los test han sido clave para compaginar trabajo y estudio.",
-        "name": "Carlos Ruiz",
-        "role": "Técnico de Hacienda"
+      "tests": {
+        "label": "02 · Práctica",
+        "title": "Entrena por bloques y simulacros",
+        "description": "Alterna sesiones breves con pruebas más completas y convierte cada error en una pista para repasar."
       },
-      "marta": {
-        "text": "La calidad de las explicaciones jurídicas es insuperable. Es como tener un preparador personal disponible las 24 horas.",
-        "name": "Marta Sánchez",
-        "role": "Gestión Sanitaria"
+      "focus": {
+        "label": "03 · Ritmo",
+        "title": "Mantén el foco visible",
+        "description": "Organiza tus sesiones, consulta tu actividad y retoma el estudio desde un siguiente paso claro."
       }
+    },
+    "visual": {
+      "contextBadge": "Contexto del BOE revisado",
+      "question": "Explícame este cambio dentro de mi bloque de estudio.",
+      "response": "La respuesta conecta la consulta con el contenido y señala qué conviene revisar.",
+      "source": "Contexto de preparación"
     }
   },
-  "cta": {
-    "title": "Asegura tu plaza hoy.",
-    "description": "Únete a la élite de opositores que ya han dado el paso definitivo hacia su estabilidad profesional.",
-    "register": "Registrarme Gratis",
-    "pricing": "Consultar Tarifas"
+  "daily": {
+    "eyebrow": "Revisión diaria del BOE",
+    "titleLead": "La normativa no es una nota al pie.",
+    "titleAccent": "Es el pulso del sistema.",
+    "description": "Revisamos el BOE cada día y actualizamos el contexto que utiliza la IA para que la preparación parta de una base cuidada.",
+    "note": "La revisión diaria aporta contexto al estudio; comprueba siempre la fuente oficial cuando necesites confirmar una disposición.",
+    "flow": {
+      "boe": "BOE",
+      "context": "Contexto",
+      "ai": "IA",
+      "practice": "Práctica",
+      "study": "Estudio"
+    }
+  },
+  "final": {
+    "eyebrow": "Tu preparación, en un solo lugar",
+    "titleLead": "Tu próxima sesión",
+    "titleAccent": "puede empezar ahora.",
+    "description": "Elige el itinerario disponible que encaje contigo y empieza a construir un ritmo de estudio sostenible.",
+    "ctaPrimary": "Crear mi cuenta",
+    "ctaSecondary": "Ver los planes",
+    "note": "Explora la plataforma y consulta la disponibilidad de cada oposición."
   },
   "footer": {
-    "description": "Referente europeo en tecnología aplicada al estudio opositor. Rigor, elegancia y resultados desde 2026.",
-    "company": "Compañía",
+    "description": "Preparación multiposición con IA contextual, tests y contenido normativo revisado cada día.",
+    "company": "Plataforma",
     "companyLinks": {
-      "about": "Nosotros",
-      "methodology": "Metodología",
-      "careers": "Carreras",
-      "press": "Prensa"
+      "about": "Qué es Iberica",
+      "methodology": "Método",
+      "careers": "Oposiciones",
+      "press": "Planes"
     },
     "resources": "Recursos",
     "resourceLinks": {
-      "blog": "Blog Académico",
-      "guides": "Guías PDF",
-      "laws": "Legislación"
+      "blog": "Guías de estudio",
+      "guides": "Ayuda",
+      "laws": "Contexto normativo"
     },
-    "newsletter": "Newsletter",
-    "newsletterDescription": "Recibe inteligencia académica",
-    "newsletterPlaceholder": "Tu email operativo",
+    "newsletter": "Novedades",
+    "newsletterDescription": "Recibe avances del catálogo y consejos de estudio",
+    "newsletterPlaceholder": "Tu correo electrónico",
     "copyright": "© 2026 Iberica Oposiciones. Todos los derechos reservados.",
     "legalLinks": {
       "privacy": "Privacidad",
@@ -165,11 +256,11 @@
       }
     }
   },
-  "heroImageAlt": "Hero",
+  "heroImageAlt": "Espacio de estudio con portátil y materiales de oposición",
   "seo": {
     "home": {
-      "title": "Preparacion de oposiciones con IA y test online",
-      "description": "Prepara oposiciones con simuladores, test online y apoyo con IA. Accede a una plataforma pensada para estudiar con mas foco y continuidad."
+      "title": "Oposiciones con IA, test y contexto diario del BOE",
+      "description": "Prepara distintas oposiciones con IA contextual, tests, simulacros y un BOE revisado cada día. Estudia con foco en una plataforma que crece contigo."
     }
   }
 }

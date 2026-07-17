@@ -1,117 +1,208 @@
 {
   "navbar": {
     "navLinks": {
-      "oppositions": "Civil Service Exams",
-      "outlines": "Outlines",
-      "courses": "Courses",
-      "freeTests": "Free Tests"
+      "oppositions": "Exam paths",
+      "method": "Method",
+      "experience": "Experience",
+      "plans": "Plans"
     },
     "account": "My account",
-    "registerNow": "Sign up now",
+    "registerNow": "Create account",
     "login": "Sign in",
-    "freeMonth": "Free month"
+    "freeMonth": "Get started"
   },
   "hero": {
-    "badge": "Academic Excellence",
-    "titleMain": "Forge your future",
-    "titleAccent": "in the public sector.",
-    "description": "The ultimate platform for ambitious professionals. Access high-precision simulators and official tests updated in real time.",
-    "ctaStart": "Start now",
-    "ctaPlans": "Explore plans",
-    "successTitle": "Success Stories",
-    "successDescription": "50,000+ professionals have transformed their careers with our methodology."
+    "eyebrow": "Multi-exam preparation with official context",
+    "titleLead": "Study what matters.",
+    "titleMiddle": "Train the way",
+    "titleAccent": "you will be tested.",
+    "description": "Tests, mock exams, and AI supported by context we review every day from Spain's Official State Gazette. One platform that grows with you, one exam path at a time.",
+    "ctaStart": "Start preparing",
+    "ctaExplore": "Discover the method",
+    "syncLabel": "Regulatory context",
+    "syncValue": "Reviewed every day",
+    "scrollLabel": "Explore the experience"
   },
-  "stats": {
-    "solvedQuestions": "Solved Questions",
-    "obtainedPositions": "Positions Obtained",
-    "calls": "Exam Calls",
-    "satisfaction": "Satisfaction"
-  },
-  "specializations": {
-    "title": "High-Level Specialization",
-    "description": "We select and structure the most rigorous content for the most demanding areas of public administration.",
-    "viewAll": "View full catalog →",
-    "sector": "Sector {{num}}",
+  "signal": {
+    "ariaLabel": "Preparation tools",
     "items": {
+      "context": "Context-aware AI",
+      "tests": "Topic tests",
+      "simulations": "Mock exams",
+      "syllabus": "Connected syllabus",
+      "rhythm": "Focus and progress"
+    }
+  },
+  "manifesto": {
+    "eyebrow": "One system, many exam paths",
+    "titleLead": "The syllabus changes. Your method should not fall",
+    "titleAccent": "behind.",
+    "description": "We bring study, practice, and regulatory context together so every session has a clear purpose, without scattering your attention across different tools.",
+    "note": "Each exam path is added when its content is ready. No empty catalogs or premature promises."
+  },
+  "story": {
+    "eyebrow": "From the BOE to your study session",
+    "title": "Official content becomes useful practice.",
+    "description": "A workflow designed to preserve context, reveal what needs reinforcement, and help you study consistently.",
+    "progressLabel": "Journey progress",
+    "stages": {
+      "review": {
+        "number": "01",
+        "kicker": "Daily review",
+        "title": "We read the change.",
+        "description": "We review updates from Spain's Official State Gazette every day and refresh the relevant preparation context."
+      },
+      "context": {
+        "number": "02",
+        "kicker": "Connected context",
+        "title": "The AI understands where it comes from.",
+        "description": "Reviewed regulations feed the AI context so it can answer within the study framework of each exam path."
+      },
+      "practice": {
+        "number": "03",
+        "kicker": "Guided practice",
+        "title": "You turn it into practical study questions.",
+        "description": "Work through topic tests and mock exams, review mistakes, and return to the concepts that need attention."
+      },
+      "progress": {
+        "number": "04",
+        "kicker": "Consistency",
+        "title": "Every session prepares the next.",
+        "description": "Set your pace, stay focused, and use your activity to decide the next study step."
+      }
+    },
+    "visuals": {
+      "review": {
+        "documentTitle": "Official State Gazette",
+        "source": "Regulatory source",
+        "date": "Today's review",
+        "status": "Context reviewed"
+      },
+      "context": {
+        "question": "Which part of this change affects my syllabus?",
+        "answer": "The AI relates the question to the reviewed regulatory context and the topic you are studying.",
+        "source": "Contextualized response"
+      },
+      "practice": {
+        "mode": "Test mode",
+        "question": "Choose an answer and review the reasoning.",
+        "optionA": "Apply the concept without checking the scenario",
+        "optionB": "Connect the rule, scenario, and answer",
+        "optionC": "Memorize the option without context",
+        "explanation": "The explanation connects the result to the content you should reinforce."
+      },
+      "progress": {
+        "eyebrow": "Your next step",
+        "title": "Progress that guides you",
+        "focusLabel": "Weekly rhythm",
+        "focusValue": "In progress",
+        "testsLabel": "Practice",
+        "testsValue": "By topic",
+        "paceLabel": "Priority",
+        "paceValue": "Review mistakes"
+      }
+    }
+  },
+  "oppositions": {
+    "eyebrow": "Multi-exam preparation",
+    "titleLead": "One platform.",
+    "titleAccent": "A dedicated path for every exam.",
+    "description": "The system follows one study logic while every path keeps its own syllabus, tests, and regulatory context.",
+    "catalogNote": "The catalog is released progressively. Inside the app, you can check which paths are available at any time.",
+    "cta": "Explore exam paths",
+    "items": {
+      "treasury": {
+        "name": "Tax and Treasury",
+        "description": "Paths related to tax management and roles within Spain's Tax Agency."
+      },
       "justice": {
         "name": "Justice",
-        "description": "Comprehensive preparation for Judicial Assistance, Processing, and Court Management.",
-        "resources": "8,420 Resources"
+        "description": "Preparation for roles within Spain's Justice Administration."
       },
-      "treasury": {
-        "name": "Treasury",
-        "description": "Specialized training for Tax Agency officers and technicians.",
-        "resources": "5,150 Resources"
+      "administration": {
+        "name": "Public Administration",
+        "description": "Paths for administrative and management roles across public bodies."
       },
       "health": {
         "name": "Healthcare",
-        "description": "Technical tests for nursing and statutory staff.",
-        "resources": "12,300 Resources"
+        "description": "Paths for competitive selection processes in healthcare and statutory services."
       },
       "education": {
         "name": "Education",
-        "description": "Primary and secondary education across all specialties.",
-        "resources": "9,800 Resources"
+        "description": "Preparation for teaching selection processes, organized by role and specialty."
       }
     }
   },
-  "methodology": {
-    "badge": "Winning Methodology",
-    "titleLine1": "Designed for",
-    "titleLine2": "maximum efficiency.",
-    "description": "We understand your time is your most valuable asset. Our study architecture minimizes friction and maximizes retention of key concepts.",
-    "rigorTitle": "Legislative Rigor",
-    "rigorDescription": "Instant updates based on BOE changes and European directives.",
-    "analyticsTitle": "Predictive Analytics",
-    "analyticsDescription": "We identify your error patterns before they become obstacles.",
-    "quote": "\"The gold standard in official exam preparation.\"",
-    "quoteAuthor": "— Academic Review",
-    "imageAlt": "Methodology"
-  },
-  "testimonials": {
-    "title": "Voices of those who reached their goal",
+  "experience": {
+    "eyebrow": "A connected study experience",
+    "titleLead": "Less noise.",
+    "titleAccent": "More useful decisions.",
+    "description": "Everything you need to ask, practice, and move forward lives in the same study flow.",
     "items": {
-      "lucia": {
-        "text": "The sober interface helps me focus on what matters. No distractions, just pure knowledge and real practice.",
-        "name": "Lucía Méndez",
-        "role": "Justice Corps"
+      "ai": {
+        "label": "01 · Context",
+        "title": "Ask from a relevant foundation",
+        "description": "Work through questions with AI that uses reviewed regulatory context to support your preparation."
       },
-      "carlos": {
-        "text": "As an active professional, mobile access and test structure have been key to balancing work and study.",
-        "name": "Carlos Ruiz",
-        "role": "Treasury Technician"
+      "tests": {
+        "label": "02 · Practice",
+        "title": "Train with topic tests and mock exams",
+        "description": "Alternate short sessions with fuller tests and turn every mistake into a clue for what to review."
       },
-      "marta": {
-        "text": "The quality of legal explanations is unmatched. It is like having a personal coach available 24/7.",
-        "name": "Marta Sánchez",
-        "role": "Healthcare Management"
+      "focus": {
+        "label": "03 · Rhythm",
+        "title": "Keep your focus visible",
+        "description": "Organize your sessions, check your activity, and resume studying with a clear next step."
       }
+    },
+    "visual": {
+      "contextBadge": "Reviewed BOE context",
+      "question": "Explain this change within my current study topic.",
+      "response": "The response connects the question to the content and points to what is worth reviewing.",
+      "source": "Preparation context"
     }
   },
-  "cta": {
-    "title": "Secure your position today.",
-    "description": "Join the elite group of candidates who have already taken the decisive step toward professional stability.",
-    "register": "Sign up free",
-    "pricing": "View pricing"
+  "daily": {
+    "eyebrow": "Daily BOE review",
+    "titleLead": "Regulations are not a footnote.",
+    "titleAccent": "They are the system's pulse.",
+    "description": "We review the BOE every day and update the context used by the AI so your preparation starts from a carefully maintained foundation.",
+    "note": "The daily review provides study context; always check the official source when you need to confirm a provision.",
+    "flow": {
+      "boe": "BOE",
+      "context": "Context",
+      "ai": "AI",
+      "practice": "Practice",
+      "study": "Study"
+    }
+  },
+  "final": {
+    "eyebrow": "Your preparation, in one place",
+    "titleLead": "Your next session",
+    "titleAccent": "can start now.",
+    "description": "Choose an available path that fits your goal and begin building a sustainable study rhythm.",
+    "ctaPrimary": "Create my account",
+    "ctaSecondary": "View plans",
+    "note": "Explore the platform and check the availability of each exam path."
   },
   "footer": {
-    "description": "European benchmark in technology applied to exam preparation. Rigor, elegance, and results since 2026.",
-    "company": "Company",
+    "description": "Multi-exam preparation with context-aware AI, tests, and regulatory content reviewed every day.",
+    "company": "Platform",
     "companyLinks": {
-      "about": "About us",
-      "methodology": "Methodology",
-      "careers": "Careers",
-      "press": "Press"
+      "about": "About Iberica",
+      "methodology": "Method",
+      "careers": "Exam paths",
+      "press": "Plans"
     },
     "resources": "Resources",
     "resourceLinks": {
-      "blog": "Academic Blog",
-      "guides": "PDF Guides",
-      "laws": "Legislation"
+      "blog": "Study guides",
+      "guides": "Help",
+      "laws": "Regulatory context"
     },
-    "newsletter": "Newsletter",
-    "newsletterDescription": "Get academic intelligence",
-    "newsletterPlaceholder": "Your work email",
+    "newsletter": "Updates",
+    "newsletterDescription": "Get catalog news and practical study advice",
+    "newsletterPlaceholder": "Your email address",
     "copyright": "© 2026 Iberica Oposiciones. All rights reserved.",
     "legalLinks": {
       "privacy": "Privacy",
@@ -165,11 +256,11 @@
       }
     }
   },
-  "heroImageAlt": "Hero",
+  "heroImageAlt": "Study space with a laptop and civil service exam materials",
   "seo": {
     "home": {
-      "title": "Civil service exam prep with AI and online tests",
-      "description": "Prepare for civil service exams with online tests, realistic simulators, and AI support in a platform designed for focused and consistent study."
+      "title": "Spanish civil service exams with AI and daily BOE context",
+      "description": "Prepare for Spanish public exams with context-aware AI, topic tests, mock exams, and a BOE reviewed every day in one focused, growing platform."
     }
   }
 }

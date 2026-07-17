@@ -10,17 +10,17 @@
     "loadHistoryFailedTitle": "No se pudo cargar el historial",
     "createChatFailedTitle": "No se pudo crear el chat",
     "createChatFailedDescription": "Error inesperado al crear una conversacion.",
-    "validateDailyLimitFailedTitle": "No se pudo validar el limite diario",
-    "validateDailyLimitFailedDescription": "No se pudo comprobar la cuota de IA.",
+    "validateQuotaFailedTitle": "No se pudo validar tu cuota de IA",
+    "validateQuotaFailedDescription": "No se pudo comprobar la cuota de IA.",
     "loadConversationFailedTitle": "No se pudo cargar la conversacion",
     "pinChatFailedTitle": "No se pudo actualizar el chat fijado",
-    "dailyLimitReachedTitle": "Limite diario alcanzado",
-    "dailyLimitReachedDescription": "Ya has usado {{used}}/{{limit}} peticiones hoy."
+    "weeklyLimitReachedTitle": "Limite semanal alcanzado",
+    "weeklyLimitReachedDescription": "Ya has usado el {{percent}}% de tu cuota semanal de IA."
   },
   "errors": {
     "saveUserMessageFailed": "No se pudo guardar tu mensaje: {{message}}",
     "saveAssistantMessageFailed": "No se pudo guardar la respuesta de la IA: {{message}}",
-    "dailyLimitReached": "Has alcanzado tu limite diario de peticiones IA. Vuelve mañana.",
+    "weeklyLimitReached": "Has agotado tu cuota semanal de IA. Se renueva el lunes.",
     "assistantResponseFailed": "No se pudo obtener respuesta del asistente.",
     "invalidSession": "Sesion expirada o invalida. Debes iniciar sesion de nuevo.",
     "connection": "Error de conexion con el endpoint https://hxvckhyxfmfvdipahobv.supabase.co/functions/v1/ask",
@@ -40,10 +40,10 @@
   "header": {
     "badge": "Chat IA",
     "title": "Asistente de estudio",
-    "dailyLimit": "Limite diario",
-    "checkingUsage": "Comprobando peticiones de hoy...",
-    "limitReached": "Has alcanzado el limite diario. Vuelve mañana.",
-    "remaining": "Te quedan {{count}} peticiones hoy.",
+    "weeklyLimit": "Uso semanal",
+    "checkingUsage": "Comprobando tu uso semanal...",
+    "limitReached": "Has agotado tu cuota semanal. Se renueva el lunes.",
+    "remaining": "Has usado el {{percent}}% de tu cuota semanal.",
     "planSummary": "Acceso IA disponible segun tu plan actual."
   },
   "chat": {
@@ -74,7 +74,7 @@
     "selectNodeHint": "Selecciona un nodo del arbol para ver sus detalles."
   },
   "input": {
-    "placeholderLimitReached": "Limite diario alcanzado. Vuelve mañana.",
+    "placeholderLimitReached": "Cuota semanal agotada. Se renueva el lunes.",
     "placeholder": "Escribe tu pregunta para la IA...",
     "quickActions": "Acciones rapidas",
     "mindMap": "Mapa mental",

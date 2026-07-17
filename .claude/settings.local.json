@@ -14,7 +14,11 @@
       "Bash(mkdir -p /tmp/design_pkg)",
       "Bash(tar -xf /tmp/design_extracted.html -C /tmp/design_pkg)",
       "mcp__claude_ai_Supabase__execute_sql",
-      "mcp__claude_ai_Supabase__apply_migration"
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(python3 -c ' *)",
+      "mcp__supabase__execute_sql",
+      "Bash(cd \"C:/Users/Oscar/Desktop/pitbox\" && wc -l src/styles/*.css && grep -n \"overflow: clip\" src/styles/sections.css | head -20 && echo --- && grep -n \"clip-path\" src/styles/*.css && echo --- && grep -n \"focus-visible\" src/styles/base.css && echo --- && grep -n \"hero__title\\\\|hero__line\\\\|product__actions\\\\|exploded__svg\\\\|exploded__pin\\\\|section--paper .btn--ghost\" src/styles/*.css)",
+      "Bash(ls \"/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe\" \"/c/Program Files/Google/Chrome/Application/chrome.exe\" 2>/dev/null)"
     ]
   }
 }

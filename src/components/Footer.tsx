@@ -6,9 +6,13 @@ import { Link } from "react-router-dom";
 
 type FooterProps = {
   onOpenCookiePreferences?: () => void;
+  showNewsletter?: boolean;
 };
 
-const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
+const Footer = ({
+  onOpenCookiePreferences,
+  showNewsletter = true
+}: FooterProps) => {
   const { t } = useTranslation(["faq", "landing", "common"]);
 
   const companyLinks = [
@@ -48,17 +52,21 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
 
   return (
     <footer className="bg-charcoal text-white">
-      <div className="max-w-7xl mx-auto px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+      <div className="max-w-7xl mx-auto px-8 pt-4 pb-8">
+        <div
+          className={`grid grid-cols-1 gap-12 ${
+            showNewsletter ? "md:grid-cols-4" : "md:grid-cols-3"
+          }`}
+        >
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <BrandLogo className="h-20 w-auto" />
+              <BrandLogo surface="dark" className="h-20 w-auto" />
             </div>
             <p className="text-sm text-white/50 leading-relaxed">
               {t("landing:footer.description")}
             </p>
           </div>
-          <div>
+          <div className="md:mt-24">
             <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-white/70">
               {t("landing:footer.company")}
             </h4>
@@ -75,7 +83,7 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
               ))}
             </ul>
           </div>
-          <div>
+          <div className="md:mt-24">
             <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-white/70">
               {t("landing:footer.resources")}
             </h4>
@@ -92,29 +100,31 @@ const Footer = ({ onOpenCookiePreferences }: FooterProps) => {
               ))}
             </ul>
           </div>
-          <div>
-            <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-white/70">
-              {t("landing:footer.newsletter")}
-            </h4>
-            <p className="text-sm text-white/50 mb-4">
-              {t("landing:footer.newsletterDescription")}
-            </p>
-            <div className="flex border border-white/20">
-              <CustomInput
-                type="email"
-                placeholder={t("landing:footer.newsletterPlaceholder")}
-                className="h-auto flex-1 rounded-none border-0 bg-transparent px-4 py-2.5 text-white placeholder:text-white/30 focus:ring-0 focus:ring-offset-0"
-              />
-              <CustomButton
-                styleType="unstyled"
-                size="none"
-                radius="none"
-                className="px-3 text-primary hover:text-primary/80 transition-colors"
-              >
-                →
-              </CustomButton>
+          {showNewsletter ? (
+            <div className="md:mt-24">
+              <h4 className="text-xs font-semibold tracking-widest uppercase mb-4 text-white/70">
+                {t("landing:footer.newsletter")}
+              </h4>
+              <p className="text-sm text-white/50 mb-4">
+                {t("landing:footer.newsletterDescription")}
+              </p>
+              <div className="flex border border-white/20">
+                <CustomInput
+                  type="email"
+                  placeholder={t("landing:footer.newsletterPlaceholder")}
+                  className="h-auto flex-1 rounded-none border-0 bg-transparent px-4 py-2.5 text-white placeholder:text-white/30 focus:ring-0 focus:ring-offset-0"
+                />
+                <CustomButton
+                  styleType="unstyled"
+                  size="none"
+                  radius="none"
+                  className="px-3 text-primary hover:text-primary/80 transition-colors"
+                >
+                  →
+                </CustomButton>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
         <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-white/40">

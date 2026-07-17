@@ -47,27 +47,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      ai_daily_usage: {
-        Row: {
-          day: string;
-          requests_used: number;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          day: string;
-          requests_used?: number;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          day?: string;
-          requests_used?: number;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
       ai_quota_settings: {
         Row: {
           key: string;
@@ -83,6 +62,30 @@ export type Database = {
           key?: string;
           updated_at?: string;
           value_int?: number;
+        };
+        Relationships: [];
+      };
+      ai_weekly_usage: {
+        Row: {
+          requests_used: number;
+          tokens_used: number;
+          updated_at: string;
+          user_id: string;
+          week_start: string;
+        };
+        Insert: {
+          requests_used?: number;
+          tokens_used?: number;
+          updated_at?: string;
+          user_id: string;
+          week_start: string;
+        };
+        Update: {
+          requests_used?: number;
+          tokens_used?: number;
+          updated_at?: string;
+          user_id?: string;
+          week_start?: string;
         };
         Relationships: [];
       };
@@ -637,20 +640,6 @@ export type Database = {
           tier: string;
         }[];
       };
-      consume_ai_daily_quota: {
-        Args: {
-          p_limit?: number | null;
-          p_tz?: string;
-          p_user_id: string;
-        };
-        Returns: {
-          allowed: boolean;
-          day: string;
-          limit: number;
-          remaining: number;
-          used: number;
-        }[];
-      };
       create_support_ticket: {
         Args: {
           p_category: string;
@@ -676,17 +665,40 @@ export type Database = {
         };
         Returns: number;
       };
-      get_ai_daily_quota: {
+      get_ai_weekly_quota: {
         Args: {
           p_tz?: string;
           p_user_id: string;
         };
         Returns: {
-          day: string;
+          allowed: boolean;
           is_paid: boolean;
           limit: number;
+          percent_used: number;
           remaining: number;
           used: number;
+          week_start: string;
+        }[];
+      };
+      get_ai_weekly_token_limit: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: number;
+      };
+      record_ai_weekly_usage: {
+        Args: {
+          p_tokens: number;
+          p_tz?: string;
+          p_user_id: string;
+        };
+        Returns: {
+          allowed: boolean;
+          limit: number;
+          percent_used: number;
+          remaining: number;
+          used: number;
+          week_start: string;
         }[];
       };
       get_my_support_ticket_detail: {

@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pitbox",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd /d C:\\Users\\Oscar\\Desktop\\pitbox && npm run dev -- --port 5199 --strictPort"
+      ],
+      "port": 5199
+    }
+  ]
+}

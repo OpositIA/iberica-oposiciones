@@ -1,6 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { marked } from "https://esm.sh/marked@12.0.2";
 
+import {
+  buildFallbackRetrievalQueries,
+  extractArticleReferences,
+  getSynthesisIssue,
+  parseRewriteQueries,
+  type SynthesisIssue
+} from "./pipelineGuards.ts";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MARKED CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,9 +46,9 @@ const OPENROUTER_APP_NAME =
 const OPENROUTER_REWRITE_MODEL =
   Deno.env.get("OPENROUTER_REWRITE_MODEL")?.trim() ??
   Deno.env.get("OPENROUTER_PLANNING_MODEL")?.trim() ??
-  "openrouter/elephant-alpha";
+  "deepseek/deepseek-v4-flash";
 const OPENROUTER_CHAT_MODEL =
-  Deno.env.get("OPENROUTER_CHAT_MODEL")?.trim() ?? "qwen/qwen3-235b-a22b-2507";
+  Deno.env.get("OPENROUTER_CHAT_MODEL")?.trim() ?? "deepseek/deepseek-v4-flash";
 const OPENROUTER_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
 const EMBEDDING_DIM = 4096;
 
@@ -118,8 +126,33 @@ const MAX_ARTICLE_REFS = Math.max(
 );
 const MAX_MESSAGE_CHARS = 3_000;
 const MAX_REWRITE_CHARS = 400;
-const FALLBACK_MIN_SCORE = 0.28;
-const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
+const USAGE_TIMEZONE = "Europe/Madrid";
+
+const NO_REASONING = { enabled: false } as const;
+const REWRITE_RESPONSE_FORMAT = {
+  type: "json_schema",
+  json_schema: {
+    name: "rag_retrieval_plan",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: {
+        queries: {
+          type: "array",
+          minItems: 1,
+          maxItems: MAX_REWRITE_QUERIES,
+          items: { type: "string" }
+        }
+      },
+      required: ["queries"],
+      additionalProperties: false
+    }
+  }
+} as const;
+
+// La salida cuesta el doble que la entrada (0,18 $/M vs 0,09 $/M), así que
+// cada token de salida descuenta 2 "tokens ponderados" de la cuota semanal.
+const OUTPUT_TOKEN_WEIGHT = 2;
 
 const REFUSAL_MESSAGE =
   "No lo encuentro en el material aportado. Para afinar la búsqueda, indícame la norma, el artículo o el tema concreto.";
@@ -130,13 +163,17 @@ const REFUSAL_MESSAGE =
 
 type HistoryLine = { role: "user" | "assistant" | "system"; text: string };
 
-type DailyQuotaResult = {
+type WeeklyQuotaResult = {
   allowed: boolean;
   remaining: number;
   used: number;
   limit: number;
-  day: string;
+  percentUsed: number;
+  weekStart: string;
 };
+
+// Acumulador por petición de tokens ponderados (entrada + salida×2).
+type UsageTracker = { tokens: number };
 
 type RetrievalHit = {
   id: string | null;
@@ -187,7 +224,9 @@ const safeCompactText = (value: unknown, max = 300) =>
 const normalizeAnswerText = (value: unknown, max = 12_000) =>
   safeText(value, max)
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/[^\S\n]+/g, " ")
+    // Colapsa solo los espacios internos: la indentación al inicio de línea
+    // es significativa en Markdown (listas anidadas) y debe conservarse.
+    .replace(/(?<=\S)[^\S\n]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
@@ -200,7 +239,7 @@ const stripJsonFences = (value: string) =>
 const extractBearerToken = (authHeader: string | null) =>
   authHeader?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? "";
 
-const normalizeDailyQuotaResult = (row: unknown): DailyQuotaResult | null => {
+const normalizeWeeklyQuotaResult = (row: unknown): WeeklyQuotaResult | null => {
   if (!row || typeof row !== "object") return null;
   const record = row as Record<string, unknown>;
 
@@ -218,14 +257,52 @@ const normalizeDailyQuotaResult = (row: unknown): DailyQuotaResult | null => {
     typeof record.remaining === "number" && Number.isFinite(record.remaining)
       ? Math.max(0, Math.floor(record.remaining))
       : Math.max(limit - used, 0);
+  const rawPercent = Number(record.percent_used);
+  const percentUsed =
+    Number.isFinite(rawPercent) && rawPercent >= 0
+      ? Math.min(100, rawPercent)
+      : limit > 0
+        ? Math.min(100, Math.round((used / limit) * 1000) / 10)
+        : 0;
 
   return {
-    allowed: record.allowed === true,
+    allowed:
+      typeof record.allowed === "boolean"
+        ? record.allowed
+        : limit > 0 && used < limit,
     remaining,
     used,
     limit,
-    day: typeof record.day === "string" ? record.day : String(record.day ?? "")
+    percentUsed,
+    weekStart:
+      typeof record.week_start === "string"
+        ? record.week_start
+        : String(record.week_start ?? "")
   };
+};
+
+const addUsageFromResponse = (
+  tracker: UsageTracker | undefined,
+  data: Record<string, unknown>
+) => {
+  if (!tracker) return;
+  const usage =
+    data.usage && typeof data.usage === "object"
+      ? (data.usage as Record<string, unknown>)
+      : null;
+  if (!usage) return;
+
+  const prompt = Number(usage.prompt_tokens ?? 0);
+  const completion = Number(usage.completion_tokens ?? 0);
+  const total = Number(usage.total_tokens ?? 0);
+
+  let weighted = 0;
+  if (Number.isFinite(prompt) && prompt > 0) weighted += prompt;
+  if (Number.isFinite(completion) && completion > 0)
+    weighted += completion * OUTPUT_TOKEN_WEIGHT;
+  if (weighted === 0 && Number.isFinite(total) && total > 0) weighted = total;
+
+  tracker.tokens += Math.ceil(weighted);
 };
 
 const extractHistory = (rawHistory: unknown): HistoryLine[] =>
@@ -275,20 +352,6 @@ function extractKeywords(text: string): Set<string> {
   return out;
 }
 
-function extractArticleRefsFromRewrites(queries: string[]): string[] {
-  const refs = new Set<string>();
-  const pattern =
-    /art(?:[íi]?culos?)?\.?\s*(\d+(?:[.\-]\d+)?(?:\s*(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies))?)/gi;
-  for (const q of queries) {
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(q)) !== null) {
-      const clean = m[1].toLowerCase().replace(/\s+/g, "");
-      if (clean) refs.add(clean);
-    }
-  }
-  return Array.from(refs).slice(0, MAX_ARTICLE_REFS);
-}
-
 function baseArticleNumber(s: string): string {
   const n = normalizeForMatch(s ?? "");
   const m = n.match(
@@ -303,9 +366,7 @@ function findEmbeddingForRef(
 ): number[] | null {
   const refNorm = normalizeForMatch(ref);
   for (const e of embeddings) {
-    const qRefs = extractArticleRefsFromRewrites([e.query]).map(
-      normalizeForMatch
-    );
+    const qRefs = extractArticleReferences([e.query]).map(normalizeForMatch);
     if (qRefs.includes(refNorm)) return e.vector;
   }
   return null;
@@ -353,6 +414,90 @@ function pinArticleRefs(
     }
   }
   return pinned;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIST LAYOUT NORMALIZATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Los LLM a veces generan listas "en escalera": cada apartado u ordinal sale
+// un nivel más profundo que su hermano anterior (1.º → 2.º dentro de 1.º →
+// 3.º dentro de 2.º…). Dos pasadas lo corrigen:
+//   1) Realinear: los marcadores de la misma familia ("Apartado N" / "N.º")
+//      vuelven al nivel del primer miembro de la serie; los detalles que les
+//      siguen se desplazan con el mismo delta.
+//   2) Renivelar: la geometría resultante se reconstruye con pasos de
+//      4 espacios (válidos en CommonMark bajo "-" y bajo "1.") y una
+//      profundidad máxima de 3 niveles.
+
+const LIST_ITEM_RE = /^([ \t]*)([-*+]|\d+[.)])\s+(.*)$/;
+
+function listMarkerFamily(text: string): "apartado" | "ordinal" | null {
+  const t = text.replace(/^[*_`\s]+/, "");
+  if (/^apartado\s+\d/i.test(t)) return "apartado";
+  if (/^\d+\.?\s*[ºª]/.test(t)) return "ordinal";
+  return null;
+}
+
+function fixListLayout(md: string): string {
+  const anchors = new Map<string, number>();
+  let shift = 0;
+  let fenced = false;
+
+  const aligned = (md ?? "").split("\n").map((line) => {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      return line;
+    }
+    if (fenced) return line;
+    if (/^#{1,6}\s/.test(line)) {
+      anchors.clear();
+      shift = 0;
+      return line;
+    }
+    const m = line.match(LIST_ITEM_RE);
+    if (!m) {
+      if (line.trim() !== "") shift = 0;
+      return line;
+    }
+    const [, rawIndent, marker, rest] = m;
+    const indent = rawIndent.replace(/\t/g, "  ").length;
+    const family = listMarkerFamily(rest);
+    let newIndent: number;
+    if (family) {
+      const anchor = anchors.get(family);
+      newIndent = anchor ?? indent;
+      if (anchor === undefined) anchors.set(family, indent);
+      shift = newIndent - indent;
+    } else {
+      newIndent = Math.max(0, indent + shift);
+    }
+    return " ".repeat(newIndent) + marker + " " + rest;
+  });
+
+  const stack: number[] = [];
+  fenced = false;
+  const out = aligned.map((line) => {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      return line;
+    }
+    if (fenced) return line;
+    const m = line.match(LIST_ITEM_RE);
+    if (!m) {
+      if (line.trim() !== "") stack.length = 0;
+      return line;
+    }
+    const [, rawIndent, marker, rest] = m;
+    const indent = rawIndent.length;
+    while (stack.length > 0 && indent < stack[stack.length - 1]) stack.pop();
+    if (stack.length === 0 || indent > stack[stack.length - 1])
+      stack.push(indent);
+    const level = Math.min(stack.length - 1, 2);
+    return " ".repeat(level * 4) + marker + " " + rest;
+  });
+
+  return out.join("\n");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -410,7 +555,8 @@ function renderMarkdown(text: string): string {
 async function callOpenRouter(
   path: string,
   payload: Record<string, unknown>,
-  timeoutMs: number = OPENROUTER_TIMEOUT_MS
+  timeoutMs: number = OPENROUTER_TIMEOUT_MS,
+  tracker?: UsageTracker
 ): Promise<Record<string, unknown>> {
   const response = await fetch(`${OPENROUTER_BASE_URL}${path}`, {
     method: "POST",
@@ -436,6 +582,7 @@ async function callOpenRouter(
         : "";
     throw new Error(msg || `OpenRouter error (${response.status})`);
   }
+  addUsageFromResponse(tracker, data as Record<string, unknown>);
   return data as Record<string, unknown>;
 }
 
@@ -446,94 +593,69 @@ const getLlmText = (data: Record<string, unknown>): string =>
     20_000
   );
 
+const getCompletionDiagnostics = (data: Record<string, unknown>) => {
+  const choice = (
+    data.choices as Array<Record<string, unknown>> | undefined
+  )?.[0];
+  const usage =
+    data.usage && typeof data.usage === "object"
+      ? (data.usage as Record<string, unknown>)
+      : null;
+  const completionDetails =
+    usage?.completion_tokens_details &&
+    typeof usage.completion_tokens_details === "object"
+      ? (usage.completion_tokens_details as Record<string, unknown>)
+      : null;
+
+  return {
+    finishReason: safeText(choice?.finish_reason, 80),
+    nativeFinishReason: safeText(choice?.native_finish_reason, 80),
+    completionTokens: Number(usage?.completion_tokens ?? 0),
+    reasoningTokens: Number(completionDetails?.reasoning_tokens ?? 0)
+  };
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════════════
 //  PHASE 1 — NORMALIZE
 // ════════════════════════════════════════════════════════════════════════════
 // ─────────────────────────────────────────────────────────────────────────────
 
-const REWRITE_SYSTEM = `Eres un normalizador de consultas jurídicas. Tu ÚNICA tarea es limpiar la pregunta del usuario para que quede clara antes de buscar en una base jurídica.
+const REWRITE_SYSTEM = `Eres un normalizador de consultas jurídicas. Tu única tarea es crear consultas breves y autocontenidas para buscar en una base jurídica.
 
-LO QUE SÍ HACES:
-- Corriges faltas de ortografía, tildes y puntuación. Ejemplo: "constitucion española" → "Constitución Española".
-- Expandes siglas y abreviaturas a su nombre completo: CE → Constitución Española; LGT → Ley General Tributaria; LOTC → Ley Orgánica del Tribunal Constitucional; LOPJ → Ley Orgánica del Poder Judicial; LBRL → Ley de Bases del Régimen Local; LECrim → Ley de Enjuiciamiento Criminal; LOREG → Ley Orgánica del Régimen Electoral General; etc. Si la sigla no es clara, déjala tal cual.
-- Si el usuario menciona varios artículos distintos de una misma norma, genera UNA LÍNEA POR CADA ARTÍCULO con el formato: "artículo <número> <nombre de la norma>".
-- Quitas lenguaje conversacional irrelevante para la búsqueda ("hazme un esquema de…", "explícame…", "dime qué dice…").
+REGLAS:
+- Corrige ortografía, tildes y puntuación.
+- Expande siglas jurídicas conocidas: CE → Constitución Española; LGT → Ley General Tributaria; LOTC → Ley Orgánica del Tribunal Constitucional; LOPJ → Ley Orgánica del Poder Judicial; LBRL → Ley de Bases del Régimen Local; LECrim → Ley de Enjuiciamiento Criminal; LOREG → Ley Orgánica del Régimen Electoral General.
+- Elimina lenguaje conversacional irrelevante como "hazme un esquema", "explícame" o "dime qué dice".
+- Si se piden varios artículos de una norma, genera una consulta independiente por artículo: "artículo <número> <norma>".
+- No respondas la pregunta ni añadas conceptos, materias o descripciones que el usuario no haya escrito.
+- No adivines el contenido de un artículo o una norma.
 
-LO QUE NO HACES NUNCA:
-- NO añades palabras, conceptos, temas, materias ni descripciones que el usuario no haya escrito. Si el usuario no ha dicho "delito fiscal", tú no escribes "delito fiscal".
-- NO intentas adivinar qué regula un artículo ni qué trata una norma.
-- NO respondes a la pregunta. NO explicas nada. NO añades contexto.
-- NO reordenas ni reinterpretas la intención.
-
-FORMATO DE SALIDA:
-- Solo texto plano. Sin JSON. Sin markdown. Sin numeración. Sin guiones. Sin comillas. Sin viñetas.
-- Una o varias líneas, cada una autocontenida.
+FORMATO:
+- Devuelve un objeto JSON con una única propiedad "queries".
+- "queries" contiene entre 1 y 6 cadenas, sin markdown ni explicaciones.
 
 EJEMPLOS:
-
 Pregunta: "explicame el 27 de la CE"
-Salida:
-artículo 27 Constitución Española
+Salida: {"queries":["artículo 27 Constitución Española"]}
 
 Pregunta: "hazme un esquema del articulo 150,151 y 152 de la Constitucion española"
-Salida:
-artículo 150 Constitución Española
-artículo 151 Constitución Española
-artículo 152 Constitución Española
+Salida: {"queries":["artículo 150 Constitución Española","artículo 151 Constitución Española","artículo 152 Constitución Española"]}
 
 Pregunta: "que dice la LGT sobre el fraude fiscal"
-Salida:
-Ley General Tributaria fraude fiscal
-
-Pregunta: "articulo 305 LGT"
-Salida:
-artículo 305 Ley General Tributaria
-
-Pregunta: "diferencias entre el 143 y el 151 de la constitución"
-Salida:
-artículo 143 Constitución Española
-artículo 151 Constitución Española`;
-
-function cleanRewriteLine(line: string): string {
-  let l = line.trim();
-  l = l.replace(/^\s*[-*•]\s+/, "");
-  l = l.replace(/^\s*\d+\s*[.)]\s+/, "");
-  l = l.replace(
-    /^[\s"'`\u00AB\u00BB\u201C\u201D\u2018\u2019]+|[\s"'`\u00AB\u00BB\u201C\u201D\u2018\u2019]+$/g,
-    ""
-  );
-  l = l.replace(/\s+/g, " ").trim();
-  if (l.length > MAX_REWRITE_CHARS) l = l.slice(0, MAX_REWRITE_CHARS).trim();
-  return l;
-}
-
-function parseRewriteOutput(raw: string): string[] {
-  if (!raw) return [];
-  let text = raw
-    .trim()
-    .replace(/^```[a-zA-Z]*\s*/, "")
-    .replace(/\s*```\s*$/, "");
-  const lines = text
-    .split(/\r?\n/)
-    .map(cleanRewriteLine)
-    .filter((l) => l.length >= 3);
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const l of lines) {
-    const k = normalizeForMatch(l);
-    if (!seen.has(k)) {
-      seen.add(k);
-      unique.push(l);
-    }
-  }
-  return unique.slice(0, MAX_REWRITE_QUERIES);
-}
+Salida: {"queries":["Ley General Tributaria fraude fiscal"]}`;
 
 async function phase1_rewriteForRetrieval(
   question: string,
-  history: HistoryLine[]
+  history: HistoryLine[],
+  tracker: UsageTracker
 ): Promise<string[]> {
+  const fallbackQueries = buildFallbackRetrievalQueries(
+    question,
+    MAX_REWRITE_QUERIES,
+    MAX_REWRITE_CHARS
+  );
+
   try {
     const historyBlock =
       history.length > 0
@@ -549,6 +671,8 @@ async function phase1_rewriteForRetrieval(
         model: OPENROUTER_REWRITE_MODEL,
         temperature: 0,
         max_tokens: REWRITE_MAX_TOKENS,
+        reasoning: NO_REASONING,
+        response_format: REWRITE_RESPONSE_FORMAT,
         messages: [
           { role: "system", content: REWRITE_SYSTEM },
           {
@@ -557,17 +681,40 @@ async function phase1_rewriteForRetrieval(
           }
         ]
       },
-      REWRITE_TIMEOUT_MS
+      REWRITE_TIMEOUT_MS,
+      tracker
     );
 
-    const queries = parseRewriteOutput(getLlmText(data));
-    return queries.length > 0 ? queries : [question];
+    const rawPlan = getLlmText(data);
+    const queries = parseRewriteQueries(
+      rawPlan,
+      MAX_REWRITE_QUERIES,
+      MAX_REWRITE_CHARS
+    );
+    if (queries.length === 0) {
+      console.warn("[ask:rewrite_empty]", getCompletionDiagnostics(data));
+      return fallbackQueries;
+    }
+
+    const requiredRefs = extractArticleReferences([question], MAX_ARTICLE_REFS);
+    const plannedRefs = new Set(
+      extractArticleReferences(queries, MAX_ARTICLE_REFS)
+    );
+    const missesRequiredRef = requiredRefs.some((ref) => !plannedRefs.has(ref));
+    if (!missesRequiredRef) return queries;
+
+    const merged = new Map<string, string>();
+    for (const query of [...fallbackQueries, ...queries]) {
+      const clean = safeCompactText(query, MAX_REWRITE_CHARS);
+      if (clean) merged.set(normalizeForMatch(clean), clean);
+    }
+    return Array.from(merged.values()).slice(0, MAX_REWRITE_QUERIES);
   } catch (err) {
     console.warn(
       "[ask:rewrite_fallback]",
       err instanceof Error ? err.message : err
     );
-    return [question];
+    return fallbackQueries;
   }
 }
 
@@ -655,7 +802,8 @@ async function phase2_retrieve(
   keywordSource: string,
   articleRefs: string[],
   supabase: ReturnType<typeof createClient>,
-  threshold: number
+  threshold: number,
+  tracker: UsageTracker
 ): Promise<{ hits: RetrievalHit[]; errors: string[] }> {
   const cleanQueries = Array.from(
     new Set(
@@ -669,12 +817,17 @@ async function phase2_retrieve(
     return { hits: [], errors: [] };
   }
 
-  const embResponse = await callOpenRouter("/embeddings", {
-    model: OPENROUTER_EMBEDDING_MODEL,
-    input: cleanQueries,
-    dimensions: EMBEDDING_DIM,
-    encoding_format: "float"
-  });
+  const embResponse = await callOpenRouter(
+    "/embeddings",
+    {
+      model: OPENROUTER_EMBEDDING_MODEL,
+      input: cleanQueries,
+      dimensions: EMBEDDING_DIM,
+      encoding_format: "float"
+    },
+    OPENROUTER_TIMEOUT_MS,
+    tracker
+  );
 
   const embData = embResponse.data;
   if (!Array.isArray(embData) || embData.length !== cleanQueries.length) {
@@ -851,6 +1004,7 @@ function buildSynthesisMessages(
   question: string,
   history: HistoryLine[],
   context: string,
+  articleRefs: string[],
   forceGrounded = false
 ) {
   const historyBlock =
@@ -858,6 +1012,10 @@ function buildSynthesisMessages(
       ? `Conversación previa:\n${history
           .map((l) => `${l.role}: ${l.text}`)
           .join("\n")}\n\n`
+      : "";
+  const coverageRule =
+    articleRefs.length > 0
+      ? `8. La pregunta solicita los artículos ${articleRefs.join(", ")}. Incluye un bloque identificable para CADA uno, en ese orden. Si el Material no contiene alguno, conserva su bloque y usa el aviso indicado en la regla 3.\n`
       : "";
 
   const system =
@@ -869,21 +1027,27 @@ function buildSynthesisMessages(
     `4. Solo si el Material no contiene NADA útil para la pregunta, responde EXACTAMENTE con esta cadena y nada más: "${REFUSAL_MESSAGE}". Si el Material cubre aunque sea uno solo de los puntos pedidos, NO uses esa cadena.\n` +
     `5. Cita artículos y normas tal como aparecen literalmente en el Material. No reinterpretes el título del artículo.\n` +
     `6. Cuando varios fragmentos pertenezcan a normas distintas con el mismo número de artículo, usa SOLO los que pertenezcan a la norma que el usuario ha mencionado. Ignora los demás.\n` +
-    `7. Nunca menciones términos internos (RAG, embeddings, fragmentos, contexto, modelo, recuperación, etc.).\n\n` +
+    `7. Nunca menciones términos internos (RAG, embeddings, fragmentos, contexto, modelo, recuperación, etc.).\n` +
+    coverageRule +
+    `\n` +
     (forceGrounded
       ? `IMPORTANTE: Ya se ha encontrado material relevante. No rechaces la pregunta.\n\n`
       : "") +
     `FORMATO Y ESTILO:\n` +
-    `- Redacta con claridad docente: frases cortas, listas cuando ayuden, negritas para conceptos clave.\n` +
+    `- Redacta con claridad docente: frases cortas, negritas para conceptos clave.\n` +
     `- Puedes usar emojis DE FORMA MODERADA y solo cuando aporten claridad (máximo uno por encabezado). Sugerencia: 📜 para normas/artículos, ⚖️ para procedimientos, 🏛️ para instituciones, 📌 para puntos clave, 📝 para trámites, ℹ️ para avisos. No uses emojis decorativos ni en cada línea.\n` +
-    `- Si hay varios artículos o bloques, usa encabezados "### 📜 Artículo N" (o equivalente) por cada uno.\n` +
-    `- Listas: usa SIEMPRE "- " para listas no ordenadas y "1. ", "2. " para ordenadas. Para anidar sub-items, INDENTA CON EXACTAMENTE 2 ESPACIOS por nivel. No uses 1 solo espacio. No mezcles viñetas y numeración en el mismo nivel.\n` +
-    `- Ejemplo correcto de anidamiento:\n` +
-    `  1. Primer punto numerado\n` +
-    `     - Sub-punto con viñeta (3 espacios de indent)\n` +
-    `     - Otro sub-punto\n` +
-    `       - Sub-sub-punto (5 espacios)\n` +
-    `  2. Segundo punto numerado\n` +
+    `- Si hay varios artículos o bloques, usa un encabezado "### 📜 Artículo N" por cada uno.\n` +
+    `- Dentro de un artículo, presenta cada apartado con un encabezado "#### Apartado N" (añade su título si el Material lo da). Los apartados NUNCA van como items de lista ni indentados.\n` +
+    `- Bajo cada apartado usa listas de COMO MÁXIMO 2 niveles: nivel 1 sin indentación ("- ", o "1. " si el orden importa) y nivel 2 indentado con EXACTAMENTE 4 espacios, solo para detallar el item inmediatamente anterior.\n` +
+    `- REGLA DE ORO: los elementos de la misma serie son HERMANOS y llevan SIEMPRE la misma indentación. Los ordinales 1.º, 2.º, 3.º… van todos al mismo nivel. NUNCA aumentes la indentación al pasar al siguiente apartado u ordinal.\n` +
+    `- Ejemplo correcto (fíjate: 2.º y 3.º van al MISMO nivel que 1.º, nunca dentro del anterior):\n` +
+    `#### Apartado 2. Procedimiento\n` +
+    `- **1.º Constitución de la Asamblea**\n` +
+    `    - El Gobierno convoca a los Diputados y Senadores.\n` +
+    `- **2.º Examen en la Comisión Constitucional**\n` +
+    `    - Plazo de dos meses para examinarlo.\n` +
+    `- **3.º Referéndum**\n` +
+    `    - Se somete al cuerpo electoral de las provincias.\n` +
     `- Si presentas una tabla Markdown, cada fila (cabecera, separador "|---|" y filas de datos) debe ir en su propia línea con saltos de línea reales.`;
 
   return [
@@ -895,30 +1059,80 @@ function buildSynthesisMessages(
   ];
 }
 
+class SynthesisUnavailableError extends Error {
+  constructor(readonly issue: SynthesisIssue) {
+    super("SYNTHESIS_UNAVAILABLE");
+    this.name = "SynthesisUnavailableError";
+  }
+}
+
 async function phase3_synthesize(
   question: string,
   history: HistoryLine[],
   context: string,
-  chatModel: string
+  articleRefs: string[],
+  chatModel: string,
+  tracker: UsageTracker
 ): Promise<{ markdown: string; html: string }> {
-  const data = await callOpenRouter("/chat/completions", {
-    model: chatModel,
-    temperature: 0,
-    max_tokens: CHAT_MAX_TOKENS,
-    messages: buildSynthesisMessages(question, history, context)
-  });
+  const requestSynthesis = (forceGrounded: boolean) =>
+    callOpenRouter(
+      "/chat/completions",
+      {
+        model: chatModel,
+        temperature: 0,
+        max_tokens: CHAT_MAX_TOKENS,
+        reasoning: NO_REASONING,
+        messages: buildSynthesisMessages(
+          question,
+          history,
+          context,
+          articleRefs,
+          forceGrounded
+        )
+      },
+      OPENROUTER_TIMEOUT_MS,
+      tracker
+    );
 
+  let data = await requestSynthesis(false);
   let markdown = getLlmText(data);
+  const hasContext = context.length > 100;
+  const initialIssue = getSynthesisIssue(
+    markdown,
+    articleRefs,
+    REFUSAL_MESSAGE,
+    hasContext
+  );
 
-  if (markdown === REFUSAL_MESSAGE && context.length > 100) {
-    const retryData = await callOpenRouter("/chat/completions", {
-      model: chatModel,
-      temperature: 0,
-      max_tokens: CHAT_MAX_TOKENS,
-      messages: buildSynthesisMessages(question, history, context, true)
+  if (initialIssue) {
+    console.warn("[ask:synthesis_retry]", {
+      issue: initialIssue,
+      ...getCompletionDiagnostics(data)
     });
-    markdown = getLlmText(retryData);
+    data = await requestSynthesis(true);
+    markdown = getLlmText(data);
+
+    const finalIssue = getSynthesisIssue(
+      markdown,
+      articleRefs,
+      REFUSAL_MESSAGE,
+      hasContext
+    );
+    const refusalStillUnsupported =
+      finalIssue === "unsupported_refusal" && articleRefs.length > 0;
+    if (
+      finalIssue &&
+      (finalIssue !== "unsupported_refusal" || refusalStillUnsupported)
+    ) {
+      console.error("[ask:synthesis_unavailable]", {
+        issue: finalIssue,
+        ...getCompletionDiagnostics(data)
+      });
+      throw new SynthesisUnavailableError(finalIssue);
+    }
   }
+
+  if (markdown !== REFUSAL_MESSAGE) markdown = fixListLayout(markdown);
 
   const html =
     markdown === REFUSAL_MESSAGE ? markdown : renderMarkdown(markdown);
@@ -953,21 +1167,28 @@ FORMATO: {"title":"...","nodes":[{"id":"...","label":"...","level":0},...], "edg
 async function generateMindMap(
   question: string,
   context: string,
-  chatModel: string
+  chatModel: string,
+  tracker: UsageTracker
 ): Promise<Record<string, unknown> | null> {
   try {
-    const data = await callOpenRouter("/chat/completions", {
-      model: chatModel,
-      temperature: 0,
-      max_tokens: MIND_MAP_MAX_TOKENS,
-      messages: [
-        { role: "system", content: MIND_MAP_SYSTEM },
-        {
-          role: "user",
-          content: `Tema: ${question}\n\nContexto jurídico:\n${context}`
-        }
-      ]
-    });
+    const data = await callOpenRouter(
+      "/chat/completions",
+      {
+        model: chatModel,
+        temperature: 0,
+        max_tokens: MIND_MAP_MAX_TOKENS,
+        reasoning: NO_REASONING,
+        messages: [
+          { role: "system", content: MIND_MAP_SYSTEM },
+          {
+            role: "user",
+            content: `Tema: ${question}\n\nContexto jurídico:\n${context}`
+          }
+        ]
+      },
+      OPENROUTER_TIMEOUT_MS,
+      tracker
+    );
 
     const raw = stripJsonFences(getLlmText(data));
     const parsed = JSON.parse(raw);
@@ -1024,26 +1245,60 @@ async function generateMindMap(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DETERMINISTIC FALLBACK
+// WEEKLY USAGE RECORDING
 // ─────────────────────────────────────────────────────────────────────────────
 
-function deterministicFallback(hits: RetrievalHit[]): string {
-  const relevant = hits.filter((h) => h.score >= FALLBACK_MIN_SCORE);
-  if (relevant.length === 0) return REFUSAL_MESSAGE;
-
-  return (
-    `**📌 Información encontrada**\n\n` +
-    relevant
-      .slice(0, 3)
-      .map(
-        (h) =>
-          `**${h.articulo_num || h.titulo_ley || h.id_boe || "Referencia"}**\n` +
-          safeCompactText(h.contenido, 400)
-      )
-      .join("\n\n") +
-    `\n\n_ℹ️ Resumen basado en los fragmentos disponibles; puede no ser exhaustivo._`
-  );
+async function recordWeeklyUsage(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  tracker: UsageTracker
+): Promise<WeeklyQuotaResult | null> {
+  try {
+    const { data, error } = await supabase.rpc("record_ai_weekly_usage", {
+      p_user_id: userId,
+      p_tokens: Math.max(0, Math.round(tracker.tokens)),
+      p_tz: USAGE_TIMEZONE
+    });
+    if (error) throw new Error(error.message);
+    return normalizeWeeklyQuotaResult(data?.[0]);
+  } catch (err) {
+    console.error(
+      "[ask:usage_record_failed]",
+      err instanceof Error ? err.message : err
+    );
+    return null;
+  }
 }
+
+// Si el registro en BD falla, estima la cuota resultante para no devolver
+// datos desfasados al frontend (el gasto real ya se ha producido).
+function estimateQuotaAfterUsage(
+  quota: WeeklyQuotaResult,
+  tracker: UsageTracker
+): WeeklyQuotaResult {
+  const used = quota.used + Math.max(0, Math.round(tracker.tokens));
+  const remaining = Math.max(quota.limit - used, 0);
+  const percentUsed =
+    quota.limit > 0
+      ? Math.min(100, Math.round((used / quota.limit) * 1000) / 10)
+      : 0;
+  return {
+    ...quota,
+    allowed: quota.limit > 0 && used < quota.limit,
+    used,
+    remaining,
+    percentUsed
+  };
+}
+
+const quotaResponseFields = (quota: WeeklyQuotaResult) => ({
+  used: quota.used,
+  limit: quota.limit,
+  remaining: quota.remaining,
+  percentUsed: quota.percentUsed,
+  week: quota.weekStart,
+  usageUnit: "tokens"
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════════════
@@ -1085,6 +1340,11 @@ Deno.serve(async (req) => {
   }
 
   let stage = "init";
+  const tracker: UsageTracker = { tokens: 0 };
+  let usageContext: {
+    supabase: ReturnType<typeof createClient>;
+    userId: string;
+  } | null = null;
 
   try {
     stage = "parse_body";
@@ -1109,7 +1369,7 @@ Deno.serve(async (req) => {
 
     const history = extractHistory(body.history);
     const wantsMindMap = body.mindMap === true;
-    const chatModel = safeText(body.model, 120) || OPENROUTER_CHAT_MODEL;
+    const chatModel = OPENROUTER_CHAT_MODEL;
     const wantsDebug = body.debug === true;
 
     stage = "auth";
@@ -1136,24 +1396,26 @@ Deno.serve(async (req) => {
       );
     }
 
+    usageContext = { supabase, userId: user.id };
+
     // ════════════════════════════════════════════════════════════════════════
     //  PHASE 1 — NORMALIZE
     // ════════════════════════════════════════════════════════════════════════
-    stage = "daily_quota";
+    stage = "weekly_quota";
     const { data: quotaRows, error: quotaError } = await supabase.rpc(
-      "consume_ai_daily_quota",
+      "get_ai_weekly_quota",
       {
         p_user_id: user.id,
-        p_tz: DAILY_USAGE_TIMEZONE
+        p_tz: USAGE_TIMEZONE
       }
     );
-    const quota = normalizeDailyQuotaResult(quotaRows?.[0]);
+    const quota = normalizeWeeklyQuotaResult(quotaRows?.[0]);
 
     if (quotaError || !quota) {
       return jsonResponse(
         {
           code: "QUOTA_VALIDATION_FAILED",
-          message: "No se pudo validar la cuota diaria"
+          message: "No se pudo validar la cuota semanal"
         },
         500
       );
@@ -1162,12 +1424,9 @@ Deno.serve(async (req) => {
     if (!quota.allowed) {
       return jsonResponse(
         {
-          code: "DAILY_LIMIT_REACHED",
-          message: "Has alcanzado el limite diario",
-          used: quota.used,
-          limit: quota.limit,
-          remaining: quota.remaining,
-          day: quota.day
+          code: "WEEKLY_LIMIT_REACHED",
+          message: "Has alcanzado el limite semanal",
+          ...quotaResponseFields(quota)
         },
         429
       );
@@ -1176,7 +1435,8 @@ Deno.serve(async (req) => {
     stage = "phase1_rewrite";
     const rewrittenQueries = await phase1_rewriteForRetrieval(
       question,
-      history
+      history,
+      tracker
     );
 
     const retrievalQueries = Array.from(
@@ -1187,7 +1447,10 @@ Deno.serve(async (req) => {
       )
     );
 
-    const articleRefs = extractArticleRefsFromRewrites(rewrittenQueries);
+    const articleRefs = extractArticleReferences(
+      [question, ...rewrittenQueries],
+      MAX_ARTICLE_REFS
+    );
 
     // ════════════════════════════════════════════════════════════════════════
     //  PHASE 2 — RETRIEVE
@@ -1198,7 +1461,8 @@ Deno.serve(async (req) => {
       question,
       articleRefs,
       supabase,
-      LAW_MATCH_THRESHOLD
+      LAW_MATCH_THRESHOLD,
+      tracker
     );
 
     if (hits.length === 0) {
@@ -1208,13 +1472,17 @@ Deno.serve(async (req) => {
         question,
         articleRefs,
         supabase,
-        LAW_RETRY_THRESHOLD
+        LAW_RETRY_THRESHOLD,
+        tracker
       );
       hits = retry.hits;
       retrievalErrors = [...retrievalErrors, ...retry.errors];
     }
 
     if (hits.length === 0) {
+      const refusalUsage =
+        (await recordWeeklyUsage(supabase, user.id, tracker)) ??
+        estimateQuotaAfterUsage(quota, tracker);
       return jsonResponse({
         answer: REFUSAL_MESSAGE,
         answerHtml: REFUSAL_MESSAGE,
@@ -1223,10 +1491,7 @@ Deno.serve(async (req) => {
         citations: [],
         refused: true,
         mindMap: false,
-        used: quota.used,
-        limit: quota.limit,
-        remaining: quota.remaining,
-        day: quota.day,
+        ...quotaResponseFields(refusalUsage),
         ...(wantsDebug
           ? {
               debug: {
@@ -1259,21 +1524,28 @@ Deno.serve(async (req) => {
       question,
       history,
       context,
-      chatModel
+      articleRefs,
+      chatModel,
+      tracker
     );
-    let answerMarkdown = synthesis.markdown;
-    let answerHtml = synthesis.html;
-
-    if (!answerMarkdown) {
-      answerMarkdown = deterministicFallback(contextHits);
-      answerHtml = renderMarkdown(answerMarkdown);
-    }
+    const answerMarkdown = synthesis.markdown;
+    const answerHtml = synthesis.html;
 
     let mindMapData: Record<string, unknown> | null = null;
     if (wantsMindMap && answerMarkdown !== REFUSAL_MESSAGE) {
       stage = "mindmap";
-      mindMapData = await generateMindMap(question, context, chatModel);
+      mindMapData = await generateMindMap(
+        question,
+        context,
+        chatModel,
+        tracker
+      );
     }
+
+    stage = "record_usage";
+    const finalUsage =
+      (await recordWeeklyUsage(supabase, user.id, tracker)) ??
+      estimateQuotaAfterUsage(quota, tracker);
 
     const citations = contextHits.map((hit) => ({
       boe_id: hit.id_boe,
@@ -1310,16 +1582,29 @@ Deno.serve(async (req) => {
       citations,
       refused: answerMarkdown === REFUSAL_MESSAGE,
       mindMap: Boolean(mindMapData),
-      used: quota.used,
-      limit: quota.limit,
-      remaining: quota.remaining,
-      day: quota.day,
+      ...quotaResponseFields(finalUsage),
+      requestTokens: Math.max(0, Math.round(tracker.tokens)),
       ...(wantsDebug ? { debug } : {})
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown ask failure";
     console.error("[ask:error]", { stage, message });
+    // Los tokens ya consumidos en OpenRouter se registran aunque la petición
+    // acabe en error, para que la cuota refleje el gasto real.
+    if (usageContext && tracker.tokens > 0) {
+      await recordWeeklyUsage(
+        usageContext.supabase,
+        usageContext.userId,
+        tracker
+      );
+    }
+    if (error instanceof SynthesisUnavailableError) {
+      return jsonResponse(
+        { code: "SYNTHESIS_UNAVAILABLE", stage, issue: error.issue },
+        503
+      );
+    }
     return jsonResponse({ code: "ASK_FAILED", stage, message }, 502);
   }
 });

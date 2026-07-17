@@ -3,6 +3,7 @@ import BrandLogo from "@/components/BrandLogo";
 import CustomButton from "@/components/ui/custom-button";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetTitle,
   SheetTrigger
@@ -13,7 +14,18 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-const Navbar = () => {
+type NavbarProps = {
+  variant?: "default" | "landing";
+};
+
+const landingNavLinks = [
+  { href: "#oposiciones", key: "oppositions" },
+  { href: "#metodo", key: "method" },
+  { href: "#experiencia", key: "experience" },
+  { href: "/planes", key: "plans" }
+] as const;
+
+const Navbar = ({ variant = "default" }: NavbarProps) => {
   const { t } = useTranslation(["landing", "common"]);
   const { isAuthReady, isAuthenticated } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -45,16 +57,50 @@ const Navbar = () => {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300 ${
         isScrolled
-          ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_rgba(15,23,42,0.65)]"
+          ? "border-b border-border/70 bg-background/80 backdrop-blur-xl shadow-[0_10px_35px_-20px_hsl(var(--charcoal)/0.65)]"
           : "border-b border-transparent bg-transparent"
       }`}
     >
       <div className="flex min-w-0 items-center gap-8">
         <Link to="/" className="mb-[-5px] flex items-center gap-2">
-          <BrandLogo className="h-11 w-auto sm:h-14 lg:h-16" />
+          <BrandLogo
+            surface={variant === "landing" && !isScrolled ? "dark" : "theme"}
+            className="h-11 w-auto sm:h-14 lg:h-16"
+          />
         </Link>
+        {variant === "landing" ? (
+          <div className="hidden items-center gap-6 xl:flex">
+            {landingNavLinks.map((item) =>
+              item.href.startsWith("#") ? (
+                <a
+                  key={item.key}
+                  href={item.href}
+                  className={`text-xs font-bold transition-colors ${
+                    isScrolled
+                      ? "text-muted-foreground hover:text-foreground"
+                      : "text-primary-foreground/55 hover:text-primary-foreground"
+                  }`}
+                >
+                  {t(`landing:navbar.navLinks.${item.key}`)}
+                </a>
+              ) : (
+                <Link
+                  key={item.key}
+                  to={item.href}
+                  className={`text-xs font-bold transition-colors ${
+                    isScrolled
+                      ? "text-muted-foreground hover:text-foreground"
+                      : "text-primary-foreground/55 hover:text-primary-foreground"
+                  }`}
+                >
+                  {t(`landing:navbar.navLinks.${item.key}`)}
+                </Link>
+              )
+            )}
+          </div>
+        ) : null}
       </div>
       <div className="ml-auto hidden items-center justify-end gap-3 sm:flex lg:gap-4">
         {!isAuthReady ? (
@@ -145,6 +191,29 @@ const Navbar = () => {
               <div className="flex items-center">
                 <BrandLogo className="h-12 w-auto" />
               </div>
+              {variant === "landing" ? (
+                <div className="flex flex-col border-y border-border py-2">
+                  {landingNavLinks.map((item) => (
+                    <SheetClose key={item.key} asChild>
+                      {item.href.startsWith("#") ? (
+                        <a
+                          href={item.href}
+                          className="py-3 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          {t(`landing:navbar.navLinks.${item.key}`)}
+                        </a>
+                      ) : (
+                        <Link
+                          to={item.href}
+                          className="py-3 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          {t(`landing:navbar.navLinks.${item.key}`)}
+                        </Link>
+                      )}
+                    </SheetClose>
+                  ))}
+                </div>
+              ) : null}
               <div className="flex flex-col gap-3">
                 <CustomButton
                   asChild

@@ -38,8 +38,8 @@ import {
   assistantQueryConfig,
   assistantQueryKeys,
   fetchAssistantConversations,
-  fetchAssistantDailyQuota,
   fetchAssistantMessages,
+  fetchAssistantWeeklyQuota,
   type AssistantConversationRow
 } from "@/queries/assistantQueries";
 import { useUserPlanStateQuery } from "@/queries/subscriptionQueries";
@@ -110,14 +110,14 @@ type GeminiHistoryItem = {
   parts: Array<{ text: string }>;
 };
 
-type DailyQuotaResult = {
+type WeeklyQuotaResult = {
   allowed: boolean;
   used: number;
   limit: number;
   remaining: number;
 };
 
-type NormalizedDailyQuota = {
+type NormalizedWeeklyQuota = {
   allowed: boolean;
   used: number;
   limit: number;
@@ -169,7 +169,10 @@ type MindMapNodePosition = {
   y: number;
 };
 
-const DAILY_USAGE_TIMEZONE = "Europe/Madrid";
+const USAGE_TIMEZONE = "Europe/Madrid";
+// Mismo valor que default_weekly_token_limit en ai_quota_settings; solo se usa
+// si la RPC de cuota no responde, para que la UI no divida entre cero.
+const WEEKLY_TOKEN_LIMIT_FALLBACK = 2_500_000;
 const MESSAGES_PAGE_SIZE = 8;
 const INITIAL_CONVERSATIONS_PAGE_SIZE = 20;
 const CONVERSATIONS_LOAD_MORE_PAGE_SIZE = 10;
@@ -205,7 +208,7 @@ const parseJson = (value: string) => {
   }
 };
 
-const normalizeDailyQuota = (
+const normalizeWeeklyQuota = (
   row:
     | {
         used?: unknown;
@@ -216,7 +219,7 @@ const normalizeDailyQuota = (
     | null
     | undefined,
   fallbackLimit = 0
-): NormalizedDailyQuota => {
+): NormalizedWeeklyQuota => {
   const nextLimit =
     typeof row?.limit === "number" &&
     Number.isFinite(row.limit) &&
@@ -540,9 +543,9 @@ const AssistantIA = () => {
   const [mensajes, setMensajes] = useState<ChatMessage[]>([]);
   const [showScrollToLatestButton, setShowScrollToLatestButton] =
     useState(false);
-  const [dailyUsedRequests, setDailyUsedRequests] = useState(0);
-  const [dailyRequestLimit, setDailyRequestLimit] = useState(0);
-  const [isLoadingDailyUsage, setIsLoadingDailyUsage] = useState(true);
+  const [weeklyUsedTokens, setWeeklyUsedTokens] = useState(0);
+  const [weeklyTokenLimit, setWeeklyTokenLimit] = useState(0);
+  const [isLoadingWeeklyUsage, setIsLoadingWeeklyUsage] = useState(true);
   const [pendingAssistantMode, setPendingAssistantMode] = useState<
     "text" | "concept-map"
   >("text");
@@ -605,7 +608,7 @@ const AssistantIA = () => {
   const bootstrappedUserIdRef = useRef<string | null>(null);
   const lastLoadedConversationIdRef = useRef<string | null>(null);
   const loadMessagesRequestIdRef = useRef(0);
-  const loadedDailyUsageUserIdRef = useRef<string | null>(null);
+  const loadedWeeklyUsageUserIdRef = useRef<string | null>(null);
 
   const locale = normalizeLocale(i18n.resolvedLanguage);
   const intlLocale = toIntlLocale(locale);
@@ -619,22 +622,22 @@ const AssistantIA = () => {
     [t]
   );
 
-  const remainingDailyRequests = Math.max(
-    dailyRequestLimit - dailyUsedRequests,
+  const remainingWeeklyTokens = Math.max(
+    weeklyTokenLimit - weeklyUsedTokens,
     0
   );
-  const isDailyLimitReached =
+  const isWeeklyLimitReached =
     Boolean(currentUserId) &&
-    !isLoadingDailyUsage &&
-    remainingDailyRequests <= 0;
-  const dailyUsagePercent =
-    dailyRequestLimit > 0
-      ? Math.min((dailyUsedRequests / dailyRequestLimit) * 100, 100)
+    !isLoadingWeeklyUsage &&
+    remainingWeeklyTokens <= 0;
+  const weeklyUsagePercent =
+    weeklyTokenLimit > 0
+      ? Math.min((weeklyUsedTokens / weeklyTokenLimit) * 100, 100)
       : 0;
-  const dailyUsageFillPercent = isLoadingDailyUsage
+  const weeklyUsageFillPercent = isLoadingWeeklyUsage
     ? 4
-    : Math.max(0, dailyUsagePercent);
-  const dailyUsageProgressColor = isDailyLimitReached
+    : Math.max(0, weeklyUsagePercent);
+  const weeklyUsageProgressColor = isWeeklyLimitReached
     ? "hsl(var(--destructive))"
     : "hsl(var(--primary))";
   const showInitialConversationsLoader =
@@ -832,80 +835,86 @@ const AssistantIA = () => {
     isLoadingMoreConversations
   ]);
 
-  const refreshDailyUsage = useCallback(
+  const refreshWeeklyUsage = useCallback(
     async (userId: string) => {
-      if (loadedDailyUsageUserIdRef.current === userId) return;
+      if (loadedWeeklyUsageUserIdRef.current === userId) return;
 
-      loadedDailyUsageUserIdRef.current = userId;
-      setIsLoadingDailyUsage(true);
+      loadedWeeklyUsageUserIdRef.current = userId;
+      setIsLoadingWeeklyUsage(true);
       try {
         const row = await queryClient.fetchQuery({
-          queryKey: assistantQueryKeys.dailyQuota(userId),
-          queryFn: () => fetchAssistantDailyQuota(userId, DAILY_USAGE_TIMEZONE),
+          queryKey: assistantQueryKeys.weeklyQuota(userId),
+          queryFn: () => fetchAssistantWeeklyQuota(userId, USAGE_TIMEZONE),
           ...assistantQueryConfig
         });
 
         if (!row) {
-          setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
-          setIsLoadingDailyUsage(false);
+          setWeeklyTokenLimit((prev) =>
+            prev > 0 ? prev : WEEKLY_TOKEN_LIMIT_FALLBACK
+          );
+          setIsLoadingWeeklyUsage(false);
           return;
         }
 
-        const normalizedQuota = normalizeDailyQuota(
-          row,
-          planState?.ai_daily_limit ?? dailyRequestLimit
-        );
+        const normalizedQuota = normalizeWeeklyQuota(row, weeklyTokenLimit);
 
-        setDailyRequestLimit(normalizedQuota.limit);
-        setDailyUsedRequests(normalizedQuota.used);
-        setIsLoadingDailyUsage(false);
+        setWeeklyTokenLimit(normalizedQuota.limit);
+        setWeeklyUsedTokens(normalizedQuota.used);
+        setIsLoadingWeeklyUsage(false);
       } catch {
-        loadedDailyUsageUserIdRef.current = null;
-        setDailyRequestLimit((prev) => (prev > 0 ? prev : 10));
-        setIsLoadingDailyUsage(false);
+        loadedWeeklyUsageUserIdRef.current = null;
+        setWeeklyTokenLimit((prev) =>
+          prev > 0 ? prev : WEEKLY_TOKEN_LIMIT_FALLBACK
+        );
+        setIsLoadingWeeklyUsage(false);
         return;
       }
     },
-    [dailyRequestLimit, planState?.ai_daily_limit, queryClient]
+    [weeklyTokenLimit, queryClient]
   );
 
-  const getDailyQuota = useCallback(
-    async (userId: string): Promise<DailyQuotaResult | null> => {
-      const { data, error } = await supabase.rpc("get_ai_daily_quota", {
+  const getWeeklyQuota = useCallback(
+    async (userId: string): Promise<WeeklyQuotaResult | null> => {
+      const { data, error } = await supabase.rpc("get_ai_weekly_quota", {
         p_user_id: userId,
-        p_tz: DAILY_USAGE_TIMEZONE
+        p_tz: USAGE_TIMEZONE
       });
 
       const row = data?.[0];
       if (error || !row) {
         toast({
           variant: "destructive",
-          title: t("assistant:toasts.validateDailyLimitFailedTitle"),
+          title: t("assistant:toasts.validateQuotaFailedTitle"),
           description:
             error?.message ??
-            t("assistant:toasts.validateDailyLimitFailedDescription")
+            t("assistant:toasts.validateQuotaFailedDescription")
         });
         return null;
       }
 
-      const normalizedQuota = normalizeDailyQuota(
-        row,
-        planState?.ai_daily_limit ?? dailyRequestLimit
-      );
+      const normalizedQuota = normalizeWeeklyQuota(row, weeklyTokenLimit);
 
-      setDailyRequestLimit(normalizedQuota.limit);
-      setDailyUsedRequests(normalizedQuota.used);
-      queryClient.setQueryData(assistantQueryKeys.dailyQuota(userId), {
-        day: String(row.day ?? ""),
+      setWeeklyTokenLimit(normalizedQuota.limit);
+      setWeeklyUsedTokens(normalizedQuota.used);
+      queryClient.setQueryData(assistantQueryKeys.weeklyQuota(userId), {
+        week: String(row.week_start ?? ""),
         is_paid: Boolean(row.is_paid),
+        allowed: normalizedQuota.allowed,
         limit: normalizedQuota.limit,
         remaining: normalizedQuota.remaining,
-        used: normalizedQuota.used
+        used: normalizedQuota.used,
+        percentUsed:
+          normalizedQuota.limit > 0
+            ? Math.min(
+                100,
+                (normalizedQuota.used / normalizedQuota.limit) * 100
+              )
+            : 0
       });
 
       return normalizedQuota;
     },
-    [dailyRequestLimit, planState?.ai_daily_limit, queryClient, t, toast]
+    [weeklyTokenLimit, queryClient, t, toast]
   );
 
   const loadMessages = useCallback(
@@ -1049,7 +1058,7 @@ const AssistantIA = () => {
       loadMessagesRequestIdRef.current += 1;
       bootstrappedUserIdRef.current = null;
       lastLoadedConversationIdRef.current = null;
-      loadedDailyUsageUserIdRef.current = null;
+      loadedWeeklyUsageUserIdRef.current = null;
       setConversations([]);
       setActiveConversationId(null);
       setMensajes([]);
@@ -1058,10 +1067,10 @@ const AssistantIA = () => {
       setIsLoadingOlderMessages(false);
       setPinningConversationId(null);
       setIsLoadingMoreConversations(false);
-      setDailyUsedRequests(0);
-      setDailyRequestLimit(0);
+      setWeeklyUsedTokens(0);
+      setWeeklyTokenLimit(0);
       setTotalConversationCount(0);
-      setIsLoadingDailyUsage(false);
+      setIsLoadingWeeklyUsage(false);
       setIsLoadingConversations(false);
       return;
     }
@@ -1117,8 +1126,8 @@ const AssistantIA = () => {
   useEffect(() => {
     if (!isAuthReady) return;
     if (!user?.id) return;
-    void refreshDailyUsage(user.id);
-  }, [isAuthReady, refreshDailyUsage, user?.id]);
+    void refreshWeeklyUsage(user.id);
+  }, [isAuthReady, refreshWeeklyUsage, user?.id]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -2362,7 +2371,7 @@ const AssistantIA = () => {
     const texto = sanitizeMultilineText(inputChat, 4000);
     const shouldRequestMindMap = isMindMapEnabled;
     if (!texto || isSendingChat || !currentUserId) return;
-    if (isDailyLimitReached) {
+    if (isWeeklyLimitReached) {
       if (!isCurrentPlanPaid) {
         setIsUpgradeDialogOpen(true);
         return;
@@ -2370,16 +2379,15 @@ const AssistantIA = () => {
 
       toast({
         variant: "destructive",
-        title: t("assistant:toasts.dailyLimitReachedTitle"),
-        description: t("assistant:toasts.dailyLimitReachedDescription", {
-          used: dailyUsedRequests,
-          limit: dailyRequestLimit
+        title: t("assistant:toasts.weeklyLimitReachedTitle"),
+        description: t("assistant:toasts.weeklyLimitReachedDescription", {
+          percent: Math.round(weeklyUsagePercent)
         })
       });
       return;
     }
 
-    const quota = await getDailyQuota(currentUserId);
+    const quota = await getWeeklyQuota(currentUserId);
     if (!quota) return;
     if (!quota.allowed) {
       if (!isCurrentPlanPaid) {
@@ -2389,10 +2397,12 @@ const AssistantIA = () => {
 
       toast({
         variant: "destructive",
-        title: t("assistant:toasts.dailyLimitReachedTitle"),
-        description: t("assistant:toasts.dailyLimitReachedDescription", {
-          used: quota.used,
-          limit: quota.limit
+        title: t("assistant:toasts.weeklyLimitReachedTitle"),
+        description: t("assistant:toasts.weeklyLimitReachedDescription", {
+          percent:
+            quota.limit > 0
+              ? Math.min(100, Math.round((quota.used / quota.limit) * 100))
+              : 100
         })
       });
       return;
@@ -2504,13 +2514,13 @@ const AssistantIA = () => {
       const usage = payload as { used?: unknown; limit?: unknown };
 
       if (typeof usage.used === "number" && Number.isFinite(usage.used))
-        setDailyUsedRequests(Math.max(0, Math.floor(usage.used)));
+        setWeeklyUsedTokens(Math.max(0, Math.floor(usage.used)));
       if (
         typeof usage.limit === "number" &&
         Number.isFinite(usage.limit) &&
         usage.limit > 0
       )
-        setDailyRequestLimit(Math.floor(usage.limit));
+        setWeeklyTokenLimit(Math.floor(usage.limit));
       if (
         typeof usage.used === "number" &&
         Number.isFinite(usage.used) &&
@@ -2520,13 +2530,18 @@ const AssistantIA = () => {
       ) {
         const normalizedUsed = Math.max(0, Math.floor(usage.used));
         const normalizedLimit = Math.floor(usage.limit);
-        queryClient.setQueryData(assistantQueryKeys.dailyQuota(currentUserId), {
-          day: "",
-          is_paid: false,
-          limit: normalizedLimit,
-          remaining: Math.max(normalizedLimit - normalizedUsed, 0),
-          used: normalizedUsed
-        });
+        queryClient.setQueryData(
+          assistantQueryKeys.weeklyQuota(currentUserId),
+          {
+            week: "",
+            is_paid: false,
+            allowed: normalizedUsed < normalizedLimit,
+            limit: normalizedLimit,
+            remaining: Math.max(normalizedLimit - normalizedUsed, 0),
+            used: normalizedUsed,
+            percentUsed: Math.min(100, (normalizedUsed / normalizedLimit) * 100)
+          }
+        );
       }
 
       if (!response.ok) {
@@ -2534,15 +2549,15 @@ const AssistantIA = () => {
           const usedAtLimit =
             typeof usage.used === "number" && Number.isFinite(usage.used)
               ? Math.max(0, Math.floor(usage.used))
-              : dailyRequestLimit;
-          setDailyUsedRequests(usedAtLimit);
+              : weeklyTokenLimit;
+          setWeeklyUsedTokens(usedAtLimit);
           if (
             typeof usage.limit === "number" &&
             Number.isFinite(usage.limit) &&
             usage.limit > 0
           )
-            setDailyRequestLimit(Math.floor(usage.limit));
-          throw new Error(t("assistant:errors.dailyLimitReached"));
+            setWeeklyTokenLimit(Math.floor(usage.limit));
+          throw new Error(t("assistant:errors.weeklyLimitReached"));
         }
         throw new Error(
           assistantText || t("assistant:errors.assistantResponseFailed")
@@ -2593,7 +2608,7 @@ const AssistantIA = () => {
       ]);
 
       void refreshConversations();
-      void refreshDailyUsage(currentUserId);
+      void refreshWeeklyUsage(currentUserId);
     } catch (error) {
       const message = (() => {
         if (error instanceof AuthSessionError)
@@ -2611,7 +2626,7 @@ const AssistantIA = () => {
           time: formatHora()
         }
       ]);
-      void refreshDailyUsage(currentUserId);
+      void refreshWeeklyUsage(currentUserId);
     } finally {
       setIsSendingChat(false);
       setPendingAssistantMode("text");
@@ -2634,11 +2649,11 @@ const AssistantIA = () => {
 
   const handleLockedTextareaInteraction = useCallback(
     (event: SyntheticEvent<HTMLTextAreaElement>) => {
-      if (!isDailyLimitReached || isCurrentPlanPaid) return;
+      if (!isWeeklyLimitReached || isCurrentPlanPaid) return;
       event.preventDefault();
       setIsUpgradeDialogOpen(true);
     },
-    [isCurrentPlanPaid, isDailyLimitReached]
+    [isCurrentPlanPaid, isWeeklyLimitReached]
   );
 
   const renderConversationHistoryItem = (conversation: ConversationItem) => {
@@ -3068,7 +3083,7 @@ const AssistantIA = () => {
             <form ref={chatFormRef} onSubmit={onSubmitChat}>
               <div
                 className={`rounded-[1.55rem] border px-4 pt-3 pb-2 shadow-sm ${
-                  isDailyLimitReached
+                  isWeeklyLimitReached
                     ? "border-destructive/40 bg-destructive/5"
                     : "border-border/80 bg-background"
                 }`}
@@ -3090,11 +3105,11 @@ const AssistantIA = () => {
                   onFocus={handleLockedTextareaInteraction}
                   onKeyDown={onInputChatKeyDown}
                   placeholder={
-                    isDailyLimitReached
+                    isWeeklyLimitReached
                       ? t("assistant:input.placeholderLimitReached")
                       : t("assistant:input.placeholder")
                   }
-                  readOnly={isDailyLimitReached && !isCurrentPlanPaid}
+                  readOnly={isWeeklyLimitReached && !isCurrentPlanPaid}
                   rows={1}
                   className="min-h-0 w-full resize-none overflow-x-hidden overflow-y-hidden border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
@@ -3113,7 +3128,7 @@ const AssistantIA = () => {
                         aria-label={t("assistant:input.quickActions", {
                           defaultValue: "Acciones rapidas"
                         })}
-                        disabled={isDailyLimitReached}
+                        disabled={isWeeklyLimitReached}
                       >
                         <Plus className="h-4 w-4" />
                       </CustomButton>
@@ -3128,7 +3143,7 @@ const AssistantIA = () => {
                         onCheckedChange={(checked) =>
                           setIsMindMapEnabled(checked === true)
                         }
-                        disabled={isDailyLimitReached}
+                        disabled={isWeeklyLimitReached}
                         className="pl-2 transition-colors hover:bg-black/10 data-[highlighted]:bg-black/10 data-[highlighted]:text-foreground focus:bg-black/10 focus:text-foreground data-[state=checked]:bg-primary/15 data-[state=checked]:text-primary data-[state=checked]:font-medium [&_span.absolute]:hidden"
                       >
                         <span className="inline-flex items-center gap-2">
@@ -3158,7 +3173,7 @@ const AssistantIA = () => {
                   </div>
 
                   <div className="ml-auto flex items-center gap-5">
-                    {isDailyLimitReached && (
+                    {isWeeklyLimitReached && (
                       <>
                         <AlertTriangle className="h-4 w-4 text-destructive" />
                         {!isCurrentPlanPaid && (
@@ -3175,39 +3190,39 @@ const AssistantIA = () => {
                     )}
                     <div className="flex shrink-0 items-center gap-4">
                       <p className="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                        {t("assistant:header.dailyLimit")}
+                        {t("assistant:header.weeklyLimit")}
                       </p>
                       <div
                         className="relative grid h-10 w-10 place-items-center rounded-full border  shadow-sm transition-[background] duration-300"
                         style={{
-                          background: `conic-gradient(${dailyUsageProgressColor} ${dailyUsageFillPercent}%, hsl(var(--border)) 0%)`
+                          background: `conic-gradient(${weeklyUsageProgressColor} ${weeklyUsageFillPercent}%, hsl(var(--border)) 0%)`
                         }}
                         role="img"
-                        aria-label={t("assistant:header.dailyLimit")}
+                        aria-label={t("assistant:header.weeklyLimit")}
                         title={
-                          isLoadingDailyUsage
+                          isLoadingWeeklyUsage
                             ? t("assistant:header.checkingUsage")
-                            : `${dailyUsedRequests}/${dailyRequestLimit}`
+                            : `${Math.round(weeklyUsagePercent)}%`
                         }
                       >
                         <div className="absolute inset-[4px] rounded-full bg-background/95" />
                         <span
                           className={`relative z-10 text-[9px] font-semibold leading-none ${
-                            isDailyLimitReached
+                            isWeeklyLimitReached
                               ? "text-destructive"
                               : "text-foreground"
                           }`}
                         >
-                          {isLoadingDailyUsage
+                          {isLoadingWeeklyUsage
                             ? "..."
-                            : `${dailyUsedRequests}/${dailyRequestLimit}`}
+                            : `${Math.round(weeklyUsagePercent)}%`}
                         </span>
                       </div>
                     </div>
                     <CustomButton
                       type="submit"
                       disabled={
-                        isSendingChat || !currentUserId || isDailyLimitReached
+                        isSendingChat || !currentUserId || isWeeklyLimitReached
                       }
                       styleType="primary"
                       size="icon"
@@ -3233,7 +3248,7 @@ const AssistantIA = () => {
         onOpenChange={setIsUpgradeDialogOpen}
         feature="assistant"
         currentPlanName={t(`plans:plans.${currentPlanKey}.name`)}
-        currentLimit={planState?.ai_daily_limit ?? dailyRequestLimit ?? 3}
+        currentLimit={planState?.ai_daily_limit ?? 3}
         targetLimit={20}
       />
 
