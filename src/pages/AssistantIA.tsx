@@ -185,7 +185,11 @@ const ASK_ENDPOINT = `${
 }/functions/v1/ask`;
 const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-const ASSISTANT_RESPONSE_MAX_CHARS = 20000;
+// A juego con getLlmText (32k chars) en la edge function: respuestas de hasta
+// ~8k tokens de salida no deben recortarse en ningún punto de la cadena.
+const ASSISTANT_RESPONSE_MAX_CHARS = 32000;
+// Debe casar con MAX_MESSAGE_CHARS de la edge function ask (supuestos largos).
+const ASSISTANT_INPUT_MAX_CHARS = 8000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -492,7 +496,10 @@ const mapDbMessageToChatMessage = (
   const parsedAssistantContent =
     row.role === "assistant"
       ? parseAssistantContentFromStorage(row.content)
-      : { text: sanitizeMultilineText(row.content, 4000), conceptMap: null };
+      : {
+          text: sanitizeMultilineText(row.content, ASSISTANT_INPUT_MAX_CHARS),
+          conceptMap: null
+        };
 
   return {
     id: `db-${row.id}`,
@@ -2368,7 +2375,7 @@ const AssistantIA = () => {
   const onSubmitChat = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const texto = sanitizeMultilineText(inputChat, 4000);
+    const texto = sanitizeMultilineText(inputChat, ASSISTANT_INPUT_MAX_CHARS);
     const shouldRequestMindMap = isMindMapEnabled;
     if (!texto || isSendingChat || !currentUserId) return;
     if (isWeeklyLimitReached) {
@@ -3094,7 +3101,7 @@ const AssistantIA = () => {
                   onChange={(e) =>
                     setInputChat(
                       sanitizeText(e.target.value, {
-                        maxLength: 4000,
+                        maxLength: ASSISTANT_INPUT_MAX_CHARS,
                         trim: false,
                         collapseWhitespace: false,
                         preserveNewlines: true

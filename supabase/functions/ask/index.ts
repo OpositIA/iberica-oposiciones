@@ -60,6 +60,12 @@ const REWRITE_TIMEOUT_MS = Math.max(
   3_000,
   Number(Deno.env.get("ASK_REWRITE_TIMEOUT_MS") ?? "12000")
 );
+// La síntesis puede generar respuestas largas (hasta 8k tokens): necesita más
+// margen que el timeout general de 30s o abortaría a mitad de generación.
+const SYNTHESIS_TIMEOUT_MS = Math.max(
+  30_000,
+  Number(Deno.env.get("ASK_SYNTHESIS_TIMEOUT_MS") ?? "90000")
+);
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")?.trim() ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -106,7 +112,7 @@ const MAX_CONTENT_CHARS = Math.max(
 );
 const CHAT_MAX_TOKENS = Math.max(
   400,
-  Number(Deno.env.get("ASK_CHAT_MAX_TOKENS") ?? "1800")
+  Number(Deno.env.get("ASK_CHAT_MAX_TOKENS") ?? "4000")
 );
 const MIND_MAP_MAX_TOKENS = Math.max(
   1_200,
@@ -124,8 +130,17 @@ const MAX_ARTICLE_REFS = Math.max(
   1,
   Number(Deno.env.get("ASK_MAX_ARTICLE_REFS") ?? "8")
 );
-const MAX_MESSAGE_CHARS = 3_000;
+// 8.000 caracteres (~2.000 tokens) dan cabida a supuestos prácticos y textos
+// medianamente largos; la entrada es barata (0,09 $/M) frente a la salida.
+const MAX_MESSAGE_CHARS = 8_000;
 const MAX_REWRITE_CHARS = 400;
+// La pregunta original se embebe también tal cual (además de las reescrituras
+// cortas): con supuestos largos conviene capturar más contexto que los 400
+// chars de una query reescrita, sin llegar a embeber el texto entero.
+const QUESTION_EMBED_CHARS = Math.max(
+  400,
+  Number(Deno.env.get("ASK_QUESTION_EMBED_CHARS") ?? "1500")
+);
 const USAGE_TIMEZONE = "Europe/Madrid";
 
 const NO_REASONING = { enabled: false } as const;
@@ -138,9 +153,9 @@ const REWRITE_RESPONSE_FORMAT = {
       type: "object",
       properties: {
         queries: {
+          // Sin minItems/maxItems: el modo estricto de varios proveedores los
+          // rechaza con 400. Los topes reales los aplica parseRewriteQueries.
           type: "array",
-          minItems: 1,
-          maxItems: MAX_REWRITE_QUERIES,
           items: { type: "string" }
         }
       },
@@ -590,7 +605,8 @@ const getLlmText = (data: Record<string, unknown>): string =>
   normalizeAnswerText(
     (data.choices as Array<Record<string, unknown>> | undefined)?.[0]?.message
       ?.content,
-    20_000
+    // 8k tokens de salida ≈ 28-30k chars en castellano; margen para no cortar.
+    32_000
   );
 
 const getCompletionDiagnostics = (data: Record<string, unknown>) => {
@@ -808,7 +824,9 @@ async function phase2_retrieve(
   const cleanQueries = Array.from(
     new Set(
       queries
-        .map((q) => safeCompactText(q, MAX_REWRITE_CHARS))
+        // Tope holgado: la pregunta original puede llegar hasta
+        // QUESTION_EMBED_CHARS; las reescrituras ya vienen capadas a 400.
+        .map((q) => safeCompactText(q, QUESTION_EMBED_CHARS))
         .filter((q) => q.length >= 3)
     )
   );
@@ -1066,6 +1084,18 @@ class SynthesisUnavailableError extends Error {
   }
 }
 
+// Orden de preferencia entre respuestas de síntesis: sin problema < artículo
+// ausente < refusal con material < vacía. Sirve para quedarnos con el mejor
+// intento cuando el reintento sale peor que el original.
+const issueSeverity = (issue: SynthesisIssue | null): number =>
+  issue === null
+    ? 0
+    : issue === "missing_articles"
+      ? 1
+      : issue === "unsupported_refusal"
+        ? 2
+        : 3;
+
 async function phase3_synthesize(
   question: string,
   history: HistoryLine[],
@@ -1074,13 +1104,23 @@ async function phase3_synthesize(
   chatModel: string,
   tracker: UsageTracker
 ): Promise<{ markdown: string; html: string }> {
+  // Presupuesto de salida dinámico: cada artículo extra necesita su propio
+  // bloque; con el tope fijo el modelo trunca el último artículo y el guard
+  // de cobertura lo daría por ausente (reintento inútil + coste doble).
+  // max_tokens es un techo, no un objetivo: los tokens no generados no
+  // cuestan nada, y la cuota semanal ya cobra al usuario lo que genera.
+  const synthesisMaxTokens = Math.min(
+    CHAT_MAX_TOKENS + 900 * Math.max(0, articleRefs.length - 1),
+    8_000
+  );
+
   const requestSynthesis = (forceGrounded: boolean) =>
     callOpenRouter(
       "/chat/completions",
       {
         model: chatModel,
         temperature: 0,
-        max_tokens: CHAT_MAX_TOKENS,
+        max_tokens: synthesisMaxTokens,
         reasoning: NO_REASONING,
         messages: buildSynthesisMessages(
           question,
@@ -1090,7 +1130,7 @@ async function phase3_synthesize(
           forceGrounded
         )
       },
-      OPENROUTER_TIMEOUT_MS,
+      SYNTHESIS_TIMEOUT_MS,
       tracker
     );
 
@@ -1104,32 +1144,47 @@ async function phase3_synthesize(
     hasContext
   );
 
+  let issue = initialIssue;
+
   if (initialIssue) {
     console.warn("[ask:synthesis_retry]", {
       issue: initialIssue,
       ...getCompletionDiagnostics(data)
     });
-    data = await requestSynthesis(true);
-    markdown = getLlmText(data);
-
-    const finalIssue = getSynthesisIssue(
-      markdown,
+    const retryData = await requestSynthesis(true);
+    const retryMarkdown = getLlmText(retryData);
+    const retryIssue = getSynthesisIssue(
+      retryMarkdown,
       articleRefs,
       REFUSAL_MESSAGE,
       hasContext
     );
-    const refusalStillUnsupported =
-      finalIssue === "unsupported_refusal" && articleRefs.length > 0;
-    if (
-      finalIssue &&
-      (finalIssue !== "unsupported_refusal" || refusalStillUnsupported)
-    ) {
-      console.error("[ask:synthesis_unavailable]", {
-        issue: finalIssue,
-        ...getCompletionDiagnostics(data)
-      });
-      throw new SynthesisUnavailableError(finalIssue);
+
+    // Nos quedamos con el mejor de los dos intentos: un reintento que degrada
+    // (p.ej. pasa de "falta un artículo" a refusal) no debe pisar al original.
+    if (issueSeverity(retryIssue) <= issueSeverity(initialIssue)) {
+      data = retryData;
+      markdown = retryMarkdown;
+      issue = retryIssue;
     }
+  }
+
+  // Solo la respuesta vacía es irrecuperable. Con "missing_articles" o un
+  // refusal persistente entregamos la mejor respuesta disponible: la regla de
+  // cobertura ya pide marcar los artículos ausentes, y el refusal es un
+  // mensaje accionable para el usuario — ambos mejores que un error 503.
+  if (issue === "empty") {
+    console.error("[ask:synthesis_unavailable]", {
+      issue,
+      ...getCompletionDiagnostics(data)
+    });
+    throw new SynthesisUnavailableError(issue);
+  }
+  if (issue) {
+    console.error("[ask:synthesis_degraded]", {
+      issue,
+      ...getCompletionDiagnostics(data)
+    });
   }
 
   if (markdown !== REFUSAL_MESSAGE) markdown = fixListLayout(markdown);
@@ -1186,7 +1241,7 @@ async function generateMindMap(
           }
         ]
       },
-      OPENROUTER_TIMEOUT_MS,
+      SYNTHESIS_TIMEOUT_MS,
       tracker
     );
 
@@ -1441,9 +1496,12 @@ Deno.serve(async (req) => {
 
     const retrievalQueries = Array.from(
       new Set(
-        [question, ...rewrittenQueries]
-          .map((q) => safeCompactText(q, MAX_REWRITE_CHARS))
-          .filter((q) => q.length >= 3)
+        [
+          // La pregunta original se embebe con más margen que las
+          // reescrituras: en supuestos largos concentra el caso completo.
+          safeCompactText(question, QUESTION_EMBED_CHARS),
+          ...rewrittenQueries.map((q) => safeCompactText(q, MAX_REWRITE_CHARS))
+        ].filter((q) => q.length >= 3)
       )
     );
 
@@ -1601,7 +1659,13 @@ Deno.serve(async (req) => {
     }
     if (error instanceof SynthesisUnavailableError) {
       return jsonResponse(
-        { code: "SYNTHESIS_UNAVAILABLE", stage, issue: error.issue },
+        {
+          code: "SYNTHESIS_UNAVAILABLE",
+          stage,
+          issue: error.issue,
+          message:
+            "No he podido generar la respuesta en este momento. Vuelve a intentarlo en unos segundos."
+        },
         503
       );
     }
