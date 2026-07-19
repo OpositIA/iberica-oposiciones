@@ -82,6 +82,48 @@ export function buildFallbackRetrievalQueries(
   return uniqueTexts(queries, maxQueries, maxChars);
 }
 
+// Trocea una pregunta larga (supuesto práctico) en ventanas solapadas para
+// embeberlas todas: un único vector de un texto largo diluye la señal y deja
+// párrafos enteros fuera de la búsqueda semántica. Si el texto excede la
+// cobertura de maxWindows, la última ventana se ancla al final para que el
+// cierre del supuesto (donde suelen ir las cuestiones) nunca se pierda.
+export function buildQuestionEmbedWindows(
+  question: string,
+  windowChars: number,
+  maxWindows = 3,
+  overlapChars = 200
+): string[] {
+  const clean = question.replace(/\s+/g, " ").trim();
+  if (clean.length < 3) return [];
+  if (clean.length <= windowChars) return [clean];
+
+  const step = Math.max(1, windowChars - overlapChars);
+  const starts: number[] = [];
+  for (let start = 0; start < clean.length; start += step) {
+    starts.push(start);
+    if (start + windowChars >= clean.length) break;
+  }
+
+  const chosen =
+    starts.length > maxWindows
+      ? [
+          ...starts.slice(0, maxWindows - 1),
+          Math.max(0, clean.length - windowChars)
+        ]
+      : starts;
+
+  const seen = new Set<string>();
+  const windows: string[] = [];
+  for (const start of chosen) {
+    const chunk = clean.slice(start, start + windowChars).trim();
+    if (chunk.length >= 3 && !seen.has(chunk)) {
+      seen.add(chunk);
+      windows.push(chunk);
+    }
+  }
+  return windows;
+}
+
 const cleanRewriteLine = (line: string, maxChars: number) =>
   line
     .trim()

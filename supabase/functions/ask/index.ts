@@ -3,6 +3,7 @@ import { marked } from "https://esm.sh/marked@12.0.2";
 
 import {
   buildFallbackRetrievalQueries,
+  buildQuestionEmbedWindows,
   extractArticleReferences,
   getSynthesisIssue,
   parseRewriteQueries,
@@ -120,7 +121,7 @@ const MIND_MAP_MAX_TOKENS = Math.max(
 );
 const REWRITE_MAX_TOKENS = Math.max(
   80,
-  Number(Deno.env.get("ASK_REWRITE_MAX_TOKENS") ?? "260")
+  Number(Deno.env.get("ASK_REWRITE_MAX_TOKENS") ?? "400")
 );
 const MAX_REWRITE_QUERIES = Math.max(
   1,
@@ -135,11 +136,16 @@ const MAX_ARTICLE_REFS = Math.max(
 const MAX_MESSAGE_CHARS = 8_000;
 const MAX_REWRITE_CHARS = 400;
 // La pregunta original se embebe también tal cual (además de las reescrituras
-// cortas): con supuestos largos conviene capturar más contexto que los 400
-// chars de una query reescrita, sin llegar a embeber el texto entero.
+// cortas). Los textos largos (supuestos) se trocean en hasta 3 ventanas
+// solapadas de este tamaño: 3 × 2800 - solapes cubre los 8.000 chars de
+// entrada completos, sin diluir la señal en un único vector gigante.
 const QUESTION_EMBED_CHARS = Math.max(
   400,
-  Number(Deno.env.get("ASK_QUESTION_EMBED_CHARS") ?? "1500")
+  Number(Deno.env.get("ASK_QUESTION_EMBED_CHARS") ?? "2800")
+);
+const QUESTION_EMBED_MAX_WINDOWS = Math.max(
+  1,
+  Number(Deno.env.get("ASK_QUESTION_EMBED_MAX_WINDOWS") ?? "3")
 );
 const USAGE_TIMEZONE = "Europe/Madrid";
 
@@ -637,15 +643,22 @@ const getCompletionDiagnostics = (data: Record<string, unknown>) => {
 // ════════════════════════════════════════════════════════════════════════════
 // ─────────────────────────────────────────────────────────────────────────────
 
-const REWRITE_SYSTEM = `Eres un normalizador de consultas jurídicas. Tu única tarea es crear consultas breves y autocontenidas para buscar en una base jurídica.
+const REWRITE_SYSTEM = `Eres un normalizador de consultas jurídicas. Tu única tarea es crear consultas breves y autocontenidas para buscar en una base de legislación española.
 
-REGLAS:
+Primero clasifica la entrada en uno de estos dos tipos y aplica sus reglas:
+
+A) PREGUNTA DIRECTA (corta; nombra normas, artículos o un tema concreto):
 - Corrige ortografía, tildes y puntuación.
 - Expande siglas jurídicas conocidas: CE → Constitución Española; LGT → Ley General Tributaria; LOTC → Ley Orgánica del Tribunal Constitucional; LOPJ → Ley Orgánica del Poder Judicial; LBRL → Ley de Bases del Régimen Local; LECrim → Ley de Enjuiciamiento Criminal; LOREG → Ley Orgánica del Régimen Electoral General.
 - Elimina lenguaje conversacional irrelevante como "hazme un esquema", "explícame" o "dime qué dice".
 - Si se piden varios artículos de una norma, genera una consulta independiente por artículo: "artículo <número> <norma>".
-- No respondas la pregunta ni añadas conceptos, materias o descripciones que el usuario no haya escrito.
-- No adivines el contenido de un artículo o una norma.
+- NO añadas conceptos, materias o descripciones que el usuario no haya escrito, ni adivines el contenido de un artículo.
+
+B) SUPUESTO PRÁCTICO (texto largo que narra hechos y plantea cuestiones):
+- Identifica las instituciones jurídicas presentes en los hechos (p. ej. silencio administrativo, recurso de reposición, notificación, plazos, competencia municipal).
+- Deduce las normas españolas aplicables a esos hechos AUNQUE el texto no las nombre (p. ej. Ley 39/2015 del Procedimiento Administrativo Común, Ley Reguladora de las Haciendas Locales, Ley de Bases del Régimen Local, Ley de la Jurisdicción Contencioso-administrativa).
+- Genera consultas que combinen institución jurídica + norma aplicable. Excluye nombres propios, cifras y detalles anecdóticos del caso.
+- Si el supuesto cita artículos o normas concretas, inclúyelos también: "artículo <número> <norma>".
 
 FORMATO:
 - Devuelve un objeto JSON con una única propiedad "queries".
@@ -659,7 +672,10 @@ Pregunta: "hazme un esquema del articulo 150,151 y 152 de la Constitucion españ
 Salida: {"queries":["artículo 150 Constitución Española","artículo 151 Constitución Española","artículo 152 Constitución Española"]}
 
 Pregunta: "que dice la LGT sobre el fraude fiscal"
-Salida: {"queries":["Ley General Tributaria fraude fiscal"]}`;
+Salida: {"queries":["Ley General Tributaria fraude fiscal"]}
+
+Pregunta: "Supuesto: el Ayuntamiento de X aprueba una tasa por ocupación de vía pública. Un vecino presenta recurso de reposición y, transcurridos dos meses sin respuesta, acude a la vía contencioso-administrativa. Cuestiones: efectos del silencio, legitimación y plazos."
+Salida: {"queries":["silencio administrativo recurso de reposición Ley 39/2015 Procedimiento Administrativo Común","tasas ordenanzas fiscales Ley Reguladora de las Haciendas Locales","plazos recurso contencioso-administrativo Ley de la Jurisdicción Contencioso-administrativa","legitimación recurso contencioso-administrativo"]}`;
 
 async function phase1_rewriteForRetrieval(
   question: string,
@@ -1494,12 +1510,18 @@ Deno.serve(async (req) => {
       tracker
     );
 
+    // La pregunta original se embebe entera: los textos largos (supuestos) se
+    // trocean en ventanas solapadas para que ningún párrafo quede fuera de la
+    // búsqueda semántica; las reescrituras cortas aportan la señal precisa.
+    const questionWindows = buildQuestionEmbedWindows(
+      question,
+      QUESTION_EMBED_CHARS,
+      QUESTION_EMBED_MAX_WINDOWS
+    );
     const retrievalQueries = Array.from(
       new Set(
         [
-          // La pregunta original se embebe con más margen que las
-          // reescrituras: en supuestos largos concentra el caso completo.
-          safeCompactText(question, QUESTION_EMBED_CHARS),
+          ...questionWindows,
           ...rewrittenQueries.map((q) => safeCompactText(q, MAX_REWRITE_CHARS))
         ].filter((q) => q.length >= 3)
       )
